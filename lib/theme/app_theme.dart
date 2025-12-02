@@ -13,6 +13,15 @@ class AppTheme {
   static const Color surfaceColor = Color(0xFFFAFAFC);
   static const Color cardColor = Colors.white;
 
+  // Smooth animation durations
+  static const Duration fastAnimation = Duration(milliseconds: 200);
+  static const Duration normalAnimation = Duration(milliseconds: 300);
+  static const Duration slowAnimation = Duration(milliseconds: 400);
+  
+  // Smooth curves
+  static const Curve smoothCurve = Curves.easeOutCubic;
+  static const Curve bouncyCurve = Curves.easeOutBack;
+
   // Gradient combinations
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -165,6 +174,17 @@ class AppTheme {
             fontWeight: FontWeight.w500,
           );
         }),
+      ),
+      // Beautiful sliding animation WITH predictive back support
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          // Predictive back wrapping Zoom transition for smooth animation
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+        },
       ),
     );
   }

@@ -107,7 +107,7 @@ class _SessionScreenState extends State<SessionScreen> {
 
     return PopScope(
       canPop: true,
-      onPopInvoked: (bool didPop) {
+      onPopInvokedWithResult: (bool didPop, dynamic result) {
         if (didPop) {
           debugPrint('✅ Session: Predictive back gesture completed');
         }

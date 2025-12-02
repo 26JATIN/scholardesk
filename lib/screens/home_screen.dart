@@ -50,15 +50,33 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     super.initState();
     _pageController = PageController(
       initialPage: _selectedIndex,
-      keepPage: true, // Maintain page state
+      viewportFraction: 1.0, // Full page view
     );
+    // Listen for page changes to update nav bar smoothly
+    _pageController.addListener(_onPageScroll);
     _fetchAllData();
   }
 
   @override
   void dispose() {
+    _pageController.removeListener(_onPageScroll);
     _pageController.dispose();
     super.dispose();
+  }
+
+  // Smooth page scroll listener - updates nav only when page settles
+  void _onPageScroll() {
+    if (!mounted) return;
+    final page = _pageController.page;
+    if (page == null) return;
+    
+    // Only update when page is fully settled (no animation in progress)
+    final roundedPage = page.round();
+    if ((page - roundedPage).abs() < 0.01 && _selectedIndex != roundedPage) {
+      setState(() {
+        _selectedIndex = roundedPage;
+      });
+    }
   }
 
   Future<void> _fetchAllData() async {
@@ -342,22 +360,21 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
+    // canPop: true on home tab enables predictive back animation when closing app
+    // canPop: false on profile tab lets us intercept and navigate to home instead
     return PopScope(
       canPop: _selectedIndex == 0,
-      onPopInvoked: (bool didPop) async {
-        if (didPop) {
-          debugPrint('✅ Home: Predictive back gesture completed - Exiting app');
-          return;
-        }
-        
-        // If we're on profile page, navigate back to home
-        if (_selectedIndex == 1) {
+      onPopInvokedWithResult: (bool didPop, dynamic result) {
+        // didPop is true when on home tab - app closes with predictive animation
+        // didPop is false when on profile tab - we navigate to home
+        if (!didPop && _selectedIndex == 1) {
+          HapticFeedback.lightImpact();
           setState(() {
             _selectedIndex = 0;
           });
-          await _pageController.animateToPage(
+          _pageController.animateToPage(
             0,
-            duration: const Duration(milliseconds: 250),
+            duration: const Duration(milliseconds: 300),
             curve: Curves.easeOutCubic,
           );
         }
@@ -365,16 +382,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       child: Scaffold(
         body: PageView(
           controller: _pageController,
-          physics: const ClampingScrollPhysics(), // Smoother, no bounce on Android
-          onPageChanged: (index) {
-            if (mounted) {
-              setState(() {
-                _selectedIndex = index;
-              });
-              // Haptic feedback on page change
-              HapticFeedback.selectionClick();
-            }
-          },
+          physics: const ClampingScrollPhysics(),
           children: [
             RepaintBoundary(
               key: const ValueKey('home_page'),
@@ -388,17 +396,19 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
+          animationDuration: const Duration(milliseconds: 400),
           onDestinationSelected: (index) {
             if (_selectedIndex != index && mounted) {
+              // Haptic FIRST for immediate feedback
+              HapticFeedback.lightImpact();
               setState(() {
                 _selectedIndex = index;
               });
               _pageController.animateToPage(
                 index,
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOutCubicEmphasized,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
               );
-              HapticFeedback.selectionClick();
             }
           },
           destinations: const [

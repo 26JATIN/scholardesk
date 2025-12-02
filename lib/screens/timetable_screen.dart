@@ -139,7 +139,7 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
   Widget build(BuildContext context) {
     return PopScope(
       canPop: true,
-      onPopInvoked: (bool didPop) {
+      onPopInvokedWithResult: (bool didPop, dynamic result) {
         if (didPop) {
           debugPrint('✅ Timetable: Predictive back gesture completed');
         }

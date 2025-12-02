@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'screens/school_code_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/api_service.dart';
@@ -44,23 +45,19 @@ class MyApp extends StatelessWidget {
       title: 'Chitkara Companion',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      // Optimize scrolling performance
+      scrollBehavior: const MaterialScrollBehavior().copyWith(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+      ),
       home: FutureBuilder<Map<String, dynamic>?>(
         future: ApiService().getSession(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Scaffold(
+            return const Scaffold(
               body: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Loading...',
-                      style: AppTheme.lightTheme.textTheme.bodyLarge,
-                    ),
-                  ],
-                ),
+                child: CircularProgressIndicator.adaptive(),
               ),
             );
           } else if (snapshot.hasData && snapshot.data != null) {
