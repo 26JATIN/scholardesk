@@ -422,24 +422,46 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final delivered = int.tryParse(subject.delivered ?? '0') ?? 0;
     final attended = int.tryParse(subject.attended ?? '0') ?? 0;
     final dl = subject.dl;
-    final ml = subject.ml;
+    final ml = subject.ml; // Leave section ML - counted as attendance by backend
+    final approvedML = int.tryParse(subject.totalApprovedML ?? '0') ?? 0;
     
     if (delivered == 0) return const SizedBox.shrink();
     
     // Get or initialize classes to miss for this subject
     final classesToMiss = _classesToMissMap[index] ?? 1;
     
-    // Calculate attendance (DL is always counted as attended)
-    final attendedWithDL = attended + dl;
-    // Current attendance as shown in system (includes ML)
-    final currentAttendance = (attendedWithDL + ml) / delivered * 100;
-    // Real attendance without ML
-    final attendanceWithoutML = attendedWithDL / delivered * 100;
+    // Base attendance: attended + DL (EXCLUDE leave section ML, even though backend counts it)
+    // We exclude it to calculate "real" attendance for the 65-75% logic
+    final baseAttended = attended + dl;
     
-    // Calculate if missing X classes
+    // Current attendance shown (what backend shows - includes leave section ML)
+    final currentAttendance = (attended + dl + ml) / delivered * 100;
+    
+    // Calculate if missing X classes (without any ML)
     final newDelivered = delivered + classesToMiss;
-    final ifMissWithoutML = attendedWithDL / newDelivered * 100;
-    final ifMissWithML = (attendedWithDL + ml) / newDelivered * 100;
+    final ifMissWithoutML = baseAttended / newDelivered * 100;
+    
+    // Count only the minimum approved ML needed to reach 75%
+    double predictedAttendance;
+    int approvedMLUsed = 0;
+    
+    if (ifMissWithoutML >= 75) {
+      // Above 75% without ML - no need to count approved ML
+      predictedAttendance = ifMissWithoutML;
+      approvedMLUsed = 0;
+    } else if (ifMissWithoutML >= 65 && ifMissWithoutML < 75 && approvedML > 0) {
+      // Between 65-75% - count only the minimum approved ML needed to reach 75%
+      // Formula: (baseAttended + X) / newDelivered = 0.75
+      // X = (0.75 * newDelivered) - baseAttended
+      final mlNeededFor75 = (0.75 * newDelivered) - baseAttended;
+      approvedMLUsed = mlNeededFor75.ceil().clamp(0, approvedML);
+      
+      predictedAttendance = (baseAttended + approvedMLUsed) / newDelivered * 100;
+    } else {
+      // Below 65% - don't count approved ML
+      predictedAttendance = ifMissWithoutML;
+      approvedMLUsed = 0;
+    }
     
     // Determine status
     String status;
@@ -447,21 +469,23 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     IconData statusIcon;
     String message;
     
-    if (attendanceWithoutML < 65) {
+    if (ifMissWithoutML < 65) {
       status = "Don't Miss!";
       statusColor = AppTheme.errorColor;
       statusIcon = Icons.block;
-      message = "Your real attendance (excluding ML) is below 65%";
-    } else if (ifMissWithML >= 75) {
+      message = "Your attendance (without ML) is below 65%";
+    } else if (predictedAttendance >= 75) {
       status = "Good to Go";
       statusColor = AppTheme.successColor;
       statusIcon = Icons.check_circle;
-      message = "You'll stay above 75% even with ML counted";
+      message = approvedMLUsed > 0 
+          ? "Safe with $approvedMLUsed approved ML counted"
+          : "You'll stay above 75%";
     } else {
       status = "Risky";
       statusColor = AppTheme.warningColor;
       statusIcon = Icons.warning;
-      message = "Safe without ML (≥65%) but below 75% with ML";
+      message = "Predicted: ${predictedAttendance.toStringAsFixed(2)}%";
     }
     
     return Container(
@@ -522,20 +546,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Column(
-                  children: [
-                    _buildPredictionRow(
-                      'Current (with ML)',
-                      currentAttendance,
-                      Colors.blue,
-                    ),
-                    const Divider(height: 16),
-                    _buildPredictionRow(
-                      'Real (without ML)',
-                      attendanceWithoutML,
-                      attendanceWithoutML >= 65 ? AppTheme.successColor : AppTheme.errorColor,
-                    ),
-                  ],
+                child: _buildPredictionRow(
+                  'Current Attendance',
+                  currentAttendance,
+                  currentAttendance >= 75 ? AppTheme.successColor : AppTheme.warningColor,
                 ),
               ),
               const SizedBox(height: 16),
@@ -606,56 +620,58 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'If you miss $classesToMiss class${classesToMiss > 1 ? 'es' : ''}:',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w500,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Predicted:',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              color: Colors.black87,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${predictedAttendance.toStringAsFixed(2)}%',
+                          style: GoogleFonts.outfit(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: predictedAttendance >= 75 ? AppTheme.successColor : 
+                                   (predictedAttendance >= 65 ? AppTheme.warningColor : AppTheme.errorColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (approvedMLUsed > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.medical_services, size: 14, color: Colors.blue),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  '$approvedMLUsed approved ML counted',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    color: Colors.blue.shade700,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'With ML:',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        Text(
-                          '${ifMissWithML.toStringAsFixed(2)}%',
-                          style: GoogleFonts.outfit(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: ifMissWithML >= 75 ? AppTheme.successColor : AppTheme.errorColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Without ML:',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        Text(
-                          '${ifMissWithoutML.toStringAsFixed(2)}%',
-                          style: GoogleFonts.outfit(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: ifMissWithoutML >= 65 ? AppTheme.successColor : AppTheme.errorColor,
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
