@@ -11,6 +11,7 @@ import 'timetable_screen.dart';
 import 'personal_info_screen.dart';
 import 'report_card.dart';
 import 'change_password_screen.dart';
+import 'subjects_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -86,6 +87,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         
         _isLoading = false;
       });
+      
+      // Save semester info if parsed
+      if (_parsedSemester != null || _parsedBatch != null || _parsedGroup != null) {
+        await _apiService.saveSemesterInfo(
+          semester: _parsedSemester,
+          batch: _parsedBatch,
+          group: _parsedGroup,
+        );
+        debugPrint('Saved semester info: Sem=$_parsedSemester, Batch=$_parsedBatch, Group=$_parsedGroup');
+      }
       
       // Only fetch from detailed API if we are missing critical info
       if (_name == null || _name!.isEmpty || _profileImageUrl == null || _details == null) {
@@ -424,6 +435,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         action: () => _handleMenuAction('Report Card', null, null),
       ));
     }
+
+    // Manually add Subjects item
+    if (!_menuItems.any((item) => item.name.toLowerCase() == 'subjects')) {
+      _menuItems.insert(3, ProfileMenuItem(
+        name: 'Subjects',
+        action: () => _handleMenuAction('Subjects', null, null),
+      ));
+    }
   }
 
   Future<void> _handleMenuAction(String name, String? href, String? onclick) async {
@@ -474,6 +493,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         context,
         MaterialPageRoute(
           builder: (context) => ReportCardScreen(
+            clientDetails: widget.clientDetails,
+            userData: widget.userData,
+          ),
+        ),
+      );
+    } else if (name.toLowerCase() == 'subjects') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SubjectsScreen(
             clientDetails: widget.clientDetails,
             userData: widget.userData,
           ),
@@ -723,6 +752,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       case 'results':
         iconData = Icons.assignment_turned_in_rounded;
         gradientColors = [const Color(0xFFEC4899), const Color(0xFFDB2777)];
+        break;
+      case 'subjects':
+        iconData = Icons.menu_book_rounded;
+        gradientColors = [const Color(0xFF14B8A6), const Color(0xFF0D9488)];
         break;
       case 'personal info':
       case 'profile':

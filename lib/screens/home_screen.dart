@@ -40,6 +40,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   bool _isLoadingTimetable = true;
   
   String? _userName;
+  String? _currentSemester;
+  String? _currentGroup;
   int _selectedIndex = 0;
 
   @override
@@ -80,10 +82,96 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Future<void> _fetchAllData() async {
-    _fetchFeed();
-    _fetchTimetable();
-    _fetchAttendance();
     _userName = widget.userData['name'] ?? 'Student';
+    
+    // First load cached semester info for instant display
+    _loadSemesterInfo();
+    
+    // Fetch all data in parallel for faster loading
+    await Future.wait([
+      _fetchFeed(),
+      _fetchTimetable(),
+      _fetchAttendance(),
+      _fetchSubjectsData(), // Fetch subjects to get semester & group
+    ]);
+  }
+
+  Future<void> _loadSemesterInfo() async {
+    final semesterInfo = await _apiService.getSemesterInfo();
+    if (mounted) {
+      setState(() {
+        _currentSemester = semesterInfo['semester'];
+        _currentGroup = semesterInfo['group'];
+      });
+    }
+  }
+
+  Future<void> _fetchSubjectsData() async {
+    try {
+      final baseUrl = widget.clientDetails['baseUrl'];
+      final clientAbbr = widget.clientDetails['client_abbr'];
+      final userId = widget.userData['userId'].toString();
+      final sessionId = widget.userData['sessionId'].toString();
+      final roleId = widget.userData['roleId'].toString();
+      final appKey = widget.userData['apiKey'].toString();
+
+      final htmlContent = await _apiService.getSubjects(
+        baseUrl: baseUrl,
+        clientAbbr: clientAbbr,
+        userId: userId,
+        sessionId: sessionId,
+        roleId: roleId,
+        appKey: appKey,
+      );
+
+      // Parse semester and group from subjects
+      _parseSubjectsForInfo(htmlContent);
+    } catch (e) {
+      debugPrint('Error fetching subjects: $e');
+    }
+  }
+
+  void _parseSubjectsForInfo(String htmlContent) {
+    // Clean the HTML
+    String cleanHtml = htmlContent.replaceAll(r'\"', '"').replaceAll(r'\/', '/');
+    if (cleanHtml.startsWith('"') && cleanHtml.endsWith('"')) {
+      cleanHtml = cleanHtml.substring(1, cleanHtml.length - 1);
+    }
+
+    final document = html_parser.parse(cleanHtml);
+
+    // Get semester from heading - e.g., "Subject(s) Details (5 SEM)"
+    final heading = document.querySelector('.heading');
+    String? semester;
+    if (heading != null) {
+      semester = ApiService.parseSemesterFromText(heading.text.trim());
+    }
+
+    // Get group from first subject
+    String? group;
+    final subjectWraps = document.querySelectorAll('.ui-subject-wrap');
+    for (var wrap in subjectWraps) {
+      final details = wrap.querySelectorAll('.ui-subject-detail');
+      for (var detail in details) {
+        final text = detail.text.trim();
+        if (text.contains('Group:')) {
+          group = text.replaceFirst('Group:', '').trim();
+          break;
+        }
+      }
+      if (group != null) break;
+    }
+
+    // Save and update state
+    if (semester != null || group != null) {
+      _apiService.saveSemesterInfo(semester: semester, group: group);
+      if (mounted) {
+        setState(() {
+          if (semester != null) _currentSemester = semester;
+          if (group != null) _currentGroup = group;
+        });
+      }
+    }
   }
 
   Future<void> _fetchFeed() async {
@@ -437,12 +525,65 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           floating: false,
           pinned: true,
           flexibleSpace: FlexibleSpaceBar(
-            title: Text(
-              'Hello, ${_userName?.split(' ').first ?? 'Student'}! 👋',
-              style: GoogleFonts.outfit(
-                fontWeight: FontWeight.bold,
-                fontSize: 24,
-              ),
+            title: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hello, ${_userName?.split(' ').first ?? 'Student'}! 👋',
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24,
+                  ),
+                ),
+                if (_currentSemester != null || _currentGroup != null)
+                  AnimatedOpacity(
+                    opacity: 1.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_currentSemester != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'Sem $_currentSemester',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                            ),
+                          if (_currentSemester != null && _currentGroup != null)
+                            const SizedBox(width: 6),
+                          if (_currentGroup != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accentColor.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                _currentGroup!,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.accentColor,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
             titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
           ),

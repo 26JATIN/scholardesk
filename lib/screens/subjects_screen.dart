@@ -1,0 +1,558 @@
+import 'package:flutter/material.dart';
+import 'package:html/parser.dart' as html_parser;
+import 'package:flutter_animate/flutter_animate.dart';
+import '../services/api_service.dart';
+
+class SubjectsScreen extends StatefulWidget {
+  final Map<String, dynamic> clientDetails;
+  final Map<String, dynamic> userData;
+
+  const SubjectsScreen({
+    super.key,
+    required this.clientDetails,
+    required this.userData,
+  });
+
+  @override
+  State<SubjectsScreen> createState() => _SubjectsScreenState();
+}
+
+class _SubjectsScreenState extends State<SubjectsScreen> {
+  final ApiService _apiService = ApiService();
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<Subject> _subjects = [];
+  String _semesterTitle = 'Subjects';
+  String? _currentSemester;
+  String? _currentGroup;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSubjects();
+  }
+
+  Future<void> _fetchSubjects() async {
+    try {
+      final baseUrl = widget.clientDetails['baseUrl'];
+      final clientAbbr = widget.clientDetails['client_abbr'];
+      final userId = widget.userData['userId'].toString();
+      final sessionId = widget.userData['sessionId'].toString();
+      final roleId = widget.userData['roleId'].toString();
+      final appKey = widget.userData['apiKey'].toString();
+
+      final htmlContent = await _apiService.getSubjects(
+        baseUrl: baseUrl,
+        clientAbbr: clientAbbr,
+        userId: userId,
+        sessionId: sessionId,
+        roleId: roleId,
+        appKey: appKey,
+      );
+
+      _parseSubjects(htmlContent);
+
+      // Save semester and group info if extracted
+      if (_currentSemester != null || _currentGroup != null) {
+        await _apiService.saveSemesterInfo(
+          semester: _currentSemester,
+          group: _currentGroup,
+        );
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _parseSubjects(String htmlContent) {
+    // Clean the HTML
+    String cleanHtml = htmlContent.replaceAll(r'\"', '"').replaceAll(r'\/', '/');
+    if (cleanHtml.startsWith('"') && cleanHtml.endsWith('"')) {
+      cleanHtml = cleanHtml.substring(1, cleanHtml.length - 1);
+    }
+
+    final document = html_parser.parse(cleanHtml);
+
+    // Get heading/semester info - e.g., "Subject(s) Details (5 SEM)"
+    final heading = document.querySelector('.heading');
+    if (heading != null) {
+      _semesterTitle = heading.text.trim();
+      
+      // Extract semester number from heading
+      _currentSemester = ApiService.parseSemesterFromText(_semesterTitle);
+      debugPrint('Extracted semester from subjects: $_currentSemester');
+    }
+
+    // Parse each subject wrap
+    final subjectWraps = document.querySelectorAll('.ui-subject-wrap');
+    List<Subject> subjects = [];
+
+    for (var wrap in subjectWraps) {
+      final details = wrap.querySelectorAll('.ui-subject-detail');
+      
+      String? name;
+      String? specialization;
+      String? code;
+      String? type;
+      String? group;
+      String? credits;
+      bool isOptional = false;
+
+      for (var detail in details) {
+        final text = detail.text.trim();
+        final html = detail.innerHtml;
+        
+        if (text.contains('Subject Name:')) {
+          name = text.replaceFirst('Subject Name:', '').trim();
+        } else if (text.contains('Specialization:')) {
+          specialization = text.replaceFirst('Specialization:', '').trim();
+        } else if (text.contains('Subject Code:')) {
+          code = text.replaceFirst('Subject Code:', '').trim();
+          // Check if optional
+          if (html.toLowerCase().contains('optional')) {
+            isOptional = true;
+          }
+        } else if (text.contains('Subject Type:')) {
+          type = text.replaceFirst('Subject Type:', '').trim();
+        } else if (text.contains('Group:')) {
+          group = text.replaceFirst('Group:', '').trim();
+        } else if (text.contains('Credits:')) {
+          credits = text.replaceFirst('Credits:', '').trim();
+          if (credits == '----') credits = null;
+        }
+      }
+
+      if (name != null) {
+        subjects.add(Subject(
+          name: name,
+          specialization: specialization,
+          code: code,
+          type: type,
+          group: group,
+          credits: credits,
+          isOptional: isOptional,
+        ));
+        
+        // Extract group from first subject (e.g., "CSE-G07")
+        if (_currentGroup == null && group != null && group.isNotEmpty) {
+          _currentGroup = group;
+          debugPrint('Extracted group from subjects: $_currentGroup');
+        }
+      }
+    }
+
+    setState(() {
+      _subjects = subjects;
+    });
+  }
+
+  Color _getTypeColor(String? type) {
+    switch (type?.toLowerCase()) {
+      case 'theory':
+        return const Color(0xFF6366F1);
+      case 'practical':
+        return const Color(0xFF10B981);
+      case 'universal':
+        return const Color(0xFFF59E0B);
+      default:
+        return const Color(0xFF8B5CF6);
+    }
+  }
+
+  IconData _getTypeIcon(String? type) {
+    switch (type?.toLowerCase()) {
+      case 'theory':
+        return Icons.menu_book_rounded;
+      case 'practical':
+        return Icons.computer_rounded;
+      case 'universal':
+        return Icons.public_rounded;
+      default:
+        return Icons.school_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FE),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error loading subjects',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _isLoading = true;
+                              _errorMessage = null;
+                            });
+                            _fetchSubjects();
+                          },
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : CustomScrollView(
+                  slivers: [
+                    SliverAppBar.large(
+                      expandedHeight: 120,
+                      floating: false,
+                      pinned: true,
+                      flexibleSpace: FlexibleSpaceBar(
+                        title: Text(
+                          _semesterTitle,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+                      ),
+                    ),
+                    // Summary Card
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                        child: _buildSummaryCard()
+                            .animate()
+                            .fadeIn(duration: 400.ms)
+                            .slideY(begin: 0.2),
+                      ),
+                    ),
+                    // Subjects List
+                    SliverPadding(
+                      padding: const EdgeInsets.all(20),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            return _buildSubjectCard(_subjects[index], index)
+                                .animate()
+                                .fadeIn(delay: Duration(milliseconds: 100 * index), duration: 400.ms)
+                                .slideX(begin: 0.1);
+                          },
+                          childCount: _subjects.length,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+    );
+  }
+
+  Widget _buildSummaryCard() {
+    // Count subjects by type
+    int theoryCount = _subjects.where((s) => s.type?.toLowerCase() == 'theory').length;
+    int practicalCount = _subjects.where((s) => s.type?.toLowerCase() == 'practical').length;
+    int universalCount = _subjects.where((s) => s.type?.toLowerCase() == 'universal').length;
+    int optionalCount = _subjects.where((s) => s.isOptional).length;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6366F1).withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.school_rounded, color: Colors.white, size: 28),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          'Total Subjects',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
+                        if (_currentSemester != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              'Sem $_currentSemester',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    Text(
+                      '${_subjects.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildSummaryItem('Theory', theoryCount, Icons.menu_book_rounded),
+              _buildSummaryItem('Practical', practicalCount, Icons.computer_rounded),
+              _buildSummaryItem('Universal', universalCount, Icons.public_rounded),
+              if (optionalCount > 0)
+                _buildSummaryItem('Optional', optionalCount, Icons.star_outline_rounded),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryItem(String label, int count, IconData icon) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '$count',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 11,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubjectCard(Subject subject, int index) {
+    final typeColor = _getTypeColor(subject.type);
+    final typeIcon = _getTypeIcon(subject.type);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with type indicator
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: typeColor.withOpacity(0.08),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: typeColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(typeIcon, color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              subject.name ?? 'Unknown Subject',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          if (subject.isOptional)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                'Optional',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subject.code ?? '',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: typeColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Details
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                if (subject.specialization != null)
+                  _buildDetailRow(Icons.category_rounded, 'Specialization', subject.specialization!),
+                _buildDetailRow(Icons.bookmark_rounded, 'Type', subject.type ?? 'N/A'),
+                _buildDetailRow(Icons.group_rounded, 'Group', subject.group ?? 'N/A'),
+                if (subject.credits != null)
+                  _buildDetailRow(Icons.stars_rounded, 'Credits', subject.credits!),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.grey.shade500),
+          const SizedBox(width: 12),
+          Text(
+            '$label:',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class Subject {
+  final String? name;
+  final String? specialization;
+  final String? code;
+  final String? type;
+  final String? group;
+  final String? credits;
+  final bool isOptional;
+
+  Subject({
+    this.name,
+    this.specialization,
+    this.code,
+    this.type,
+    this.group,
+    this.credits,
+    this.isOptional = false,
+  });
+}

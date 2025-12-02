@@ -19,6 +19,9 @@ class ApiService {
   static const String _keyCookies = 'cookies';
   static const String _keyClientDetails = 'clientDetails';
   static const String _keyUserData = 'userData';
+  static const String _keySemester = 'currentSemester';
+  static const String _keyBatch = 'currentBatch';
+  static const String _keyGroup = 'currentGroup';
 
   Future<void> _saveCookies(http.Response response) async {
     String? rawCookie = response.headers['set-cookie'];
@@ -62,6 +65,50 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
     _headers.remove('Cookie');
+  }
+
+  // Semester/Academic Info methods
+  Future<void> saveSemesterInfo({
+    String? semester,
+    String? batch,
+    String? group,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (semester != null) await prefs.setString(_keySemester, semester);
+    if (batch != null) await prefs.setString(_keyBatch, batch);
+    if (group != null) await prefs.setString(_keyGroup, group);
+  }
+
+  Future<Map<String, String?>> getSemesterInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'semester': prefs.getString(_keySemester),
+      'batch': prefs.getString(_keyBatch),
+      'group': prefs.getString(_keyGroup),
+    };
+  }
+
+  /// Parses semester number from various formats like:
+  /// - "Subject(s) Details (5 SEM)" -> "5"
+  /// - "5 SEM" -> "5"  
+  /// - "Semester 5" -> "5"
+  /// - "SEM-5" -> "5"
+  static String? parseSemesterFromText(String text) {
+    // Try various patterns
+    final patterns = [
+      RegExp(r'(\d+)\s*SEM', caseSensitive: false),           // "5 SEM" or "5SEM"
+      RegExp(r'SEM[:\-\s]*(\d+)', caseSensitive: false),      // "SEM 5" or "SEM-5"
+      RegExp(r'Semester\s*[:\-]?\s*(\d+)', caseSensitive: false), // "Semester 5"
+      RegExp(r'\((\d+)\s*SEM\)', caseSensitive: false),       // "(5 SEM)"
+    ];
+    
+    for (var pattern in patterns) {
+      final match = pattern.firstMatch(text);
+      if (match != null) {
+        return match.group(1);
+      }
+    }
+    return null;
   }
 
   Future<Map<String, dynamic>> getClientDetails(String schoolCode) async {
@@ -393,6 +440,52 @@ class ApiService {
       throw Exception('Failed to load sessions: ${response.statusCode} - ${response.body}');
     }
   }
+  Future<String> getSubjects({
+    required String baseUrl,
+    required String clientAbbr,
+    required String userId,
+    required String sessionId,
+    required String roleId,
+    required String appKey,
+  }) async {
+    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/commonPage');
+    
+    // Ensure cookies are loaded
+    if (!_headers.containsKey('Cookie')) {
+      await _loadCookies();
+    }
+
+    final headers = {
+      ..._headers,
+      'X-Requested-With': 'codebrigade.chalkpadpro.app',
+    };
+
+    final now = DateTime.now();
+    final formatter = DateFormat('yyMMddHHmmssSSSSSS');
+    final timeStamp = formatter.format(now);
+
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: {
+        'commonPageId': '80', // Subjects page ID
+        'userId': userId,
+        'sessionId': sessionId,
+        'roleId': roleId,
+        'timeStamp': timeStamp,
+      },
+    );
+
+    await _saveCookies(response);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['content'] as String? ?? '';
+    } else {
+      throw Exception('Failed to load subjects: ${response.statusCode} - ${response.body}');
+    }
+  }
+
   Future<Map<String, dynamic>> changePassword({
     required String baseUrl,
     required String clientAbbr,

@@ -27,12 +27,17 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
   Map<String, List<Map<String, String>>> _timetable = {};
   late TabController _tabController;
   final List<String> _days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  
+  // Subject code to name mapping
+  Map<String, String> _subjectNames = {};
+  bool _isLoadingSubjects = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _days.length, vsync: this);
     _fetchTimetable();
+    _fetchSubjectNames(); // Fetch subjects in parallel
   }
 
   @override
@@ -79,6 +84,73 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _fetchSubjectNames() async {
+    try {
+      final baseUrl = widget.clientDetails['baseUrl'];
+      final clientAbbr = widget.clientDetails['client_abbr'];
+      final userId = widget.userData['userId'].toString();
+      final sessionId = widget.userData['sessionId'].toString();
+      final roleId = widget.userData['roleId'].toString();
+      final appKey = widget.userData['apiKey'].toString();
+
+      final htmlContent = await _apiService.getSubjects(
+        baseUrl: baseUrl,
+        clientAbbr: clientAbbr,
+        userId: userId,
+        sessionId: sessionId,
+        roleId: roleId,
+        appKey: appKey,
+      );
+
+      _parseSubjectNames(htmlContent);
+
+      setState(() {
+        _isLoadingSubjects = false;
+      });
+    } catch (e) {
+      debugPrint('Error fetching subject names: $e');
+      setState(() {
+        _isLoadingSubjects = false;
+      });
+    }
+  }
+
+  void _parseSubjectNames(String htmlContent) {
+    // Clean the HTML
+    String cleanHtml = htmlContent.replaceAll(r'\"', '"').replaceAll(r'\/', '/');
+    if (cleanHtml.startsWith('"') && cleanHtml.endsWith('"')) {
+      cleanHtml = cleanHtml.substring(1, cleanHtml.length - 1);
+    }
+
+    final document = html_parser.parse(cleanHtml);
+    final subjectWraps = document.querySelectorAll('.ui-subject-wrap');
+
+    for (var wrap in subjectWraps) {
+      final details = wrap.querySelectorAll('.ui-subject-detail');
+      
+      String? name;
+      String? code;
+
+      for (var detail in details) {
+        final text = detail.text.trim();
+        
+        if (text.contains('Subject Name:')) {
+          name = text.replaceFirst('Subject Name:', '').trim();
+        } else if (text.contains('Subject Code:')) {
+          code = text.replaceFirst('Subject Code:', '').trim();
+          // Remove any "(Optional)" text from code
+          code = code.replaceAll(RegExp(r'\s*\(Optional\)', caseSensitive: false), '').trim();
+        }
+      }
+
+      if (code != null && name != null) {
+        _subjectNames[code] = name;
+      }
+    }
+    
+    debugPrint('Loaded ${_subjectNames.length} subject names');
   }
 
   void _parseTimetable(String html) {
@@ -259,6 +331,9 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
       itemCount: periods.length,
       itemBuilder: (context, index) {
         final period = periods[index];
+        final subjectCode = period['subject'] ?? '';
+        final subjectName = _subjectNames[subjectCode];
+        
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
@@ -314,15 +389,72 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            period['subject'] ?? '',
-                            style: GoogleFonts.outfit(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                          // Subject Name with smooth loading
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            child: subjectName != null
+                                ? Text(
+                                    subjectName,
+                                    key: ValueKey('name_$subjectCode'),
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  )
+                                : _isLoadingSubjects
+                                    ? Row(
+                                        key: const ValueKey('loading'),
+                                        children: [
+                                          SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                AppTheme.accentColor.withOpacity(0.5),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Loading...',
+                                            style: GoogleFonts.outfit(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.grey.shade400,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : Text(
+                                        subjectCode,
+                                        key: ValueKey('code_only_$subjectCode'),
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                          ),
+                          const SizedBox(height: 4),
+                          // Subject Code Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              subjectCode,
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryColor,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 4),
                           Text(
                             period['time'] ?? '',
                             style: GoogleFonts.inter(

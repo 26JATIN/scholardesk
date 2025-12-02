@@ -107,25 +107,72 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
       // Details
       final detailsDivs = box.querySelectorAll('.tt-period-name');
       for (var div in detailsDivs) {
-        final text = div.text.trim();
-        if (text.startsWith('Teacher :')) {
-          subject.teacher = text.replaceAll('Teacher :', '').trim();
-        } else if (text.startsWith('From :')) {
-          subject.duration = text.trim(); 
-        } else if (text.startsWith('Delivered :')) {
-          subject.delivered = text.replaceAll('Delivered :', '').trim();
-        } else if (text.startsWith('Attended :')) {
-          subject.attended = text.replaceAll('Attended :', '').trim();
-        } else if (text.startsWith('Absent :')) {
-          subject.absent = text.replaceAll('Absent :', '').trim();
-        } else if (text.contains('DL :') && text.contains('ML :')) {
+        String text = div.text.trim();
+        // Normalize whitespace and special chars
+        text = text.replaceAll(RegExp(r'[\u00A0\s]+'), ' ').trim(); // Replace &nbsp and multiple spaces
+        
+        if (text.toLowerCase().contains('teacher')) {
+          // Extract teacher name - everything after "Teacher :" or "Teacher:"
+          final teacherMatch = RegExp(r'Teacher\s*:?\s*(.+)', caseSensitive: false).firstMatch(text);
+          if (teacherMatch != null) {
+            subject.teacher = teacherMatch.group(1)?.trim();
+          }
+        } else if (text.toLowerCase().contains('from') && text.toLowerCase().contains('to')) {
+          // Parse: "From : 01 Jul 2025    TO : 02 Dec 2025"
+          // More robust regex that handles various formats
+          
+          // Try multiple patterns
+          String normalizedText = text.replaceAll(RegExp(r'\s+'), ' ');
+          
+          // Pattern 1: "From : DATE TO : DATE" or "From: DATE TO: DATE"
+          final datePattern = RegExp(
+            r'From\s*:?\s*(\d{1,2}\s+\w+\s+\d{4})\s*(?:TO|To|to)\s*:?\s*(\d{1,2}\s+\w+\s+\d{4})',
+            caseSensitive: false
+          );
+          final match = datePattern.firstMatch(normalizedText);
+          
+          if (match != null) {
+            subject.fromDate = match.group(1)?.trim();
+            subject.toDate = match.group(2)?.trim();
+            subject.duration = '${subject.fromDate} - ${subject.toDate}';
+          } else {
+            // Fallback: try to extract any dates
+            final allDates = RegExp(r'(\d{1,2}\s+\w{3,9}\s+\d{4})').allMatches(normalizedText).toList();
+            if (allDates.length >= 2) {
+              subject.fromDate = allDates[0].group(1)?.trim();
+              subject.toDate = allDates[1].group(1)?.trim();
+              subject.duration = '${subject.fromDate} - ${subject.toDate}';
+            } else if (allDates.length == 1) {
+              subject.fromDate = allDates[0].group(1)?.trim();
+              subject.duration = subject.fromDate;
+            } else {
+              // Last fallback: store raw text
+              subject.duration = normalizedText
+                  .replaceAll(RegExp(r'From\s*:?\s*', caseSensitive: false), '')
+                  .replaceAll(RegExp(r'TO\s*:?\s*', caseSensitive: false), ' - ')
+                  .trim();
+            }
+          }
+        } else if (text.toLowerCase().contains('delivered')) {
+          final match = RegExp(r'Delivered\s*:?\s*(\d+)', caseSensitive: false).firstMatch(text);
+          subject.delivered = match?.group(1)?.trim() ?? text.replaceAll(RegExp(r'Delivered\s*:?\s*', caseSensitive: false), '').trim();
+        } else if (text.toLowerCase().contains('attended') && !text.toLowerCase().contains('percentage')) {
+          final match = RegExp(r'Attended\s*:?\s*(\d+)', caseSensitive: false).firstMatch(text);
+          subject.attended = match?.group(1)?.trim() ?? text.replaceAll(RegExp(r'Attended\s*:?\s*', caseSensitive: false), '').trim();
+        } else if (text.toLowerCase().contains('absent')) {
+          final match = RegExp(r'Absent\s*:?\s*(\d+)', caseSensitive: false).firstMatch(text);
+          subject.absent = match?.group(1)?.trim() ?? text.replaceAll(RegExp(r'Absent\s*:?\s*', caseSensitive: false), '').trim();
+        } else if (text.toLowerCase().contains('dl') && text.toLowerCase().contains('ml') && !text.toLowerCase().contains('approved')) {
           subject.leaves = text.trim();
-        } else if (text.startsWith('Total Percentage :')) {
-          subject.percentage = text.replaceAll('Total Percentage :', '').replaceAll('%', '').trim();
-        } else if (text.startsWith('Total Approved DL :')) {
-          subject.totalApprovedDL = text.replaceAll('Total Approved DL :', '').trim();
-        } else if (text.startsWith('Total Approved ML :')) {
-          subject.totalApprovedML = text.replaceAll('Total Approved ML :', '').trim();
+        } else if (text.toLowerCase().contains('total percentage') || text.toLowerCase().contains('percentage')) {
+          final match = RegExp(r'(\d+\.?\d*)\s*%?', caseSensitive: false).firstMatch(text);
+          subject.percentage = match?.group(1)?.trim();
+        } else if (text.toLowerCase().contains('approved dl') || text.toLowerCase().contains('total approved dl')) {
+          final match = RegExp(r'(\d+)\s*$').firstMatch(text);
+          subject.totalApprovedDL = match?.group(1)?.trim() ?? text.replaceAll(RegExp(r'Total\s*Approved\s*DL\s*:?\s*', caseSensitive: false), '').trim();
+        } else if (text.toLowerCase().contains('approved ml') || text.toLowerCase().contains('total approved ml')) {
+          final match = RegExp(r'(\d+)\s*$').firstMatch(text);
+          subject.totalApprovedML = match?.group(1)?.trim() ?? text.replaceAll(RegExp(r'Total\s*Approved\s*ML\s*:?\s*', caseSensitive: false), '').trim();
         }
       }
       return subject;
@@ -438,6 +485,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
               const SizedBox(height: 16),
               if (subject.teacher != null && subject.teacher!.isNotEmpty)
                 _buildDetailRow(Icons.person_outline, 'Teacher', subject.teacher),
+              if (subject.fromDate != null && subject.toDate != null)
+                _buildDurationRow(subject.fromDate!, subject.toDate!),
               if (subject.leaves != null)
                 _buildDetailRow(Icons.info_outline, 'Leaves', subject.leaves),
               if (subject.totalApprovedDL != null)
@@ -480,30 +529,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildMiniStat(String label, String value, Color color) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 10,
-            color: Colors.black54,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        Text(
-          value,
-          style: GoogleFonts.outfit(
-            fontSize: 16,
-            color: color,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildDetailRow(IconData icon, String label, String? value) {
     if (value == null || value.isEmpty) return const SizedBox.shrink();
     return Padding(
@@ -538,6 +563,94 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                     color: Colors.black87,
                     fontWeight: FontWeight.w600,
                   ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDurationRow(String fromDate, String toDate) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.date_range_rounded, size: 18, color: Colors.grey.shade700),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Duration',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.successColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.play_arrow_rounded, size: 12, color: AppTheme.successColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            fromDate,
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              color: AppTheme.successColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward, size: 12, color: Colors.grey.shade400),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.errorColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.stop_rounded, size: 12, color: AppTheme.errorColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            toDate,
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              color: AppTheme.errorColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -855,6 +968,8 @@ class AttendanceSubject {
   String? code;
   String? teacher;
   String? duration;
+  String? fromDate;
+  String? toDate;
   String? delivered;
   String? attended;
   String? absent;
