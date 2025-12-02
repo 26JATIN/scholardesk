@@ -8,28 +8,37 @@ import '../theme/app_theme.dart';
 class AttendanceScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
   final Map<String, dynamic> userData;
+  final String? initialSubjectCode;
 
   const AttendanceScreen({
     super.key,
     required this.clientDetails,
     required this.userData,
+    this.initialSubjectCode,
   });
 
   @override
   State<AttendanceScreen> createState() => _AttendanceScreenState();
 }
 
-class _AttendanceScreenState extends State<AttendanceScreen> {
+class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   bool _isLoading = true;
   String? _errorMessage;
   List<AttendanceSubject> _subjects = [];
   Map<int, int> _classesToMissMap = {}; // Track classes to miss per subject
+  TabController? _tabController;
 
   @override
   void initState() {
     super.initState();
     _fetchAttendance();
+  }
+
+  @override
+  void dispose() {
+    _tabController?.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchAttendance() async {
@@ -53,6 +62,23 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       _parseHtml(htmlContent);
       setState(() {
         _isLoading = false;
+        if (_subjects.isNotEmpty) {
+          int initialIndex = 0;
+          if (widget.initialSubjectCode != null) {
+            final index = _subjects.indexWhere((s) => 
+              s.code?.toLowerCase() == widget.initialSubjectCode!.toLowerCase() ||
+              (s.name?.toLowerCase().contains(widget.initialSubjectCode!.toLowerCase()) ?? false)
+            );
+            if (index != -1) {
+              initialIndex = index;
+            }
+          }
+          _tabController = TabController(
+            length: _subjects.length, 
+            vsync: this, 
+            initialIndex: initialIndex
+          );
+        }
       });
     } catch (e) {
       setState(() {
@@ -85,9 +111,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         if (text.startsWith('Teacher :')) {
           subject.teacher = text.replaceAll('Teacher :', '').trim();
         } else if (text.startsWith('From :')) {
-          // Parse From and To dates
-          // Example: From : 01 Jul 2025    TO : 28 Nov 2025
-          // This might be tricky with just text, let's try basic split
           subject.duration = text.trim(); 
         } else if (text.startsWith('Delivered :')) {
           subject.delivered = text.replaceAll('Delivered :', '').trim();
@@ -96,8 +119,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         } else if (text.startsWith('Absent :')) {
           subject.absent = text.replaceAll('Absent :', '').trim();
         } else if (text.contains('DL :') && text.contains('ML :')) {
-          // Store the raw string (e.g., "DL : 10  ML : 0")
-          // Parsing is done via getters in AttendanceSubject
           subject.leaves = text.trim();
         } else if (text.startsWith('Total Percentage :')) {
           subject.percentage = text.replaceAll('Total Percentage :', '').replaceAll('%', '').trim();
@@ -111,7 +132,48 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }).toList();
   }
 
+  String _getShortName(String name) {
+    if (name.length <= 12) return name;
+    
+    // Normalize hyphens: remove spaces around them
+    // "Subject - 1" -> "Subject-1"
+    String cleanName = name.replaceAll(RegExp(r'\s*-\s*'), '-');
+    
+    String processSinglePart(String part) {
+      part = part.trim();
+      if (part.isEmpty) return '';
+      if (part.toLowerCase() == 'and' || part == '&') return '';
+      
+      if (RegExp(r'^[0-9IVX]+$').hasMatch(part)) {
+         return part;
+      } else {
+         String s = part[0].toUpperCase();
+         final digits = RegExp(r'[0-9]+').allMatches(part).map((m) => m.group(0)).join();
+         if (digits.isNotEmpty) s += digits;
+         return s;
+      }
+    }
 
+    final words = cleanName.split(' ');
+    if (words.length <= 1 && !cleanName.contains('-')) {
+       return name.length > 6 ? '${name.substring(0, 6)}..' : name;
+    }
+    
+    String res = '';
+    for (var word in words) {
+      word = word.trim();
+      if (word.isEmpty) continue;
+      
+      if (word.contains('-')) {
+        List<String> parts = word.split('-');
+        String hyphenated = parts.map((p) => processSinglePart(p)).where((s) => s.isNotEmpty).join('-');
+        res += hyphenated;
+      } else {
+        res += processSinglePart(word);
+      }
+    }
+    return res;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,242 +185,299 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         }
       },
       child: Scaffold(
-        body: CustomScrollView(
-          slivers: [
-            SliverAppBar.large(
-              expandedHeight: 140,
-              floating: false,
-              pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                'Attendance',
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
-                ),
-              ),
-            ),
-          ),
-          _isLoading
-              ? const SliverFillRemaining(
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              : _errorMessage != null
-                  ? SliverFillRemaining(
-                      child: Center(
+        backgroundColor: const Color(0xFFF8F9FE),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _errorMessage != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, size: 64, color: AppTheme.errorColor),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error: $_errorMessage',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                  )
+                : _subjects.isEmpty
+                    ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.error_outline, 
-                              size: 64, 
-                              color: AppTheme.errorColor,
-                            ),
+                            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade300),
                             const SizedBox(height: 16),
                             Text(
-                              'Error: $_errorMessage',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.inter(color: Colors.black54),
+                              'No attendance records found',
+                              style: GoogleFonts.inter(color: Colors.grey.shade400),
                             ),
                           ],
                         ),
-                      ),
-                    )
-                  : _subjects.isEmpty
-                      ? SliverFillRemaining(
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.inbox_outlined, 
-                                  size: 64, 
-                                  color: Colors.grey.shade300,
+                      )
+                    : NestedScrollView(
+                        headerSliverBuilder: (context, innerBoxIsScrolled) {
+                          return [
+                            SliverAppBar.large(
+                              expandedHeight: 120,
+                              floating: false,
+                              pinned: true,
+                              backgroundColor: Colors.white,
+                              surfaceTintColor: Colors.white,
+                              leading: IconButton(
+                                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
+                                onPressed: () => Navigator.pop(context),
+                              ),
+                              flexibleSpace: FlexibleSpaceBar(
+                                title: Text(
+                                  'Attendance',
+                                  style: GoogleFonts.outfit(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
                                 ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No attendance records found',
-                                  style: GoogleFonts.inter(color: Colors.grey.shade400),
+                                titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+                              ),
+                            ),
+                            SliverPersistentHeader(
+                              pinned: true,
+                              delegate: _StickyTabBarDelegate(
+                                TabBar(
+                                  controller: _tabController,
+                                  isScrollable: true,
+                                  labelColor: AppTheme.primaryColor,
+                                  unselectedLabelColor: Colors.grey,
+                                  indicatorColor: AppTheme.primaryColor,
+                                  indicatorWeight: 3,
+                                  labelStyle: GoogleFonts.inter(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                  unselectedLabelStyle: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 14,
+                                  ),
+                                  tabs: _subjects.map((subject) {
+                                    return Tab(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.transparent,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(_getShortName(subject.name ?? subject.code ?? 'Sub')),
+                                      ),
+                                    );
+                                  }).toList(),
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        )
-                      : SliverPadding(
-                          padding: const EdgeInsets.all(16),
-                          sliver: SliverList(
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) {
-                                return _buildSubjectCard(_subjects[index], index);
-                              },
-                              childCount: _subjects.length,
-                            ),
-                          ),
+                          ];
+                        },
+                        body: TabBarView(
+                          controller: _tabController,
+                          children: _subjects.asMap().entries.map((entry) {
+                            return _buildSubjectPage(entry.value, entry.key);
+                          }).toList(),
                         ),
-          ],
-        ),
+                      ),
       ),
     );
   }
 
-  Widget _buildSubjectCard(AttendanceSubject subject, int index) {
+  Widget _buildSubjectPage(AttendanceSubject subject, int index) {
     double percentage = double.tryParse(subject.percentage ?? '0') ?? 0.0;
     Color progressColor = percentage >= 75 
         ? AppTheme.successColor 
         : (percentage >= 60 ? AppTheme.warningColor : AppTheme.errorColor);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: progressColor.withOpacity(0.2),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: progressColor.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Subject Header Card
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Percentage Circle
+          child: Column(
+            children: [
+              Text(
+                subject.name ?? 'Unknown Subject',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (subject.code != null)
                 Container(
-                  width: 80,
-                  height: 80,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        progressColor,
-                        progressColor.withOpacity(0.7),
-                      ],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: progressColor.withOpacity(0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                    color: progressColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '${percentage.toStringAsFixed(2)}%',
-                          style: GoogleFonts.outfit(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        Text(
-                          percentage >= 75 ? '✓' : '!',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
+                  child: Text(
+                    subject.code!,
+                    style: GoogleFonts.sourceCodePro(
+                      fontSize: 13,
+                      color: progressColor,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                // Subject Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        subject.name ?? 'Unknown Subject',
-                        style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      if (subject.code != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: progressColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            subject.code!,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
+              const SizedBox(height: 24),
+              
+              // Circular Progress
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: progressColor.withOpacity(0.2),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CircularProgressIndicator(
+                      value: percentage / 100,
+                      strokeWidth: 10,
+                      backgroundColor: progressColor.withOpacity(0.1),
+                      valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                    ),
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${percentage.toStringAsFixed(1)}%',
+                            style: GoogleFonts.outfit(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
                               color: progressColor,
-                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          _buildMiniStat(
-                            'Present',
-                            subject.attended ?? '0',
-                            AppTheme.successColor,
-                          ),
-                          const SizedBox(width: 8),
-                          _buildMiniStat(
-                            'Total',
-                            subject.delivered ?? '0',
-                            AppTheme.accentColor,
+                          Text(
+                            percentage >= 75 ? 'Safe' : 'Low',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(16),
               ),
-              child: Column(
+              
+              const SizedBox(height: 24),
+              
+              // Stats Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  if (subject.teacher != null && subject.teacher!.isNotEmpty)
-                    _buildDetailRow(Icons.person_outline, 'Teacher', subject.teacher),
-                  if (subject.absent != null && subject.absent!.isNotEmpty)
-                    _buildDetailRow(Icons.cancel_outlined, 'Absent', subject.absent),
-                  if (subject.leaves != null)
-                    _buildDetailRow(Icons.info_outline, 'Leaves', subject.leaves),
-                  if (subject.totalApprovedDL != null)
-                    _buildDetailRow(Icons.verified_outlined, 'Approved DL', subject.totalApprovedDL),
-                  if (subject.totalApprovedML != null)
-                    _buildDetailRow(Icons.medical_services_outlined, 'Approved ML', subject.totalApprovedML),
+                  _buildStatItem('Attended', subject.attended ?? '0', AppTheme.successColor),
+                  Container(width: 1, height: 30, color: Colors.grey.shade200),
+                  _buildStatItem('Delivered', subject.delivered ?? '0', AppTheme.primaryColor),
+                  Container(width: 1, height: 30, color: Colors.grey.shade200),
+                  _buildStatItem('Absent', subject.absent ?? '0', AppTheme.errorColor),
                 ],
               ),
-            ),
-            const SizedBox(height: 16),
-            _buildPredictionCard(subject, index),
-          ],
+            ],
+          ),
+        ).animate().fadeIn().slideY(begin: 0.1, end: 0),
+        
+        const SizedBox(height: 20),
+        
+        // Details Card
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Details',
+                style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (subject.teacher != null && subject.teacher!.isNotEmpty)
+                _buildDetailRow(Icons.person_outline, 'Teacher', subject.teacher),
+              if (subject.leaves != null)
+                _buildDetailRow(Icons.info_outline, 'Leaves', subject.leaves),
+              if (subject.totalApprovedDL != null)
+                _buildDetailRow(Icons.verified_outlined, 'Approved DL', subject.totalApprovedDL),
+              if (subject.totalApprovedML != null)
+                _buildDetailRow(Icons.medical_services_outlined, 'Approved ML', subject.totalApprovedML),
+            ],
+          ),
+        ).animate().fadeIn(delay: 100.ms).slideX(begin: 0.1, end: 0),
+        
+        const SizedBox(height: 20),
+        
+        // Prediction Card
+        _buildPredictionCard(subject, index).animate().fadeIn(delay: 200.ms).slideX(begin: 0.1, end: 0),
+        
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: GoogleFonts.outfit(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
         ),
-      ),
-    ).animate().fadeIn(delay: (80 * index).ms).slideX(begin: 0.1, end: 0);
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildMiniStat(String label, String value, Color color) {
@@ -388,29 +507,39 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Widget _buildDetailRow(IconData icon, String label, String? value) {
     if (value == null || value.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.black54),
-          const SizedBox(width: 12),
-          Text(
-            '$label:',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: Colors.black54,
-              fontWeight: FontWeight.w500,
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(8),
             ),
+            child: Icon(icon, size: 18, color: Colors.grey.shade700),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: Colors.black87,
-                fontWeight: FontWeight.w600,
-              ),
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -745,5 +874,31 @@ class AttendanceSubject {
     if (leaves == null) return 0;
     final match = RegExp(r'ML\s*:\s*(\d+)').firstMatch(leaves!);
     return int.tryParse(match?.group(1) ?? '0') ?? 0;
+  }
+}
+
+// Sticky TabBar Delegate
+class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
+  const _StickyTabBarDelegate(this.tabBar);
+
+  final TabBar tabBar;
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_StickyTabBarDelegate oldDelegate) {
+    return tabBar != oldDelegate.tabBar;
   }
 }

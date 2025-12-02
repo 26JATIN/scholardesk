@@ -393,4 +393,48 @@ class ApiService {
       throw Exception('Failed to load sessions: ${response.statusCode} - ${response.body}');
     }
   }
+  Future<Map<String, dynamic>> changePassword({
+    required String baseUrl,
+    required String clientAbbr,
+    required String userId,
+    required String oldPwd,
+    required String newPwd,
+    required String conPwd,
+  }) async {
+    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/changePassword');
+    
+    // Ensure cookies are loaded
+    if (!_headers.containsKey('Cookie')) {
+      await _loadCookies();
+    }
+
+    final headers = {
+      ..._headers,
+      'X-Requested-With': 'codebrigade.chalkpadpro.app',
+    };
+
+    try {
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: {
+          'oldPwd': oldPwd,
+          'newPwd': newPwd,
+          'conPwd': conPwd,
+          'userId': userId,
+        },
+      );
+
+      await _saveCookies(response);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data as Map<String, dynamic>;
+      } else {
+        throw Exception('Failed to change password: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error connecting to server: $e');
+    }
+  }
 }

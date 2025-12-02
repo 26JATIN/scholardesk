@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:html/parser.dart' as html_parser;
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
 
 class PersonalInfoScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -18,10 +19,11 @@ class PersonalInfoScreen extends StatefulWidget {
   State<PersonalInfoScreen> createState() => _PersonalInfoScreenState();
 }
 
-class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
+class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   bool _isLoading = true;
   String? _errorMessage;
+  late TabController _tabController;
   
   // Student info
   String? _studentPhotoUrl;
@@ -38,7 +40,14 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 4, vsync: this);
     _fetchPersonalInfo();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchPersonalInfo() async {
@@ -195,38 +204,108 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
             ? const Center(child: CircularProgressIndicator())
             : _errorMessage != null
                 ? Center(child: Text('Error: $_errorMessage'))
-                : CustomScrollView(
-                    slivers: [
-                      SliverAppBar.large(
-                        expandedHeight: 120,
-                        floating: false,
-                        pinned: true,
-                      flexibleSpace: FlexibleSpaceBar(
-                        title: Text(
-                          'Personal Info',
-                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                : NestedScrollView(
+                    headerSliverBuilder: (context, innerBoxIsScrolled) {
+                      return [
+                        SliverAppBar.large(
+                          expandedHeight: 120,
+                          floating: false,
+                          pinned: true,
+                          backgroundColor: Colors.white,
+                          surfaceTintColor: Colors.white,
+                          leading: IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          flexibleSpace: FlexibleSpaceBar(
+                            title: Text(
+                              'Personal Info',
+                              style: GoogleFonts.outfit(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+                          ),
                         ),
-                        titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
-                      ),
+                        SliverPersistentHeader(
+                          pinned: true,
+                          delegate: _StickyTabBarDelegate(
+                            TabBar(
+                              controller: _tabController,
+                              labelColor: AppTheme.primaryColor,
+                              unselectedLabelColor: Colors.grey,
+                              indicatorColor: AppTheme.primaryColor,
+                              indicatorWeight: 3,
+                              labelStyle: GoogleFonts.inter(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                              unselectedLabelStyle: GoogleFonts.inter(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                              tabs: const [
+                                Tab(text: 'Student'),
+                                Tab(text: 'Info'),
+                                Tab(text: 'Address'),
+                                Tab(text: 'Parents'),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ];
+                    },
+                    body: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        // Tab 1: Student Details
+                        SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              _buildStudentSection(),
+                              const SizedBox(height: 20),
+                            ],
+                          ),
+                        ),
+                        
+                        // Tab 2: Additional Info
+                        SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              _buildCustomFieldsSection(),
+                              const SizedBox(height: 20),
+                            ],
+                          ),
+                        ),
+                        
+                        // Tab 3: Address
+                        SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              _buildAddressSection(),
+                              const SizedBox(height: 20),
+                            ],
+                          ),
+                        ),
+                        
+                        // Tab 4: Parents
+                        SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              _buildParentSection('Father', _fatherPhotoUrl, _fatherDetails),
+                              const SizedBox(height: 16),
+                              _buildParentSection('Mother', _motherPhotoUrl, _motherDetails),
+                              const SizedBox(height: 20),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    SliverPadding(
-                      padding: const EdgeInsets.all(16),
-                      sliver: SliverList(
-                        delegate: SliverChildListDelegate([
-                          _buildStudentSection(),
-                          const SizedBox(height: 16),
-                          _buildCustomFieldsSection(),
-                          const SizedBox(height: 16),
-                          _buildAddressSection(),
-                          const SizedBox(height: 16),
-                          _buildParentSection('Father', _fatherPhotoUrl, _fatherDetails),
-                          const SizedBox(height: 16),
-                          _buildParentSection('Mother', _motherPhotoUrl, _motherDetails),
-                          const SizedBox(height: 20),
-                        ]),
-                      ),
-                    ),
-                    ],
                   ),
       ),
     );
@@ -280,34 +359,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
           ),
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_studentPhotoUrl != null)
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.grey.shade300,
-                    child: ClipOval(
-                      child: Image.network(
-                        _studentPhotoUrl!,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(Icons.person, size: 40, color: Colors.grey);
-                        },
-                      ),
-                    ),
-                  ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    children: _studentDetails.entries
-                        .map((e) => _buildDetailRow(e.key, e.value))
-                        .toList(),
-                  ),
-                ),
-              ],
+            child: Column(
+              children: _studentDetails.entries
+                  .map((e) => _buildDetailRow(e.key, e.value))
+                  .toList(),
             ),
           ),
         ],
@@ -377,7 +432,19 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   }
 
   Widget _buildAddressSection() {
-    if (_addressInfo.isEmpty) return const SizedBox.shrink();
+    if (_addressInfo.isEmpty) return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.location_off_outlined, size: 64, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          Text(
+            'No address information found',
+            style: GoogleFonts.inter(color: Colors.grey.shade400),
+          ),
+        ],
+      ),
+    );
     
     return Container(
       decoration: BoxDecoration(
@@ -438,7 +505,24 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   }
 
   Widget _buildParentSection(String parentType, String? photoUrl, Map<String, String> details) {
-    if (details.isEmpty) return const SizedBox.shrink();
+    if (details.isEmpty) {
+      if (parentType == 'Father' && _fatherDetails.isEmpty && _motherDetails.isEmpty) {
+         return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.family_restroom_outlined, size: 64, color: Colors.grey.shade300),
+              const SizedBox(height: 16),
+              Text(
+                'No parent information found',
+                style: GoogleFonts.inter(color: Colors.grey.shade400),
+              ),
+            ],
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    }
     
     final gradientColors = parentType == 'Father' 
         ? [const Color(0xFF10B981), const Color(0xFF059669)]
@@ -538,7 +622,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 110,
+            width: 90,
             child: Text(
               label,
               style: GoogleFonts.inter(
@@ -548,7 +632,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
@@ -562,5 +646,31 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         ],
       ),
     );
+  }
+}
+
+// Sticky TabBar Delegate
+class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
+  const _StickyTabBarDelegate(this.tabBar);
+
+  final TabBar tabBar;
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_StickyTabBarDelegate oldDelegate) {
+    return tabBar != oldDelegate.tabBar;
   }
 }

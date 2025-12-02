@@ -9,6 +9,8 @@ import 'attendance_screen.dart';
 import 'session_screen.dart';
 import 'timetable_screen.dart';
 import 'personal_info_screen.dart';
+import 'report_card.dart';
+import 'change_password_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -381,7 +383,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // --- Extract Menu Items ---
     final menuLinks = document.querySelectorAll('.grid-profile-menu a');
-    _menuItems = menuLinks.map((link) {
+    _menuItems = menuLinks
+        .where((link) {
+          final nameDiv = link.querySelector('.grid-name');
+          final name = nameDiv?.text.trim() ?? 'Unknown';
+          return name.toLowerCase() != 'privacy';
+        })
+        .map((link) {
       final nameDiv = link.querySelector('.grid-name');
       final name = nameDiv?.text.trim() ?? 'Unknown';
       final href = link.attributes['href'];
@@ -408,6 +416,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         action: () => _handleMenuAction('Timetable', null, null),
       ));
     }
+
+    // Manually add Report Card item
+    if (!_menuItems.any((item) => item.name.toLowerCase() == 'report card')) {
+      _menuItems.insert(2, ProfileMenuItem(
+        name: 'Report Card',
+        action: () => _handleMenuAction('Report Card', null, null),
+      ));
+    }
   }
 
   Future<void> _handleMenuAction(String name, String? href, String? onclick) async {
@@ -423,17 +439,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     } else if (name.toLowerCase() == 'logout') {
       await _logout();
-    } else if (name.toLowerCase() == 'privacy') {
-       // Handle Privacy Policy - usually opens a URL
-       // The onclick has window.open("PRIVACY_POLICY", ...)
-       // We can try to construct the URL or just show a placeholder for now
-       // Assuming standard privacy policy URL structure or just ignoring for now as per plan
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Privacy Policy not implemented yet')),
-      );
     } else if (name.toLowerCase() == 'change password') {
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Change Password not implemented yet')),
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChangePasswordScreen(
+            clientDetails: widget.clientDetails,
+            userData: widget.userData,
+          ),
+        ),
       );
     } else if (name.toLowerCase() == 'session') {
       Navigator.push(
@@ -450,6 +464,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         context,
         MaterialPageRoute(
           builder: (context) => TimetableScreen(
+            clientDetails: widget.clientDetails,
+            userData: widget.userData,
+          ),
+        ),
+      );
+    } else if (name.toLowerCase() == 'report card' || name.toLowerCase() == 'results') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ReportCardScreen(
             clientDetails: widget.clientDetails,
             userData: widget.userData,
           ),
@@ -695,6 +719,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         iconData = Icons.schedule_rounded;
         gradientColors = [const Color(0xFF8B5CF6), const Color(0xFF7C3AED)];
         break;
+      case 'report card':
+      case 'results':
+        iconData = Icons.assignment_turned_in_rounded;
+        gradientColors = [const Color(0xFFEC4899), const Color(0xFFDB2777)];
+        break;
       case 'personal info':
       case 'profile':
         iconData = Icons.person_rounded;
@@ -703,10 +732,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       case 'change password':
         iconData = Icons.lock_reset_rounded;
         gradientColors = [const Color(0xFFF59E0B), const Color(0xFFD97706)];
-        break;
-      case 'privacy':
-        iconData = Icons.privacy_tip_rounded;
-        gradientColors = [const Color(0xFF6366F1), const Color(0xFF4F46E5)];
         break;
       case 'logout':
         iconData = Icons.logout_rounded;

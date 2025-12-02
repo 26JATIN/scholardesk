@@ -729,6 +729,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   builder: (context) => AttendanceScreen(
                     clientDetails: widget.clientDetails,
                     userData: widget.userData,
+                    initialSubjectCode: upcomingClass?['subject'],
                   ),
                 ),
               );
