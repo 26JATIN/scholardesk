@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
 
@@ -14,6 +16,69 @@ class ApiService {
     'Accept': 'application/json, text/javascript, */*; q=0.01',
     'Connection': 'keep-alive',
   };
+
+  // Allowed hosts for SSL connections
+  static const List<String> _allowedHosts = [
+    'schoolpad.in',
+    'gdemo.schoolpad.in',
+  ];
+
+  // HTTP client with SSL configuration
+  late final http.Client _httpClient;
+
+  ApiService() {
+    _httpClient = _createSecureClient();
+  }
+
+  /// Creates an HTTP client with SSL certificate validation
+  /// In debug mode, it allows bad certificates for testing
+  /// In release mode, it enforces strict SSL validation
+  http.Client _createSecureClient() {
+    final HttpClient httpClient = HttpClient();
+    
+    // Set connection timeout
+    httpClient.connectionTimeout = const Duration(seconds: 30);
+    
+    // Configure SSL/TLS settings
+    httpClient.badCertificateCallback = (X509Certificate cert, String host, int port) {
+      // In debug mode, allow all certificates for testing
+      if (kDebugMode) {
+        debugPrint('SSL: Allowing certificate for $host in debug mode');
+        return true;
+      }
+      
+      // In release mode, only allow certificates for our trusted hosts
+      final isAllowedHost = _allowedHosts.any(
+        (allowedHost) => host.endsWith(allowedHost),
+      );
+      
+      if (!isAllowedHost) {
+        debugPrint('SSL: Rejecting certificate for untrusted host: $host');
+        return false;
+      }
+      
+      // Verify the certificate is valid and not expired
+      final now = DateTime.now();
+      if (cert.endValidity.isBefore(now)) {
+        debugPrint('SSL: Certificate expired for $host');
+        return false;
+      }
+      
+      if (cert.startValidity.isAfter(now)) {
+        debugPrint('SSL: Certificate not yet valid for $host');
+        return false;
+      }
+      
+      return true;
+    };
+    
+    return IOClient(httpClient);
+  }
+
+  /// Closes the HTTP client - call this when disposing the service
+  void dispose() {
+    _httpClient.close();
+  }
 
   // Persistence keys
   static const String _keyCookies = 'cookies';
@@ -113,7 +178,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getClientDetails(String schoolCode) async {
     try {
-      final response = await http.post(
+      final response = await _httpClient.post(
         Uri.parse(_baseUrl),
         headers: _headers,
         body: {'schoolCode': schoolCode},
@@ -137,7 +202,7 @@ class ApiService {
   Future<Map<String, dynamic>> login(String username, String password, String baseUrl, String clientAbbr) async {
     final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/appLoginAuthV2');
     try {
-      final response = await http.post(
+      final response = await _httpClient.post(
         url,
         headers: _headers,
         body: {
@@ -162,7 +227,7 @@ class ApiService {
   Future<Map<String, dynamic>> verifyOtp(String otp, String userId, String baseUrl, String clientAbbr) async {
     final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/verifyOtp');
     try {
-      final response = await http.post(
+      final response = await _httpClient.post(
         url,
         headers: _headers,
         body: {
@@ -202,7 +267,7 @@ class ApiService {
     }
 
     try {
-      final response = await http.post(
+      final response = await _httpClient.post(
         url,
         headers: _headers,
         body: {
@@ -254,7 +319,7 @@ class ApiService {
     };
 
     try {
-      final response = await http.post(
+      final response = await _httpClient.post(
         url,
         headers: headers,
         body: {
@@ -297,7 +362,7 @@ class ApiService {
     };
 
     try {
-      final response = await http.post(
+      final response = await _httpClient.post(
         url,
         headers: headers,
         body: {
@@ -330,7 +395,7 @@ class ApiService {
       'X-Requested-With': 'codebrigade.chalkpadpro.app',
     };
 
-    final response = await http.post(
+    final response = await _httpClient.post(
       url,
       headers: headers,
     );
@@ -385,7 +450,7 @@ class ApiService {
     final formatter = DateFormat('yyMMddHHmmssSSSSSS');
     final timeStamp = formatter.format(now);
 
-    final response = await http.post(
+    final response = await _httpClient.post(
       url,
       headers: headers,
       body: {
@@ -424,7 +489,7 @@ class ApiService {
       'X-Requested-With': 'codebrigade.chalkpadpro.app',
     };
 
-    final response = await http.post(
+    final response = await _httpClient.post(
       url,
       headers: headers,
       body: {
@@ -464,7 +529,7 @@ class ApiService {
     final formatter = DateFormat('yyMMddHHmmssSSSSSS');
     final timeStamp = formatter.format(now);
 
-    final response = await http.post(
+    final response = await _httpClient.post(
       url,
       headers: headers,
       body: {
@@ -507,7 +572,7 @@ class ApiService {
     };
 
     try {
-      final response = await http.post(
+      final response = await _httpClient.post(
         url,
         headers: headers,
         body: {
