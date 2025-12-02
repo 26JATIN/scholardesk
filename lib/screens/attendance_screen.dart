@@ -24,6 +24,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   List<AttendanceSubject> _subjects = [];
+  Map<int, int> _classesToMissMap = {}; // Track classes to miss per subject
 
   @override
   void initState() {
@@ -95,10 +96,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         } else if (text.startsWith('Absent :')) {
           subject.absent = text.replaceAll('Absent :', '').trim();
         } else if (text.contains('DL :') && text.contains('ML :')) {
-          // DL : 10  ML : 0
-          // Regex or simple split
-          final parts = text.split(RegExp(r'\s+'));
-          // This is a bit fragile, let's just store the raw string for now or try to parse if needed
+          // Store the raw string (e.g., "DL : 10  ML : 0")
+          // Parsing is done via getters in AttendanceSubject
           subject.leaves = text.trim();
         } else if (text.startsWith('Total Percentage :')) {
           subject.percentage = text.replaceAll('Total Percentage :', '').replaceAll('%', '').trim();
@@ -354,6 +353,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            _buildPredictionCard(subject, index),
           ],
         ),
       ),
@@ -416,6 +417,292 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ),
     );
   }
+
+  Widget _buildPredictionCard(AttendanceSubject subject, int index) {
+    final delivered = int.tryParse(subject.delivered ?? '0') ?? 0;
+    final attended = int.tryParse(subject.attended ?? '0') ?? 0;
+    final dl = subject.dl;
+    final ml = subject.ml;
+    
+    if (delivered == 0) return const SizedBox.shrink();
+    
+    // Get or initialize classes to miss for this subject
+    final classesToMiss = _classesToMissMap[index] ?? 1;
+    
+    // Calculate attendance (DL is always counted as attended)
+    final attendedWithDL = attended + dl;
+    // Current attendance as shown in system (includes ML)
+    final currentAttendance = (attendedWithDL + ml) / delivered * 100;
+    // Real attendance without ML
+    final attendanceWithoutML = attendedWithDL / delivered * 100;
+    
+    // Calculate if missing X classes
+    final newDelivered = delivered + classesToMiss;
+    final ifMissWithoutML = attendedWithDL / newDelivered * 100;
+    final ifMissWithML = (attendedWithDL + ml) / newDelivered * 100;
+    
+    // Determine status
+    String status;
+    Color statusColor;
+    IconData statusIcon;
+    String message;
+    
+    if (attendanceWithoutML < 65) {
+      status = "Don't Miss!";
+      statusColor = AppTheme.errorColor;
+      statusIcon = Icons.block;
+      message = "Your real attendance (excluding ML) is below 65%";
+    } else if (ifMissWithML >= 75) {
+      status = "Good to Go";
+      statusColor = AppTheme.successColor;
+      statusIcon = Icons.check_circle;
+      message = "You'll stay above 75% even with ML counted";
+    } else {
+      status = "Risky";
+      statusColor = AppTheme.warningColor;
+      statusIcon = Icons.warning;
+      message = "Safe without ML (≥65%) but below 75% with ML";
+    }
+    
+    return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                statusColor.withOpacity(0.1),
+                statusColor.withOpacity(0.05),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: statusColor.withOpacity(0.3),
+              width: 2,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(statusIcon, color: statusColor, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Attendance Predictor',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      status,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    _buildPredictionRow(
+                      'Current (with ML)',
+                      currentAttendance,
+                      Colors.blue,
+                    ),
+                    const Divider(height: 16),
+                    _buildPredictionRow(
+                      'Real (without ML)',
+                      attendanceWithoutML,
+                      attendanceWithoutML >= 65 ? AppTheme.successColor : AppTheme.errorColor,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Classes to miss:',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: classesToMiss > 1
+                        ? () {
+                            setState(() {
+                              _classesToMissMap[index] = classesToMiss - 1;
+                            });
+                          }
+                        : null,
+                    icon: const Icon(Icons.remove_circle_outline),
+                    color: statusColor,
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: statusColor.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        '$classesToMiss',
+                        style: GoogleFonts.outfit(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: statusColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: classesToMiss < 10
+                        ? () {
+                            setState(() {
+                              _classesToMissMap[index] = classesToMiss + 1;
+                            });
+                          }
+                        : null,
+                    icon: const Icon(Icons.add_circle_outline),
+                    color: statusColor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: statusColor.withOpacity(0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'If you miss $classesToMiss class${classesToMiss > 1 ? 'es' : ''}:',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'With ML:',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          '${ifMissWithML.toStringAsFixed(2)}%',
+                          style: GoogleFonts.outfit(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: ifMissWithML >= 75 ? AppTheme.successColor : AppTheme.errorColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Without ML:',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          '${ifMissWithoutML.toStringAsFixed(2)}%',
+                          style: GoogleFonts.outfit(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: ifMissWithoutML >= 65 ? AppTheme.successColor : AppTheme.errorColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: statusColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+  }
+
+  Widget _buildPredictionRow(String label, double percentage, Color color) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            color: Colors.black87,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          '${percentage.toStringAsFixed(2)}%',
+          style: GoogleFonts.outfit(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class AttendanceSubject {
@@ -430,4 +717,17 @@ class AttendanceSubject {
   String? percentage;
   String? totalApprovedDL;
   String? totalApprovedML;
+  
+  // Parsed leave values
+  int get dl {
+    if (leaves == null) return 0;
+    final match = RegExp(r'DL\s*:\s*(\d+)').firstMatch(leaves!);
+    return int.tryParse(match?.group(1) ?? '0') ?? 0;
+  }
+  
+  int get ml {
+    if (leaves == null) return 0;
+    final match = RegExp(r'ML\s*:\s*(\d+)').firstMatch(leaves!);
+    return int.tryParse(match?.group(1) ?? '0') ?? 0;
+  }
 }
