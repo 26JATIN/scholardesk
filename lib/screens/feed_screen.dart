@@ -39,38 +39,6 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _isOffline = false;
   String _cacheAge = '';
   int _newItemsCount = 0; // Track new items fetched during refresh
-  
-  // Cached text styles for performance
-  late final TextStyle _titleStyleLight = GoogleFonts.outfit(
-    fontSize: 17,
-    fontWeight: FontWeight.bold,
-    color: Colors.black87,
-  );
-  late final TextStyle _titleStyleDark = GoogleFonts.outfit(
-    fontSize: 17,
-    fontWeight: FontWeight.bold,
-    color: Colors.white,
-  );
-  late final TextStyle _dateStyleLight = GoogleFonts.inter(
-    fontSize: 12,
-    color: Colors.grey.shade600,
-    fontWeight: FontWeight.w500,
-  );
-  late final TextStyle _dateStyleDark = GoogleFonts.inter(
-    fontSize: 12,
-    color: Colors.grey.shade400,
-    fontWeight: FontWeight.w500,
-  );
-  late final TextStyle _descStyleLight = GoogleFonts.inter(
-    fontSize: 14,
-    color: Colors.black87,
-    height: 1.5,
-  );
-  late final TextStyle _descStyleDark = GoogleFonts.inter(
-    fontSize: 14,
-    color: Colors.grey.shade300,
-    height: 1.5,
-  );
 
   @override
   void initState() {
@@ -204,6 +172,54 @@ class _FeedScreenState extends State<FeedScreen> {
       debugPrint('Date parse error: $e');
     }
     return null;
+  }
+
+  // Get formatted date label for grouping (e.g., "Today", "Yesterday", "Dec 3, 2025")
+  String _getDateLabel(String dateStr) {
+    final date = _parseDate(dateStr);
+    if (date == null) return dateStr;
+    
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    if (dateOnly == today) {
+      return 'Today, ${months[date.month - 1]} ${date.day}, ${date.year}';
+    } else if (dateOnly == yesterday) {
+      return 'Yesterday, ${months[date.month - 1]} ${date.day}, ${date.year}';
+    } else if (now.difference(date).inDays < 7 && now.difference(date).inDays > 0) {
+      // Within a week - show day name with date
+      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      return '${days[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}, ${date.year}';
+    } else {
+      // Show full date with year
+      return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    }
+  }
+
+  // Build list of items with date headers
+  List<dynamic> _buildGroupedFeedList() {
+    if (_filteredFeedItems.isEmpty) return [];
+    
+    final List<dynamic> groupedList = [];
+    String? currentDate;
+    
+    for (var item in _filteredFeedItems) {
+      final itemDate = item['creDate']?['S'] ?? '';
+      
+      if (itemDate != currentDate && itemDate.isNotEmpty) {
+        // Add date header
+        groupedList.add({'_isDateHeader': true, '_date': itemDate});
+        currentDate = itemDate;
+      }
+      
+      groupedList.add(item);
+    }
+    
+    return groupedList;
   }
 
   void _filterFeed() {
@@ -1014,14 +1030,19 @@ class _FeedScreenState extends State<FeedScreen> {
                           sliver: SliverList(
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
+                                final groupedList = _buildGroupedFeedList();
+                                final item = groupedList[index];
+                                
+                                // Check if this is a date header
+                                if (item['_isDateHeader'] == true) {
+                                  return _buildDateHeader(item['_date']);
+                                }
+                                
                                 return RepaintBoundary(
-                                  child: _buildFeedCard(
-                                    _filteredFeedItems[index],
-                                    index,
-                                  ),
+                                  child: _buildFeedCard(item),
                                 );
                               },
-                              childCount: _filteredFeedItems.length,
+                              childCount: _buildGroupedFeedList().length,
                               addRepaintBoundaries: false, // We add our own
                               addAutomaticKeepAlives: false,
                             ),
@@ -1155,7 +1176,57 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _buildFeedCard(dynamic item, int index) {
+  Widget _buildDateHeader(String dateStr) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final label = _getDateLabel(dateStr);
+    
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark 
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.calendar_today_rounded,
+                  size: 14,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: isDark 
+                  ? Colors.white.withOpacity(0.08)
+                  : Colors.black.withOpacity(0.06),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeedCard(dynamic item) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     // Safely extract values with null checks
@@ -1165,12 +1236,6 @@ class _FeedScreenState extends State<FeedScreen> {
     final desc = (item['desc'] != null && item['desc']['S'] != null)
         ? item['desc']['S'] as String
         : '';
-    final date = (item['creDate'] != null && item['creDate']['S'] != null)
-        ? item['creDate']['S'] as String
-        : '';
-    final time = (item['creTime'] != null && item['creTime']['S'] != null)
-        ? item['creTime']['S'] as String
-        : '';
 
     // Check if this item matches search query
     final bool isSearchMatch = _searchQuery.isNotEmpty && 
@@ -1179,115 +1244,159 @@ class _FeedScreenState extends State<FeedScreen> {
 
     // Use primary color, with highlight for search matches
     final accentColor = isSearchMatch 
-        ? AppTheme.successColor
+        ? AppTheme.successColor  // Highlight matching items
         : AppTheme.primaryColor;
-    
-    // Use cached styles
-    final titleStyle = isDark ? _titleStyleDark : _titleStyleLight;
-    final dateStyle = isDark ? _dateStyleDark : _dateStyleLight;
-    final descStyle = isDark ? _descStyleDark : _descStyleLight;
-    final iconColor = isDark ? const Color(0xFF757575) : const Color(0xFF9E9E9E);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCardColor : Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
+        border: isDark 
+            ? Border.all(color: Colors.white.withOpacity(0.06))
+            : null,
+        boxShadow: isDark ? null : const [
+          BoxShadow(
+            color: Color(0x0F000000), // Static color instead of withOpacity
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
+        borderRadius: BorderRadius.circular(24),
         child: InkWell(
-          onTap: () => _onFeedTap(item, title),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Icon
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: accentColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.campaign_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Title
-                      _searchQuery.isEmpty
-                          ? Text(title, style: titleStyle, maxLines: 2, overflow: TextOverflow.ellipsis)
-                          : _buildHighlightedText(title, _searchQuery, titleStyle, maxLines: 2),
-                      // Date/Time
-                      if (date.isNotEmpty || time.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          time.isNotEmpty ? '$date • $time' : date,
-                          style: dateStyle,
+          borderRadius: BorderRadius.circular(24),
+          onTap: () {
+            final itemId = (item['itemId'] != null && item['itemId']['N'] != null)
+                ? item['itemId']['N'] as String
+                : '';
+            final itemType = (item['itemType'] != null && item['itemType']['N'] != null)
+                ? item['itemType']['N'] as String
+                : '';
+            
+            if (itemId.isNotEmpty && itemType.isNotEmpty) {
+              // Show offline warning if we're offline
+              if (_isOffline) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        const Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'You\'re offline. Some details may not load.',
+                            style: GoogleFonts.inter(fontSize: 14),
+                          ),
                         ),
                       ],
-                      // Description
-                      if (desc.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        _searchQuery.isEmpty
-                            ? Text(desc, style: descStyle, maxLines: 2, overflow: TextOverflow.ellipsis)
-                            : _buildHighlightedText(desc, _searchQuery, descStyle, maxLines: 2),
-                      ],
-                    ],
+                    ),
+                    duration: const Duration(seconds: 3),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: AppTheme.warningColor,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    margin: const EdgeInsets.all(16),
+                  ),
+                );
+              }
+              
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FeedDetailScreen(
+                    clientDetails: widget.clientDetails,
+                    userData: widget.userData,
+                    itemId: itemId,
+                    itemType: itemType,
+                    title: title,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Icon(Icons.chevron_right_rounded, size: 20, color: iconColor),
-              ],
-            ),
+              );
+            }
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Solid color header
+              Container(
+                height: 8,
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: accentColor,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.campaign_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildHighlightedText(
+                            title,
+                            _searchQuery,
+                            GoogleFonts.outfit(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                            maxLines: 2,
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 16,
+                          color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+                        ),
+                      ],
+                    ),
+                    if (desc.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.darkElevatedColor : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: _buildHighlightedText(
+                          desc,
+                          _searchQuery,
+                          GoogleFonts.inter(
+                            fontSize: 14,
+                            color: isDark ? Colors.grey.shade300 : Colors.black87,
+                            height: 1.5,
+                          ),
+                          maxLines: 3,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
-  }
-  
-  void _onFeedTap(dynamic item, String title) {
-    final itemId = (item['itemId'] != null && item['itemId']['N'] != null)
-        ? item['itemId']['N'] as String
-        : '';
-    final itemType = (item['itemType'] != null && item['itemType']['N'] != null)
-        ? item['itemType']['N'] as String
-        : '';
-    
-    if (itemId.isNotEmpty && itemType.isNotEmpty) {
-      if (_isOffline) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('You\'re offline. Some details may not load.'),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: AppTheme.warningColor,
-          ),
-        );
-      }
-      
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => FeedDetailScreen(
-            clientDetails: widget.clientDetails,
-            userData: widget.userData,
-            itemId: itemId,
-            itemType: itemType,
-            title: title,
-          ),
-        ),
-      );
-    }
   }
 }
 
