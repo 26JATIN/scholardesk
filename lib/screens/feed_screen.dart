@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
+import '../services/feed_cache_service.dart';
 import '../theme/app_theme.dart';
 import 'feed_detail_screen.dart';
 import '../main.dart' show themeService;
@@ -23,10 +24,12 @@ class FeedScreen extends StatefulWidget {
 
 class _FeedScreenState extends State<FeedScreen> {
   final ApiService _apiService = ApiService();
+  final FeedCacheService _cacheService = FeedCacheService();
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = true;
   bool _isLoadingMore = false;
+  bool _isRefreshingInBackground = false;
   String? _errorMessage;
   List<dynamic> _feedItems = [];
   List<dynamic> _filteredFeedItems = [];
@@ -34,16 +37,63 @@ class _FeedScreenState extends State<FeedScreen> {
   dynamic _nextPageStart;
   bool _hasMoreData = true;
   final Set<String> _loadedItemIds = {}; // Track loaded items to prevent duplicates
+  bool _isOffline = false;
+  String _cacheAge = '';
+  int _newItemsCount = 0; // Track new items fetched during refresh
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_filterFeed);
     _scrollController.addListener(_onScroll);
-    // Fetch feed after the frame is built
+    // Load from cache first, then fetch new items
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchFeed();
+      _loadFromCacheAndFetch();
     });
+  }
+
+  /// Load cached data first, then fetch only new items
+  Future<void> _loadFromCacheAndFetch() async {
+    await _cacheService.init();
+    
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    
+    // Try to load from cache first
+    final cached = await _cacheService.getCachedFeed(userId, clientAbbr);
+    
+    if (cached != null && cached.items.isNotEmpty) {
+      // Load cached items immediately - cache is permanent, always valid
+      setState(() {
+        _feedItems = List.from(cached.items);
+        for (var item in _feedItems) {
+          final itemId = item['itemId']?['N']?.toString() ?? '';
+          final timestamp = item['timeStamp']?['N']?.toString() ?? '';
+          _loadedItemIds.add('$itemId-$timestamp');
+        }
+        _applySearchFilter();
+        _isLoading = false;
+        _nextPageStart = cached.nextPage;
+        _hasMoreData = cached.hasMore; // Will be false if all old feeds loaded
+        _cacheAge = _cacheService.getCacheAgeString(userId, clientAbbr);
+        _isOffline = false;
+      });
+      
+      debugPrint('📦 Loaded ${cached.items.length} items from cache');
+      debugPrint('📊 All old feeds loaded: ${cached.allOldFeedsLoaded}, hasMore: ${cached.hasMore}');
+      
+      // Only check for NEW items if enough time has passed (throttle API calls)
+      if (_cacheService.shouldCheckForNewItems(userId, clientAbbr)) {
+        debugPrint('🔍 Checking for new items...');
+        _fetchNewItemsOnly();
+      } else {
+        debugPrint('⏰ Skipping new item check - too soon since last check');
+      }
+    } else {
+      // No cache, fetch from API
+      debugPrint('📭 No cache found, fetching from API');
+      _fetchFeed();
+    }
   }
 
   void _onScroll() {
@@ -51,14 +101,23 @@ class _FeedScreenState extends State<FeedScreen> {
     final isNearBottom = _scrollController.position.pixels >= 
         _scrollController.position.maxScrollExtent - 300;
     
-    if (isNearBottom) {
-      debugPrint('Near bottom! Loading: $_isLoadingMore, HasMore: $_hasMoreData, SearchEmpty: ${_searchQuery.isEmpty}');
+    if (isNearBottom && !_isLoadingMore && _hasMoreData) {
+      final userId = widget.userData['userId'].toString();
+      final clientAbbr = widget.clientDetails['client_abbr'];
       
-      // When user scrolls near the bottom, load more
-      if (!_isLoadingMore && _hasMoreData && _searchQuery.isEmpty) {
-        debugPrint('🔄 Triggering load more...');
-        _loadMoreFeed();
+      // Don't load more if all old feeds are already loaded
+      if (_cacheService.areAllOldFeedsLoaded(userId, clientAbbr)) {
+        if (_hasMoreData) {
+          setState(() {
+            _hasMoreData = false;
+            _nextPageStart = null;
+          });
+        }
+        return;
       }
+      
+      debugPrint('🔄 Triggering load more...');
+      _loadMoreFeed();
     }
   }
 
@@ -119,16 +178,21 @@ class _FeedScreenState extends State<FeedScreen> {
   void _filterFeed() {
     setState(() {
       _searchQuery = _searchController.text.toLowerCase();
-      if (_searchQuery.isEmpty) {
-        _filteredFeedItems = List.from(_feedItems);
-      } else {
-        _filteredFeedItems = _feedItems.where((item) {
-          final title = (item['title']?['S'] ?? '').toLowerCase();
-          final desc = (item['desc']?['S'] ?? '').toLowerCase();
-          return title.contains(_searchQuery) || desc.contains(_searchQuery);
-        }).toList();
-      }
+      _applySearchFilter();
     });
+  }
+
+  // Apply search filter to feed items
+  void _applySearchFilter() {
+    if (_searchQuery.isEmpty) {
+      _filteredFeedItems = List.from(_feedItems);
+    } else {
+      _filteredFeedItems = _feedItems.where((item) {
+        final title = (item['title']?['S'] ?? '').toLowerCase();
+        final desc = (item['desc']?['S'] ?? '').toLowerCase();
+        return title.contains(_searchQuery) || desc.contains(_searchQuery);
+      }).toList();
+    }
   }
 
   // Build text with highlighted search matches
@@ -184,17 +248,150 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
+  /// Fetch only new items since last cache (incremental update)
+  Future<void> _fetchNewItemsOnly() async {
+    if (_isRefreshingInBackground) return;
+    
+    setState(() {
+      _isRefreshingInBackground = true;
+      _newItemsCount = 0;
+    });
+
+    try {
+      final baseUrl = widget.clientDetails['baseUrl'];
+      final clientAbbr = widget.clientDetails['client_abbr'];
+      final userId = widget.userData['userId'].toString();
+      final roleId = widget.userData['roleId'].toString();
+      final sessionId = widget.userData['sessionId'].toString();
+      final appKey = widget.userData['apiKey'].toString();
+
+      // Fetch first page to get new items
+      final response = await _apiService.getAppFeed(
+        baseUrl: baseUrl,
+        clientAbbr: clientAbbr,
+        userId: userId,
+        roleId: roleId,
+        sessionId: sessionId,
+        appKey: appKey,
+        start: 0,
+        limit: 20,
+      );
+
+      if (mounted) {
+        final List<dynamic> newItems = response['feed'] ?? [];
+        
+        // Filter only truly new items
+        final List<dynamic> trulyNewItems = [];
+        for (var item in newItems) {
+          final itemId = item['itemId']?['N']?.toString() ?? '';
+          final timestamp = item['timeStamp']?['N']?.toString() ?? '';
+          final uniqueKey = '$itemId-$timestamp';
+          
+          if (itemId.isNotEmpty && !_loadedItemIds.contains(uniqueKey)) {
+            trulyNewItems.add(item);
+            _loadedItemIds.add(uniqueKey);
+          }
+        }
+        
+        if (trulyNewItems.isNotEmpty) {
+          // Merge with cache
+          final mergedItems = await _cacheService.mergeNewItems(
+            userId: userId,
+            clientAbbr: clientAbbr,
+            newItems: trulyNewItems,
+            nextPage: _nextPageStart,
+            hasMore: _hasMoreData,
+          );
+          
+          setState(() {
+            _feedItems = mergedItems;
+            _applySearchFilter();
+            _newItemsCount = trulyNewItems.length;
+            _cacheAge = 'Just now';
+          });
+          
+          debugPrint('🆕 Found ${trulyNewItems.length} new items');
+          
+          // Show snackbar for new items
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${trulyNewItems.length} new announcement${trulyNewItems.length > 1 ? 's' : ''}'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: AppTheme.successColor,
+              ),
+            );
+          }
+        } else {
+          debugPrint('✅ No new items found');
+          // Just update the cache timestamp
+          await _cacheService.cacheFeed(
+            userId: userId,
+            clientAbbr: clientAbbr,
+            items: _feedItems,
+            nextPage: _nextPageStart,
+            hasMore: _hasMoreData,
+          );
+          setState(() {
+            _cacheAge = 'Just now';
+          });
+        }
+        
+        setState(() {
+          _isRefreshingInBackground = false;
+          _isOffline = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Background refresh error: $e');
+      if (mounted) {
+        setState(() {
+          _isRefreshingInBackground = false;
+          // Don't show error if we have cached data
+          if (_feedItems.isEmpty) {
+            _errorMessage = e.toString().replaceAll('Exception: ', '');
+          }
+        });
+      }
+    }
+  }
+
   Future<void> _fetchFeed({dynamic start = 0, bool isRefresh = false}) async {
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    
     if (isRefresh) {
+      // For refresh, try to load from cache first while fetching new
+      final cached = await _cacheService.getCachedFeed(userId, clientAbbr);
+      
       setState(() {
-        _isLoading = true;
+        _isLoading = cached == null || cached.items.isEmpty;
+        _isRefreshingInBackground = cached != null && cached.items.isNotEmpty;
         _errorMessage = null;
-        _feedItems = [];
-        _filteredFeedItems = [];
+        if (cached == null || cached.items.isEmpty) {
+          _feedItems = [];
+          _filteredFeedItems = [];
+          _loadedItemIds.clear();
+        }
         _nextPageStart = null;
         _hasMoreData = true;
-        _loadedItemIds.clear(); // Clear duplicate tracking
+        _newItemsCount = 0;
       });
+      
+      // If we have cache, show it first
+      if (cached != null && cached.items.isNotEmpty) {
+        setState(() {
+          _feedItems = List.from(cached.items);
+          for (var item in _feedItems) {
+            final itemId = item['itemId']?['N']?.toString() ?? '';
+            final timestamp = item['timeStamp']?['N']?.toString() ?? '';
+            _loadedItemIds.add('$itemId-$timestamp');
+          }
+          _applySearchFilter();
+          _cacheAge = _cacheService.getCacheAgeString(userId, clientAbbr);
+        });
+      }
     } else if (start == 0) {
       setState(() {
         _isLoading = true;
@@ -204,8 +401,6 @@ class _FeedScreenState extends State<FeedScreen> {
 
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
-      final clientAbbr = widget.clientDetails['client_abbr'];
-      final userId = widget.userData['userId'].toString();
       final roleId = widget.userData['roleId'].toString();
       final sessionId = widget.userData['sessionId'].toString();
       final appKey = widget.userData['apiKey'].toString();
@@ -217,7 +412,7 @@ class _FeedScreenState extends State<FeedScreen> {
         roleId: roleId,
         sessionId: sessionId,
         appKey: appKey,
-        start: start,
+        start: isRefresh ? 0 : start,
         limit: 20, // Load 20 items per page for smooth scrolling
       );
 
@@ -226,6 +421,7 @@ class _FeedScreenState extends State<FeedScreen> {
         
         // Filter out duplicates based on itemId and timestamp
         final List<dynamic> uniqueNewItems = [];
+        
         for (var item in newItems) {
           final itemId = item['itemId']?['N']?.toString() ?? '';
           final timestamp = item['timeStamp']?['N']?.toString() ?? '';
@@ -244,18 +440,65 @@ class _FeedScreenState extends State<FeedScreen> {
         // If we got no new unique items but API says there's more, we might be in a loop
         final bool actuallyHasMore = hasNext && uniqueNewItems.isNotEmpty;
         
-        setState(() {
-          if (isRefresh || start == 0) {
-            _feedItems = uniqueNewItems;
-          } else {
-            _feedItems.addAll(uniqueNewItems);
+        if (isRefresh) {
+          // Merge new items with existing cache
+          if (uniqueNewItems.isNotEmpty) {
+            final mergedItems = await _cacheService.mergeNewItems(
+              userId: userId,
+              clientAbbr: clientAbbr,
+              newItems: uniqueNewItems,
+              nextPage: actuallyHasMore ? nextPage : null,
+              hasMore: actuallyHasMore,
+            );
+            
+            setState(() {
+              _feedItems = mergedItems;
+              _newItemsCount = uniqueNewItems.length;
+            });
+            
+            // Show snackbar if new items found
+            if (uniqueNewItems.isNotEmpty && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${uniqueNewItems.length} new announcement${uniqueNewItems.length > 1 ? 's' : ''}'),
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: AppTheme.successColor,
+                ),
+              );
+            }
           }
-          // Sort by date (newest first)
-          _sortFeedByDate(_feedItems);
-          _filteredFeedItems = List.from(_feedItems);
+        } else {
+          setState(() {
+            if (start == 0) {
+              _feedItems = uniqueNewItems;
+            } else {
+              _feedItems.addAll(uniqueNewItems);
+            }
+          });
+        }
+        
+        // Sort by date (newest first)
+        _sortFeedByDate(_feedItems);
+        
+        // Save to cache
+        await _cacheService.cacheFeed(
+          userId: userId,
+          clientAbbr: clientAbbr,
+          items: _feedItems,
+          nextPage: actuallyHasMore ? nextPage : null,
+          hasMore: actuallyHasMore,
+        );
+        
+        setState(() {
+          // Apply current search filter
+          _applySearchFilter();
           _isLoading = false;
+          _isRefreshingInBackground = false;
           _nextPageStart = actuallyHasMore ? nextPage : null;
           _hasMoreData = actuallyHasMore;
+          _cacheAge = 'Just now';
+          _isOffline = false;
         });
         
         debugPrint('📥 Feed: Loaded ${uniqueNewItems.length} unique items out of ${newItems.length} fetched. Total: ${_feedItems.length}');
@@ -265,18 +508,73 @@ class _FeedScreenState extends State<FeedScreen> {
     } catch (e) {
       debugPrint('Feed Screen - Error: $e');
       if (mounted) {
-        setState(() {
-          if (_feedItems.isEmpty) {
-            _errorMessage = e.toString().replaceAll('Exception: ', '');
+        // If we have cached data, just show offline indicator
+        if (_feedItems.isNotEmpty) {
+          setState(() {
+            _isLoading = false;
+            _isRefreshingInBackground = false;
+            _isOffline = true;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Offline - Showing cached data'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: AppTheme.warningColor,
+            ),
+          );
+        } else {
+          // Try to load from cache as fallback
+          final cached = await _cacheService.getCachedFeed(userId, clientAbbr);
+          if (cached != null && cached.items.isNotEmpty) {
+            setState(() {
+              _feedItems = List.from(cached.items);
+              for (var item in _feedItems) {
+                final itemId = item['itemId']?['N']?.toString() ?? '';
+                final timestamp = item['timeStamp']?['N']?.toString() ?? '';
+                _loadedItemIds.add('$itemId-$timestamp');
+              }
+              _applySearchFilter();
+              _isLoading = false;
+              _isOffline = true;
+              _cacheAge = _cacheService.getCacheAgeString(userId, clientAbbr);
+              _nextPageStart = cached.nextPage;
+              _hasMoreData = cached.hasMore;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Offline - Showing cached data ($_cacheAge)'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: AppTheme.warningColor,
+              ),
+            );
+          } else {
+            setState(() {
+              _errorMessage = e.toString().replaceAll('Exception: ', '');
+              _isLoading = false;
+              _hasMoreData = false;
+            });
           }
-          _isLoading = false;
-          _hasMoreData = false;
-        });
+        }
       }
     }
   }
 
   Future<void> _loadMoreFeed() async {
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    
+    // Check if all old feeds are already loaded - never load more if true
+    if (_cacheService.areAllOldFeedsLoaded(userId, clientAbbr)) {
+      debugPrint('🛑 All old feeds already loaded - skipping load more');
+      setState(() {
+        _hasMoreData = false;
+        _nextPageStart = null;
+      });
+      return;
+    }
+    
     if (_isLoadingMore || !_hasMoreData || _nextPageStart == null) return;
 
     setState(() {
@@ -285,8 +583,6 @@ class _FeedScreenState extends State<FeedScreen> {
 
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
-      final clientAbbr = widget.clientDetails['client_abbr'];
-      final userId = widget.userData['userId'].toString();
       final roleId = widget.userData['roleId'].toString();
       final sessionId = widget.userData['sessionId'].toString();
       final appKey = widget.userData['apiKey'].toString();
@@ -312,6 +608,18 @@ class _FeedScreenState extends State<FeedScreen> {
       if (mounted) {
         final List<dynamic> newItems = response['feed'] ?? [];
         
+        // If API returns empty list, mark all old feeds as loaded permanently
+        if (newItems.isEmpty) {
+          debugPrint('📭 API returned no items - marking all old feeds as loaded');
+          await _cacheService.markAllOldFeedsLoaded(userId, clientAbbr);
+          setState(() {
+            _isLoadingMore = false;
+            _hasMoreData = false;
+            _nextPageStart = null;
+          });
+          return;
+        }
+        
         // Filter out duplicates
         final List<dynamic> uniqueNewItems = [];
         for (var item in newItems) {
@@ -325,21 +633,48 @@ class _FeedScreenState extends State<FeedScreen> {
           }
         }
         
+        // If all items were duplicates, we've loaded everything
+        if (uniqueNewItems.isEmpty) {
+          debugPrint('🔄 All items were duplicates - marking all old feeds as loaded');
+          await _cacheService.markAllOldFeedsLoaded(userId, clientAbbr);
+          setState(() {
+            _isLoadingMore = false;
+            _hasMoreData = false;
+            _nextPageStart = null;
+          });
+          return;
+        }
+        
         final nextPage = response['next'];
         final hasNext = nextPage != null && nextPage is Map && nextPage.isNotEmpty;
         
-        // Stop if we're getting duplicates (indicates loop)
-        final bool actuallyHasMore = hasNext && uniqueNewItems.isNotEmpty;
+        // No next page means we've loaded all old feeds
+        final bool actuallyHasMore = hasNext;
+        
+        if (!actuallyHasMore) {
+          debugPrint('📭 No next page - marking all old feeds as loaded');
+          await _cacheService.markAllOldFeedsLoaded(userId, clientAbbr);
+        }
 
         setState(() {
           _feedItems.addAll(uniqueNewItems);
           // Sort by date (newest first)
           _sortFeedByDate(_feedItems);
-          _filteredFeedItems = List.from(_feedItems);
+          // Apply current search filter to include new items
+          _applySearchFilter();
           _isLoadingMore = false;
           _nextPageStart = actuallyHasMore ? nextPage : null;
           _hasMoreData = actuallyHasMore;
         });
+        
+        // Append to cache
+        await _cacheService.appendToCache(
+          userId: userId,
+          clientAbbr: clientAbbr,
+          newItems: uniqueNewItems,
+          nextPage: actuallyHasMore ? nextPage : null,
+          hasMore: actuallyHasMore,
+        );
         
         debugPrint('Feed: Load more added ${uniqueNewItems.length} unique items. Total: ${_feedItems.length}');
       }
@@ -348,7 +683,7 @@ class _FeedScreenState extends State<FeedScreen> {
       if (mounted) {
         setState(() {
           _isLoadingMore = false;
-          _hasMoreData = false;
+          // Don't set hasMoreData to false on error - allow retry
         });
       }
     }
@@ -384,18 +719,84 @@ class _FeedScreenState extends State<FeedScreen> {
                 onPressed: () => Navigator.pop(context),
               ),
             flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                'Announcements',
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
+              title: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Announcements',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  if (_isOffline) ...[
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.cloud_off_rounded,
+                      size: 16,
+                      color: AppTheme.warningColor,
+                    ),
+                  ],
+                  if (_isRefreshingInBackground) ...[
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
+                    ),
+                  ],
+                ],
               ),
               background: Container(
                 color: isDark ? AppTheme.darkSurfaceColor : AppTheme.secondaryColor.withOpacity(0.1),
               ),
             ),
             actions: [
+              // New items indicator
+              if (_newItemsCount > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Chip(
+                    label: Text(
+                      '+$_newItemsCount new',
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    backgroundColor: AppTheme.successColor,
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    side: BorderSide.none,
+                  ),
+                ),
+              // Cache age indicator
+              if (_cacheAge.isNotEmpty && !_isLoading && _newItemsCount == 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Chip(
+                    label: Text(
+                      _cacheAge,
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: _isOffline 
+                            ? AppTheme.warningColor 
+                            : (isDark ? Colors.white70 : Colors.black54),
+                      ),
+                    ),
+                    backgroundColor: isDark 
+                        ? AppTheme.darkCardColor 
+                        : Colors.grey.shade100,
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    side: BorderSide.none,
+                  ),
+                ),
               IconButton(
                 icon: Icon(
                   isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
@@ -404,11 +805,22 @@ class _FeedScreenState extends State<FeedScreen> {
                 onPressed: () => themeService.toggleTheme(),
               ),
               IconButton(
-                icon: Icon(Icons.refresh_rounded, 
-                  color: isDark ? Colors.white : Colors.black87),
-                onPressed: () {
-                  _fetchFeed(isRefresh: true);
-                },
+                icon: _isRefreshingInBackground 
+                    ? SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      )
+                    : Icon(Icons.refresh_rounded, 
+                        color: isDark ? Colors.white : Colors.black87),
+                onPressed: _isRefreshingInBackground 
+                    ? null 
+                    : () {
+                        _fetchFeed(isRefresh: true);
+                      },
               ),
             ],
           ),
@@ -544,6 +956,22 @@ class _FeedScreenState extends State<FeedScreen> {
                                       ),
                                       textAlign: TextAlign.center,
                                     ),
+                                    if (_searchQuery.isNotEmpty && _hasMoreData) ...[
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'Searched ${_feedItems.length} announcements',
+                                        style: GoogleFonts.inter(
+                                          color: isDark ? Colors.grey.shade600 : Colors.grey.shade500,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      FilledButton.icon(
+                                        onPressed: _loadMoreFeed,
+                                        icon: const Icon(Icons.search_rounded, size: 18),
+                                        label: const Text('Load More & Search'),
+                                      ),
+                                    ],
                                   ],
                                 );
                               },
@@ -579,12 +1007,25 @@ class _FeedScreenState extends State<FeedScreen> {
                           const CircularProgressIndicator(),
                           const SizedBox(height: 12),
                           Text(
-                            'Loading more...',
+                            _searchQuery.isNotEmpty 
+                                ? 'Loading more feeds to search...'
+                                : 'Loading more...',
                             style: GoogleFonts.inter(
                               color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
                               fontSize: 13,
                             ),
                           ),
+                          if (_searchQuery.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Found ${_filteredFeedItems.length} matches so far',
+                              style: GoogleFonts.inter(
+                                color: AppTheme.successColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ],
                       );
                     },
@@ -594,21 +1035,42 @@ class _FeedScreenState extends State<FeedScreen> {
             ),
           
           // Load More button when there's more data
-          if (!_isLoadingMore && _hasMoreData && _filteredFeedItems.isNotEmpty && _searchQuery.isEmpty)
+          if (!_isLoadingMore && _hasMoreData && _feedItems.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Center(
-                  child: OutlinedButton.icon(
-                    onPressed: _loadMoreFeed,
-                    icon: const Icon(Icons.expand_more_rounded),
-                    label: const Text('Load More'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                  child: Column(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _loadMoreFeed,
+                        icon: const Icon(Icons.expand_more_rounded),
+                        label: Text(_searchQuery.isNotEmpty 
+                            ? 'Load More (Searching...)' 
+                            : 'Load More'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
                       ),
-                    ),
+                      if (_searchQuery.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Builder(
+                          builder: (context) {
+                            final isDark = Theme.of(context).brightness == Brightness.dark;
+                            return Text(
+                              'Showing ${_filteredFeedItems.length} of ${_feedItems.length} loaded',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
@@ -623,16 +1085,22 @@ class _FeedScreenState extends State<FeedScreen> {
                   child: Builder(
                     builder: (context) {
                       final isDark = Theme.of(context).brightness == Brightness.dark;
+                      final userId = widget.userData['userId'].toString();
+                      final clientAbbr = widget.clientDetails['client_abbr'];
+                      final allLoaded = _cacheService.areAllOldFeedsLoaded(userId, clientAbbr);
+                      
                       return Column(
                         children: [
                           Icon(
-                            Icons.check_circle_outline_rounded,
+                            allLoaded ? Icons.inventory_2_outlined : Icons.check_circle_outline_rounded,
                             color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
                             size: 32,
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'No more announcements',
+                            allLoaded 
+                                ? 'All ${_feedItems.length} announcements loaded'
+                                : 'No more announcements',
                             style: GoogleFonts.inter(
                               color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                               fontSize: 13,

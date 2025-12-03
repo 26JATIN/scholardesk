@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Professional Blue Color Palette
-  static const Color primaryColor = Color(0xFF1E40AF); // Deep Blue (Professional)
+  static const Color primaryColor = Color.fromARGB(233, 23, 62, 135); // Deep Blue (Professional)
   static const Color secondaryColor = Color(0xFF0369A1); // Ocean Blue
   static const Color tertiaryColor = Color(0xFF475569); // Slate Gray
   static const Color accentColor = Color(0xFF0284C7); // Sky Blue
@@ -19,9 +19,9 @@ class AppTheme {
   static const Color darkElevatedColor = Color(0xFF1A1A1A);
 
   // Smooth animation durations
-  static const Duration fastAnimation = Duration(milliseconds: 200);
-  static const Duration normalAnimation = Duration(milliseconds: 300);
-  static const Duration slowAnimation = Duration(milliseconds: 400);
+  static const Duration fastAnimation = Duration(milliseconds: 100);
+  static const Duration normalAnimation = Duration(milliseconds: 150);
+  static const Duration slowAnimation = Duration(milliseconds: 200);
   
   // Smooth curves
   static const Curve smoothCurve = Curves.easeOutCubic;
