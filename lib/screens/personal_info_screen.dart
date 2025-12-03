@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:html/parser.dart' as html_parser;
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -393,7 +392,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
           ),
         ],
       ),
-    ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0);
+    );
   }
 
   Widget _buildCustomFieldsSection(bool isDark) {
@@ -454,7 +453,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
           ),
         ],
       ),
-    ).animate().fadeIn(delay: 100.ms, duration: 600.ms).slideY(begin: 0.2, end: 0);
+    );
   }
 
   Widget _buildAddressSection(bool isDark) {
@@ -527,7 +526,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
           ),
         ],
       ),
-    ).animate().fadeIn(delay: 200.ms, duration: 600.ms).slideY(begin: 0.2, end: 0);
+    );
   }
 
   Widget _buildParentSection(String parentType, String? photoUrl, Map<String, String> details, bool isDark) {
@@ -634,7 +633,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
           ),
         ],
       ),
-    ).animate().fadeIn(delay: (parentType == 'Father' ? 300 : 400).ms, duration: 600.ms).slideY(begin: 0.2, end: 0);
+    );
   }
 
   Widget _buildDetailRow(String label, String value, bool isDark) {

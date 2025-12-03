@@ -39,6 +39,38 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _isOffline = false;
   String _cacheAge = '';
   int _newItemsCount = 0; // Track new items fetched during refresh
+  
+  // Cached text styles for performance
+  late final TextStyle _titleStyleLight = GoogleFonts.outfit(
+    fontSize: 17,
+    fontWeight: FontWeight.bold,
+    color: Colors.black87,
+  );
+  late final TextStyle _titleStyleDark = GoogleFonts.outfit(
+    fontSize: 17,
+    fontWeight: FontWeight.bold,
+    color: Colors.white,
+  );
+  late final TextStyle _dateStyleLight = GoogleFonts.inter(
+    fontSize: 12,
+    color: Colors.grey.shade600,
+    fontWeight: FontWeight.w500,
+  );
+  late final TextStyle _dateStyleDark = GoogleFonts.inter(
+    fontSize: 12,
+    color: Colors.grey.shade400,
+    fontWeight: FontWeight.w500,
+  );
+  late final TextStyle _descStyleLight = GoogleFonts.inter(
+    fontSize: 14,
+    color: Colors.black87,
+    height: 1.5,
+  );
+  late final TextStyle _descStyleDark = GoogleFonts.inter(
+    fontSize: 14,
+    color: Colors.grey.shade300,
+    height: 1.5,
+  );
 
   @override
   void initState() {
@@ -712,7 +744,10 @@ class _FeedScreenState extends State<FeedScreen> {
           triggerMode: RefreshIndicatorTriggerMode.anywhere,
           child: CustomScrollView(
             controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            cacheExtent: 500, // Cache items 500px outside viewport
             slivers: [
               // Modern App Bar
               SliverAppBar.large(
@@ -979,12 +1014,16 @@ class _FeedScreenState extends State<FeedScreen> {
                           sliver: SliverList(
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
-                                return _buildFeedCard(
-                                  _filteredFeedItems[index],
-                                  index,
+                                return RepaintBoundary(
+                                  child: _buildFeedCard(
+                                    _filteredFeedItems[index],
+                                    index,
+                                  ),
                                 );
                               },
                               childCount: _filteredFeedItems.length,
+                              addRepaintBoundaries: false, // We add our own
+                              addAutomaticKeepAlives: false,
                             ),
                           ),
                         ),
@@ -1140,213 +1179,115 @@ class _FeedScreenState extends State<FeedScreen> {
 
     // Use primary color, with highlight for search matches
     final accentColor = isSearchMatch 
-        ? AppTheme.successColor  // Highlight matching items
+        ? AppTheme.successColor
         : AppTheme.primaryColor;
+    
+    // Use cached styles
+    final titleStyle = isDark ? _titleStyleDark : _titleStyleLight;
+    final dateStyle = isDark ? _dateStyleDark : _dateStyleLight;
+    final descStyle = isDark ? _descStyleDark : _descStyleLight;
+    final iconColor = isDark ? const Color(0xFF757575) : const Color(0xFF9E9E9E);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCardColor : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: isDark ? null : [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(24),
         child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: () {
-            final itemId = (item['itemId'] != null && item['itemId']['N'] != null)
-                ? item['itemId']['N'] as String
-                : '';
-            final itemType = (item['itemType'] != null && item['itemType']['N'] != null)
-                ? item['itemType']['N'] as String
-                : '';
-            
-            if (itemId.isNotEmpty && itemType.isNotEmpty) {
-              // Show offline warning if we're offline
-              if (_isOffline) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        const Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'You\'re offline. Some details may not load.',
-                            style: GoogleFonts.inter(fontSize: 14),
-                          ),
-                        ),
-                      ],
-                    ),
-                    duration: const Duration(seconds: 3),
-                    behavior: SnackBarBehavior.floating,
-                    backgroundColor: AppTheme.warningColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    margin: const EdgeInsets.all(16),
+          onTap: () => _onFeedTap(item, title),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Icon
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                );
-              }
-              
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => FeedDetailScreen(
-                    clientDetails: widget.clientDetails,
-                    userData: widget.userData,
-                    itemId: itemId,
-                    itemType: itemType,
-                    title: title,
+                  child: const Icon(
+                    Icons.campaign_rounded,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ),
-              );
-            }
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Solid color header
-              Container(
-                height: 8,
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: accentColor,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Icon(
-                            Icons.campaign_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildHighlightedText(
-                                title,
-                                _searchQuery,
-                                GoogleFonts.outfit(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : Colors.black87,
-                                ),
-                                maxLines: 2,
-                              ),
-                              if (date.isNotEmpty || time.isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    if (date.isNotEmpty) ...[
-                                      Icon(
-                                        Icons.calendar_today_rounded,
-                                        size: 12,
-                                        color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        date,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 12,
-                                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                    if (date.isNotEmpty && time.isNotEmpty) ...[
-                                      const SizedBox(width: 12),
-                                      Container(
-                                        width: 3,
-                                        height: 3,
-                                        decoration: BoxDecoration(
-                                          color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                    ],
-                                    if (time.isNotEmpty) ...[
-                                      Icon(
-                                        Icons.access_time_rounded,
-                                        size: 12,
-                                        color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        time,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 12,
-                                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          size: 16,
-                          color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+                const SizedBox(width: 12),
+                // Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title
+                      _searchQuery.isEmpty
+                          ? Text(title, style: titleStyle, maxLines: 2, overflow: TextOverflow.ellipsis)
+                          : _buildHighlightedText(title, _searchQuery, titleStyle, maxLines: 2),
+                      // Date/Time
+                      if (date.isNotEmpty || time.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          time.isNotEmpty ? '$date • $time' : date,
+                          style: dateStyle,
                         ),
                       ],
-                    ),
-                    if (desc.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppTheme.darkElevatedColor : Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: _buildHighlightedText(
-                          desc,
-                          _searchQuery,
-                          GoogleFonts.inter(
-                            fontSize: 14,
-                            color: isDark ? Colors.grey.shade300 : Colors.black87,
-                            height: 1.5,
-                          ),
-                          maxLines: 3,
-                        ),
-                      ),
+                      // Description
+                      if (desc.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _searchQuery.isEmpty
+                            ? Text(desc, style: descStyle, maxLines: 2, overflow: TextOverflow.ellipsis)
+                            : _buildHighlightedText(desc, _searchQuery, descStyle, maxLines: 2),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Icon(Icons.chevron_right_rounded, size: 20, color: iconColor),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+  
+  void _onFeedTap(dynamic item, String title) {
+    final itemId = (item['itemId'] != null && item['itemId']['N'] != null)
+        ? item['itemId']['N'] as String
+        : '';
+    final itemType = (item['itemType'] != null && item['itemType']['N'] != null)
+        ? item['itemType']['N'] as String
+        : '';
+    
+    if (itemId.isNotEmpty && itemType.isNotEmpty) {
+      if (_isOffline) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('You\'re offline. Some details may not load.'),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppTheme.warningColor,
+          ),
+        );
+      }
+      
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FeedDetailScreen(
+            clientDetails: widget.clientDetails,
+            userData: widget.userData,
+            itemId: itemId,
+            itemType: itemType,
+            title: title,
+          ),
+        ),
+      );
+    }
   }
 }
 

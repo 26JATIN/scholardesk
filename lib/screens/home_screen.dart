@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:html/parser.dart' as html_parser;
 import '../services/api_service.dart';
@@ -47,8 +46,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   String? _userName;
   String? _currentSemester;
   String? _currentGroup;
-  int _selectedIndex = 0;
-  int _currentClassPage = 0;
 
   @override
   bool get wantKeepAlive => true; // Keep state alive for smooth transitions
@@ -57,36 +54,18 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   void initState() {
     super.initState();
     _pageController = PageController(
-      initialPage: _selectedIndex,
+      initialPage: 0,
       viewportFraction: 1.0, // Full page view
     );
     _classPageController = PageController(viewportFraction: 0.92);
-    // Listen for page changes to update nav bar smoothly
-    _pageController.addListener(_onPageScroll);
     _fetchAllData();
   }
 
   @override
   void dispose() {
-    _pageController.removeListener(_onPageScroll);
     _pageController.dispose();
     _classPageController.dispose();
     super.dispose();
-  }
-
-  // Smooth page scroll listener - updates nav only when page settles
-  void _onPageScroll() {
-    if (!mounted) return;
-    final page = _pageController.page;
-    if (page == null) return;
-    
-    // Only update when page is fully settled (no animation in progress)
-    final roundedPage = page.round();
-    if ((page - roundedPage).abs() < 0.01 && _selectedIndex != roundedPage) {
-      setState(() {
-        _selectedIndex = roundedPage;
-      });
-    }
   }
 
   Future<void> _fetchAllData() async {
@@ -561,14 +540,17 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     super.build(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
+    // Get current page for PopScope - use rounded value
+    int currentPage = 0;
+    if (_pageController.hasClients && _pageController.position.hasContentDimensions) {
+      currentPage = _pageController.page?.round() ?? 0;
+    }
+    
     return PopScope(
-      canPop: _selectedIndex == 0,
+      canPop: currentPage == 0,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
-        if (!didPop && _selectedIndex == 1) {
+        if (!didPop) {
           HapticFeedback.lightImpact();
-          setState(() {
-            _selectedIndex = 0;
-          });
           _pageController.animateToPage(
             0,
             duration: const Duration(milliseconds: 300),
@@ -591,44 +573,63 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             ),
           ],
         ),
-        bottomNavigationBar: Container(
-          decoration: BoxDecoration(
-            color: isDark ? AppTheme.darkCardColor : Colors.white,
-            border: Border(
-              top: BorderSide(
-                color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
-                width: 1,
+        bottomNavigationBar: AnimatedBuilder(
+          animation: _pageController,
+          builder: (context, child) {
+            double page = 0;
+            if (_pageController.hasClients && _pageController.position.hasContentDimensions) {
+              page = _pageController.page ?? 0;
+            }
+            return Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkCardColor : Colors.white,
+                border: Border(
+                  top: BorderSide(
+                    color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
+                    width: 1,
+                  ),
+                ),
               ),
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildNavItem(0, Icons.home_outlined, Icons.home_rounded, 'Home'),
-                  _buildNavItem(1, Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
-                ],
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildNavItemSmooth(0, Icons.home_outlined, Icons.home_rounded, 'Home', page),
+                      _buildNavItemSmooth(1, Icons.person_outline_rounded, Icons.person_rounded, 'Profile', page),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, IconData selectedIcon, String label) {
-    final isSelected = _selectedIndex == index;
+  Widget _buildNavItemSmooth(int index, IconData icon, IconData selectedIcon, String label, double currentPage) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Calculate smooth interpolation based on page position
+    final distance = (currentPage - index).abs();
+    final scale = (1 - distance.clamp(0.0, 1.0));
+    final isSelected = scale > 0.5; // Use selected icon when more than halfway
+    
+    // Interpolate values
+    final horizontalPadding = 16 + (4 * scale); // 16 to 20
+    final bgOpacity = scale * (isDark ? 0.2 : 0.1);
+    final iconColor = Color.lerp(
+      isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+      AppTheme.primaryColor,
+      scale,
+    )!;
     
     return GestureDetector(
       onTap: () {
-        if (_selectedIndex != index && mounted) {
+        if (index != currentPage.round() && mounted) {
           HapticFeedback.lightImpact();
-          setState(() {
-            _selectedIndex = index;
-          });
           _pageController.animateToPage(
             index,
             duration: const Duration(milliseconds: 300),
@@ -636,17 +637,13 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           );
         }
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
+      child: Container(
         padding: EdgeInsets.symmetric(
-          horizontal: isSelected ? 20 : 16,
+          horizontal: horizontalPadding,
           vertical: 10,
         ),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? AppTheme.primaryColor.withOpacity(isDark ? 0.2 : 0.1)
-              : Colors.transparent,
+          color: AppTheme.primaryColor.withOpacity(bgOpacity),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
@@ -655,18 +652,19 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             Icon(
               isSelected ? selectedIcon : icon,
               size: 24,
-              color: isSelected 
-                  ? AppTheme.primaryColor
-                  : (isDark ? Colors.grey.shade500 : Colors.grey.shade600),
+              color: iconColor,
             ),
-            if (isSelected) ...[
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.primaryColor,
+            if (scale > 0.5) ...[
+              SizedBox(width: 8 * scale),
+              Opacity(
+                opacity: ((scale - 0.5) * 2).clamp(0.0, 1.0), // Fade in text from 0.5 to 1.0
+                child: Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryColor,
+                  ),
                 ),
               ),
             ],
@@ -782,11 +780,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           sliver: SliverList(
             delegate: SliverChildListDelegate([
               // Upcoming Class Card
-              _buildUpcomingClassCard().animate().fadeIn(duration: 400.ms).slideY(begin: 0.2, end: 0),
+              _buildUpcomingClassCard(),
               const SizedBox(height: 16),
               
-              // Quick Stats Row
-              _buildQuickStats().animate().fadeIn(delay: 100.ms, duration: 400.ms).slideY(begin: 0.2, end: 0),
+              // Quick Stats Row - wrapped in AnimatedBuilder to update when page changes
+              AnimatedBuilder(
+                animation: _classPageController,
+                builder: (context, child) => _buildQuickStats(),
+              ),
               const SizedBox(height: 24),
               
               // Recent Ciculars
@@ -903,11 +904,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           child: PageView.builder(
             controller: _classPageController,
             itemCount: upcomingClasses.length,
-            onPageChanged: (index) {
-              setState(() {
-                _currentClassPage = index;
-              });
-            },
             itemBuilder: (context, index) {
               return _buildClassCard(upcomingClasses[index], index);
             },
@@ -915,22 +911,34 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         ),
         if (upcomingClasses.length > 1) ...[
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(upcomingClasses.length, (index) {
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: _currentClassPage == index ? 24 : 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: _currentClassPage == index 
-                      ? AppTheme.primaryColor 
-                      : AppTheme.primaryColor.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(4),
-                ),
+          AnimatedBuilder(
+            animation: _classPageController,
+            builder: (context, child) {
+              double page = 0;
+              if (_classPageController.hasClients && _classPageController.position.hasContentDimensions) {
+                page = _classPageController.page ?? 0;
+              }
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(upcomingClasses.length, (index) {
+                  // Calculate smooth interpolation
+                  final distance = (page - index).abs();
+                  final scale = (1 - distance.clamp(0.0, 1.0));
+                  final width = 8 + (16 * scale); // 8 to 24
+                  final opacity = 0.3 + (0.7 * scale); // 0.3 to 1.0
+                  
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: width,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(opacity),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  );
+                }),
               );
-            }),
+            },
           ),
         ],
       ],
@@ -1081,8 +1089,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final upcomingClasses = _getUpcomingClasses();
     Map<String, String>? selectedClass;
     
-    if (upcomingClasses.isNotEmpty && _currentClassPage < upcomingClasses.length) {
-      selectedClass = upcomingClasses[_currentClassPage];
+    // Get current page from controller
+    int currentPage = 0;
+    if (_classPageController.hasClients && _classPageController.position.hasContentDimensions) {
+      currentPage = _classPageController.page?.round() ?? 0;
+    }
+    
+    if (upcomingClasses.isNotEmpty && currentPage < upcomingClasses.length) {
+      selectedClass = upcomingClasses[currentPage];
     }
     
     double currentClassAttendance = 0.0;
@@ -1172,7 +1186,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           ),
         ),
       ],
-    ).animate().fadeIn(delay: 200.ms);
+    );
   }
 
   Widget _buildStatCard(String title, String value, IconData icon, Color color, VoidCallback onTap) {
@@ -1386,7 +1400,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           ),
         ),
       ),
-    ).animate().fadeIn(delay: (100 * index).ms, duration: 400.ms).slideY(begin: 0.2);
+    );
   }
 
   Widget _buildLoadingCard() {
