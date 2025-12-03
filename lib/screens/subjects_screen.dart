@@ -275,10 +275,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
-                            return _buildSubjectCard(_subjects[index], index, isDark)
-                                .animate()
-                                .fadeIn(delay: Duration(milliseconds: 100 * index), duration: 400.ms)
-                                .slideX(begin: 0.1);
+                            return _buildSubjectCard(_subjects[index], index, isDark);
                           },
                           childCount: _subjects.length,
                         ),
