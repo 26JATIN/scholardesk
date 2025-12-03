@@ -855,7 +855,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                     ),
                   ),
                   IconButton(
-                    onPressed: classesToMiss < 10
+                    onPressed: classesToMiss < 100
                         ? () {
                             setState(() {
                               _classesToMissMap[index] = classesToMiss + 1;
