@@ -157,13 +157,13 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   Color _getTypeColor(String? type) {
     switch (type?.toLowerCase()) {
       case 'theory':
-        return const Color(0xFF6366F1);
+        return AppTheme.primaryColor;
       case 'practical':
-        return const Color(0xFF10B981);
+        return AppTheme.successColor;
       case 'universal':
-        return const Color(0xFFF59E0B);
+        return AppTheme.warningColor;
       default:
-        return const Color(0xFF8B5CF6);
+        return AppTheme.secondaryColor;
     }
   }
 

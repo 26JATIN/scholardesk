@@ -12,6 +12,7 @@ import 'feed_detail_screen.dart';
 import 'attendance_screen.dart';
 import 'timetable_screen.dart';
 import 'profile_screen.dart';
+import 'subjects_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -30,20 +31,24 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
   final ApiService _apiService = ApiService();
   late PageController _pageController;
+  late PageController _classPageController;
   
   // Data holders
   List<dynamic> _feedItems = [];
   Map<String, List<Map<String, String>>> _timetable = {};
   List<AttendanceSubject> _subjects = [];
+  List<Subject> _subjectDetails = []; // Subject details from subjects screen
   
   // Loading states
   bool _isLoadingFeed = true;
   bool _isLoadingTimetable = true;
+  bool _isLoadingSubjects = true;
   
   String? _userName;
   String? _currentSemester;
   String? _currentGroup;
   int _selectedIndex = 0;
+  int _currentClassPage = 0;
 
   @override
   bool get wantKeepAlive => true; // Keep state alive for smooth transitions
@@ -55,6 +60,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       initialPage: _selectedIndex,
       viewportFraction: 1.0, // Full page view
     );
+    _classPageController = PageController(viewportFraction: 0.92);
     // Listen for page changes to update nav bar smoothly
     _pageController.addListener(_onPageScroll);
     _fetchAllData();
@@ -64,6 +70,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   void dispose() {
     _pageController.removeListener(_onPageScroll);
     _pageController.dispose();
+    _classPageController.dispose();
     super.dispose();
   }
 
@@ -97,6 +104,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       _fetchTimetable(),
       _fetchAttendance(),
       _fetchSubjectsData(), // Fetch subjects to get semester & group
+      _fetchSubjectDetails(), // Fetch detailed subject info
     ]);
   }
 
@@ -175,6 +183,101 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           if (group != null) _currentGroup = group;
         });
       }
+    }
+  }
+
+  Future<void> _fetchSubjectDetails() async {
+    try {
+      final baseUrl = widget.clientDetails['baseUrl'];
+      final clientAbbr = widget.clientDetails['client_abbr'];
+      final userId = widget.userData['userId'].toString();
+      final sessionId = widget.userData['sessionId'].toString();
+      final roleId = widget.userData['roleId'].toString();
+      final appKey = widget.userData['apiKey'].toString();
+
+      final htmlContent = await _apiService.getSubjects(
+        baseUrl: baseUrl,
+        clientAbbr: clientAbbr,
+        userId: userId,
+        sessionId: sessionId,
+        roleId: roleId,
+        appKey: appKey,
+      );
+
+      _parseSubjectDetails(htmlContent);
+    } catch (e) {
+      debugPrint('Error fetching subject details: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingSubjects = false;
+        });
+      }
+    }
+  }
+
+  void _parseSubjectDetails(String htmlContent) {
+    // Clean the HTML
+    String cleanHtml = htmlContent.replaceAll(r'\"', '"').replaceAll(r'\/', '/');
+    if (cleanHtml.startsWith('"') && cleanHtml.endsWith('"')) {
+      cleanHtml = cleanHtml.substring(1, cleanHtml.length - 1);
+    }
+
+    final document = html_parser.parse(cleanHtml);
+    final subjectWraps = document.querySelectorAll('.ui-subject-wrap');
+    List<Subject> subjects = [];
+
+    for (var wrap in subjectWraps) {
+      final details = wrap.querySelectorAll('.ui-subject-detail');
+      
+      String? name;
+      String? specialization;
+      String? code;
+      String? type;
+      String? group;
+      String? credits;
+      bool isOptional = false;
+
+      for (var detail in details) {
+        final text = detail.text.trim();
+        final html = detail.innerHtml;
+        
+        if (text.contains('Subject Name:')) {
+          name = text.replaceFirst('Subject Name:', '').trim();
+        } else if (text.contains('Specialization:')) {
+          specialization = text.replaceFirst('Specialization:', '').trim();
+        } else if (text.contains('Subject Code:')) {
+          code = text.replaceFirst('Subject Code:', '').trim();
+          if (html.toLowerCase().contains('optional')) {
+            isOptional = true;
+          }
+        } else if (text.contains('Subject Type:')) {
+          type = text.replaceFirst('Subject Type:', '').trim();
+        } else if (text.contains('Group:')) {
+          group = text.replaceFirst('Group:', '').trim();
+        } else if (text.contains('Credits:')) {
+          credits = text.replaceFirst('Credits:', '').trim();
+          if (credits == '----') credits = null;
+        }
+      }
+
+      if (name != null) {
+        subjects.add(Subject(
+          name: name,
+          specialization: specialization,
+          code: code,
+          type: type,
+          group: group,
+          credits: credits,
+          isOptional: isOptional,
+        ));
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _subjectDetails = subjects;
+        _isLoadingSubjects = false;
+      });
     }
   }
 
@@ -357,8 +460,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     }).toList();
   }
 
-  Map<String, String>? _getUpcomingClass() {
+  List<Map<String, String>> _getUpcomingClasses() {
     final now = DateTime.now();
+    if (now.weekday > 6) return []; // Sunday
+    
     final currentDay = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.weekday - 1];
     final todayClasses = _timetable[currentDay] ?? [];
     
@@ -367,6 +472,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     
     final currentTime = TimeOfDay.now();
     debugPrint('⏰ Current time: ${currentTime.hour}:${currentTime.minute}');
+    
+    List<Map<String, String>> upcomingClasses = [];
     
     for (var classData in todayClasses) {
       final timeStr = classData['time'] ?? '';
@@ -385,7 +492,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           if (_isAfter(startTime, currentTime)) {
             debugPrint('✅ Found upcoming class: ${classData['subject']}');
             debugPrint('   Details: $classData');
-            return classData;
+            upcomingClasses.add(classData);
           } else {
             debugPrint('   ⏭️ Class already passed');
           }
@@ -397,8 +504,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       }
     }
     
-    debugPrint('❌ No upcoming class found');
-    return null;
+    debugPrint('📋 Total upcoming classes: ${upcomingClasses.length}');
+    return upcomingClasses;
   }
 
   TimeOfDay? _parseTime(String timeStr) {
@@ -717,13 +824,146 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       return _buildLoadingCard();
     }
     
-    final upcomingClass = _getUpcomingClass();
+    final upcomingClasses = _getUpcomingClasses();
     
-    if (upcomingClass == null) {
-      return Container(
-        padding: const EdgeInsets.all(20),
+    if (upcomingClasses.isEmpty) {
+      return GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TimetableScreen(
+                clientDetails: widget.clientDetails,
+                userData: widget.userData,
+              ),
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppTheme.successColor,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.celebration_rounded, color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'No More Classes!',
+                          style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Enjoy your free time 🎉',
+                          style: GoogleFonts.inter(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: Colors.white.withOpacity(0.6),
+                    size: 18,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Build swipeable cards for upcoming classes
+    return Column(
+      children: [
+        SizedBox(
+          height: 185,
+          child: PageView.builder(
+            controller: _classPageController,
+            itemCount: upcomingClasses.length,
+            onPageChanged: (index) {
+              setState(() {
+                _currentClassPage = index;
+              });
+            },
+            itemBuilder: (context, index) {
+              return _buildClassCard(upcomingClasses[index], index);
+            },
+          ),
+        ),
+        if (upcomingClasses.length > 1) ...[
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(upcomingClasses.length, (index) {
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: _currentClassPage == index ? 24 : 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: _currentClassPage == index 
+                      ? AppTheme.primaryColor 
+                      : AppTheme.primaryColor.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              );
+            }),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildClassCard(Map<String, String> classData, int index) {
+    final subjectCode = classData['subject'] ?? 'Class';
+    final subjectName = _getSubjectNameByCode(subjectCode);
+    
+    // Solid colors array
+    final colors = [
+      AppTheme.primaryColor,
+    ];
+    final cardColor = colors[index % colors.length];
+    
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TimetableScreen(
+              clientDetails: widget.clientDetails,
+              userData: widget.userData,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.successColor,
+          color: cardColor,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Column(
@@ -732,122 +972,78 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.celebration_rounded, color: Colors.white, size: 24),
+                  child: const Icon(Icons.schedule_rounded, color: Colors.white, size: 20),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'No More Classes!',
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                        index == 0 ? 'Up Next' : 'Coming Up',
+                        style: GoogleFonts.inter(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 4),
                       Text(
-                        'Enjoy your free time 🎉',
-                        style: GoogleFonts.inter(
-                          color: Colors.white.withOpacity(0.9),
-                          fontSize: 14,
+                        subjectName,
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.white.withOpacity(0.6),
+                  size: 16,
+                ),
               ],
             ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryColor,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(Icons.schedule_rounded, color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Up Next',
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _buildInfoChip(Icons.access_time_rounded, classData['time'] ?? ''),
+                _buildInfoChip(Icons.location_on_outlined, classData['location'] ?? ''),
+              ],
+            ),
+            if (classData['teacher']?.isNotEmpty ?? false) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(Icons.person_outline_rounded, color: Colors.white.withOpacity(0.8), size: 14),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      classData['teacher'] ?? '',
                       style: GoogleFonts.inter(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withOpacity(0.9),
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _getSubjectNameByCode(upcomingClass['subject'] ?? 'Class'),
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildInfoChip(Icons.access_time_rounded, upcomingClass['time'] ?? ''),
-              _buildInfoChip(Icons.location_on_outlined, upcomingClass['location'] ?? ''),
-            ],
-          ),
-          if (upcomingClass['teacher']?.isNotEmpty ?? false) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.person_outline_rounded, color: Colors.white.withOpacity(0.8), size: 16),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    upcomingClass['teacher'] ?? '',
-                    style: GoogleFonts.inter(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -881,16 +1077,21 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildQuickStats() {
-    // Get current/upcoming class attendance
-    final upcomingClass = _getUpcomingClass();
-    double currentClassAttendance = 0.0;
-    String currentClassName = 'No Data';
+    // Get the currently selected class from the swipe view
+    final upcomingClasses = _getUpcomingClasses();
+    Map<String, String>? selectedClass;
     
-    if (upcomingClass != null) {
-      final subjectCode = upcomingClass['subject'] ?? '';
-      final teacherName = upcomingClass['teacher'] ?? '';
-      debugPrint('🎯 Looking for attendance for code: $subjectCode, teacher: $teacherName');
-      debugPrint('📋 Available subjects: ${_subjects.map((s) => '${s.name} (${s.code})').toList()}');
+    if (upcomingClasses.isNotEmpty && _currentClassPage < upcomingClasses.length) {
+      selectedClass = upcomingClasses[_currentClassPage];
+    }
+    
+    double currentClassAttendance = 0.0;
+    String currentClassName = 'No Class';
+    String? subjectCodeForNav;
+    
+    if (selectedClass != null) {
+      final subjectCode = selectedClass['subject'] ?? '';
+      subjectCodeForNav = subjectCode;
       
       // Try matching by subject code first (most reliable)
       var matchingSubject = _subjects.firstWhere(
@@ -915,40 +1116,27 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         );
       }
       
-      // If still no match, try matching by teacher name
-      if (matchingSubject.name == null && teacherName.isNotEmpty) {
-        debugPrint('🔍 Trying to match by teacher name: $teacherName');
-        // Note: We don't have teacher info in AttendanceSubject, so we'll skip this
-        // You may need to enhance the attendance parsing to include teacher info
-      }
-      
       if (matchingSubject.name != null) {
-        debugPrint('✅ Matched subject: ${matchingSubject.name} (${matchingSubject.code})');
-        debugPrint('   Attendance: ${matchingSubject.percentage}%');
         currentClassAttendance = double.tryParse(matchingSubject.percentage ?? '0') ?? 0.0;
-        // Use the full subject name for display
         currentClassName = matchingSubject.name ?? _getSubjectNameByCode(subjectCode);
       } else {
-        debugPrint('❌ No matching subject found');
-        // Try to get name from code lookup
         currentClassName = _getSubjectNameByCode(subjectCode);
-        // If it's still just the code, show "No Data"
         if (currentClassName == subjectCode) {
-          currentClassName = 'No Data';
+          currentClassName = subjectCode.isNotEmpty ? subjectCode : 'No Data';
         }
       }
     }
     
-    final totalClasses = _subjects.isEmpty ? 0 : _subjects.length;
+    final totalSubjects = _isLoadingSubjects ? 0 : _subjectDetails.length;
 
     return Row(
       children: [
         Expanded(
           child: _buildStatCard(
-            currentClassName.length > 15 ? 'Class Attendance' : currentClassName,
-            currentClassAttendance > 0 ? '${currentClassAttendance.toStringAsFixed(2)}%' : '--',
-            Icons.schedule_rounded,
-            currentClassAttendance >= 75 ? AppTheme.successColor : AppTheme.errorColor,
+            currentClassName.length > 15 ? 'Attendance' : currentClassName,
+            currentClassAttendance > 0 ? '${currentClassAttendance.toStringAsFixed(1)}%' : '--',
+            Icons.pie_chart_rounded,
+            currentClassAttendance >= 75 ? AppTheme.successColor : (currentClassAttendance > 0 ? AppTheme.errorColor : AppTheme.primaryColor),
             () {
               Navigator.push(
                 context,
@@ -956,7 +1144,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   builder: (context) => AttendanceScreen(
                     clientDetails: widget.clientDetails,
                     userData: widget.userData,
-                    initialSubjectCode: upcomingClass?['subject'],
+                    initialSubjectCode: subjectCodeForNav,
                   ),
                 ),
               );
@@ -967,14 +1155,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         Expanded(
           child: _buildStatCard(
             'Subjects',
-            '$totalClasses',
+            totalSubjects > 0 ? '$totalSubjects' : '--',
             Icons.menu_book_rounded,
             AppTheme.accentColor,
             () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => TimetableScreen(
+                  builder: (context) => SubjectsScreen(
                     clientDetails: widget.clientDetails,
                     userData: widget.userData,
                   ),
@@ -1078,12 +1266,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final date = item['creDate']?['S'] ?? '';
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    // Cycle through colors for visual variety
+    // Cycle through colors for visual variety - Professional palette
     final colors = [
-      AppTheme.primaryColor,
+
       AppTheme.accentColor,
-      AppTheme.successColor,
-      AppTheme.secondaryColor,
     ];
     final accentColor = colors[index % colors.length];
 
@@ -1254,4 +1440,24 @@ class AttendanceSubject {
   String? delivered;
   String? attended;
   String? percentage;
+}
+
+class Subject {
+  final String? name;
+  final String? specialization;
+  final String? code;
+  final String? type;
+  final String? group;
+  final String? credits;
+  final bool isOptional;
+
+  Subject({
+    this.name,
+    this.specialization,
+    this.code,
+    this.type,
+    this.group,
+    this.credits,
+    this.isOptional = false,
+  });
 }

@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Modern vibrant color palette
-  static const Color primaryColor = Color(0xFF6366F1); // Indigo
-  static const Color secondaryColor = Color(0xFFEC4899); // Pink
-  static const Color tertiaryColor = Color(0xFF8B5CF6); // Purple
-  static const Color accentColor = Color(0xFF06B6D4); // Cyan
-  static const Color successColor = Color(0xFF10B981); // Green
-  static const Color warningColor = Color(0xFFF59E0B); // Amber
-  static const Color errorColor = Color(0xFFEF4444); // Red
-  static const Color surfaceColor = Color(0xFFFAFAFC);
+  // Professional Blue Color Palette
+  static const Color primaryColor = Color(0xFF1E40AF); // Deep Blue (Professional)
+  static const Color secondaryColor = Color(0xFF0369A1); // Ocean Blue
+  static const Color tertiaryColor = Color(0xFF475569); // Slate Gray
+  static const Color accentColor = Color(0xFF0284C7); // Sky Blue
+  static const Color successColor = Color(0xFF059669); // Emerald
+  static const Color warningColor = Color(0xFFD97706); // Amber (muted)
+  static const Color errorColor = Color(0xFFDC2626); // Red
+  static const Color surfaceColor = Color(0xFFF8FAFC); // Cool Gray
   static const Color cardColor = Colors.white;
 
   // Dark theme colors - Pitch Black AMOLED
@@ -31,25 +31,25 @@ class AppTheme {
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+    colors: [Color(0xFF1E40AF), Color(0xFF0284C7)],
   );
 
   static const LinearGradient accentGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF06B6D4), Color(0xFF3B82F6)],
+    colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
   );
 
   static const LinearGradient warningGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF59E0B), Color(0xFFEF4444)],
+    colors: [Color(0xFFD97706), Color(0xFFDC2626)],
   );
 
   static const LinearGradient successGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF10B981), Color(0xFF06B6D4)],
+    colors: [Color(0xFF059669), Color(0xFF0284C7)],
   );
 
   static ThemeData get lightTheme {

@@ -69,11 +69,58 @@ class _FeedScreenState extends State<FeedScreen> {
     super.dispose();
   }
 
+  // Sort feed items by date (newest first)
+  void _sortFeedByDate(List<dynamic> items) {
+    items.sort((a, b) {
+      // Try to parse dates for comparison
+      final dateA = _parseDate(a['creDate']?['S'] ?? '');
+      final dateB = _parseDate(b['creDate']?['S'] ?? '');
+      
+      if (dateA != null && dateB != null) {
+        return dateB.compareTo(dateA); // Newest first
+      }
+      
+      // Fallback to timestamp if available
+      final timestampA = int.tryParse(a['timeStamp']?['N']?.toString() ?? '0') ?? 0;
+      final timestampB = int.tryParse(b['timeStamp']?['N']?.toString() ?? '0') ?? 0;
+      return timestampB.compareTo(timestampA); // Newest first
+    });
+  }
+
+  // Parse date string to DateTime
+  DateTime? _parseDate(String dateStr) {
+    if (dateStr.isEmpty) return null;
+    
+    try {
+      // Try common formats: "DD-MM-YYYY", "DD/MM/YYYY", "YYYY-MM-DD"
+      final parts = dateStr.split(RegExp(r'[-/]'));
+      if (parts.length == 3) {
+        // Check if first part is year (YYYY-MM-DD)
+        if (parts[0].length == 4) {
+          return DateTime(
+            int.parse(parts[0]),
+            int.parse(parts[1]),
+            int.parse(parts[2]),
+          );
+        }
+        // DD-MM-YYYY or DD/MM/YYYY
+        return DateTime(
+          int.parse(parts[2]),
+          int.parse(parts[1]),
+          int.parse(parts[0]),
+        );
+      }
+    } catch (e) {
+      debugPrint('Date parse error: $e');
+    }
+    return null;
+  }
+
   void _filterFeed() {
     setState(() {
       _searchQuery = _searchController.text.toLowerCase();
       if (_searchQuery.isEmpty) {
-        _filteredFeedItems = _feedItems;
+        _filteredFeedItems = List.from(_feedItems);
       } else {
         _filteredFeedItems = _feedItems.where((item) {
           final title = (item['title']?['S'] ?? '').toLowerCase();
@@ -82,6 +129,59 @@ class _FeedScreenState extends State<FeedScreen> {
         }).toList();
       }
     });
+  }
+
+  // Build text with highlighted search matches
+  Widget _buildHighlightedText(String text, String query, TextStyle style, {int maxLines = 2}) {
+    if (query.isEmpty || !text.toLowerCase().contains(query)) {
+      return Text(
+        text,
+        style: style,
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final List<TextSpan> spans = [];
+    final lowerText = text.toLowerCase();
+    int start = 0;
+
+    while (true) {
+      final index = lowerText.indexOf(query, start);
+      if (index == -1) {
+        // Add remaining text
+        if (start < text.length) {
+          spans.add(TextSpan(text: text.substring(start), style: style));
+        }
+        break;
+      }
+
+      // Add text before match
+      if (index > start) {
+        spans.add(TextSpan(text: text.substring(start, index), style: style));
+      }
+
+      // Add highlighted match
+      spans.add(TextSpan(
+        text: text.substring(index, index + query.length),
+        style: style.copyWith(
+          backgroundColor: isDark 
+              ? AppTheme.successColor.withOpacity(0.3) 
+              : AppTheme.successColor.withOpacity(0.2),
+          color: isDark ? Colors.white : AppTheme.successColor,
+          fontWeight: FontWeight.bold,
+        ),
+      ));
+
+      start = index + query.length;
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
+    );
   }
 
   Future<void> _fetchFeed({dynamic start = 0, bool isRefresh = false}) async {
@@ -150,6 +250,8 @@ class _FeedScreenState extends State<FeedScreen> {
           } else {
             _feedItems.addAll(uniqueNewItems);
           }
+          // Sort by date (newest first)
+          _sortFeedByDate(_feedItems);
           _filteredFeedItems = List.from(_feedItems);
           _isLoading = false;
           _nextPageStart = actuallyHasMore ? nextPage : null;
@@ -231,6 +333,8 @@ class _FeedScreenState extends State<FeedScreen> {
 
         setState(() {
           _feedItems.addAll(uniqueNewItems);
+          // Sort by date (newest first)
+          _sortFeedByDate(_feedItems);
           _filteredFeedItems = List.from(_feedItems);
           _isLoadingMore = false;
           _nextPageStart = actuallyHasMore ? nextPage : null;
@@ -564,14 +668,15 @@ class _FeedScreenState extends State<FeedScreen> {
         ? item['creTime']['S'] as String
         : '';
 
-    // Use solid colors based on index
-    final colors = [
-      AppTheme.primaryColor,
-      AppTheme.accentColor,
-      AppTheme.successColor,
-      AppTheme.secondaryColor,
-    ];
-    final accentColor = colors[index % colors.length];
+    // Check if this item matches search query
+    final bool isSearchMatch = _searchQuery.isNotEmpty && 
+        (title.toLowerCase().contains(_searchQuery) || 
+         desc.toLowerCase().contains(_searchQuery));
+
+    // Use primary color, with highlight for search matches
+    final accentColor = isSearchMatch 
+        ? AppTheme.successColor  // Highlight matching items
+        : AppTheme.primaryColor;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -653,15 +758,15 @@ class _FeedScreenState extends State<FeedScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              _buildHighlightedText(
                                 title,
-                                style: GoogleFonts.outfit(
+                                _searchQuery,
+                                GoogleFonts.outfit(
                                   fontSize: 17,
                                   fontWeight: FontWeight.bold,
                                   color: isDark ? Colors.white : Colors.black87,
                                 ),
                                 maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
                               ),
                               if (date.isNotEmpty || time.isNotEmpty) ...[
                                 const SizedBox(height: 6),
@@ -732,15 +837,15 @@ class _FeedScreenState extends State<FeedScreen> {
                           color: isDark ? AppTheme.darkElevatedColor : Colors.grey.shade50,
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: Text(
+                        child: _buildHighlightedText(
                           desc,
-                          style: GoogleFonts.inter(
+                          _searchQuery,
+                          GoogleFonts.inter(
                             fontSize: 14,
                             color: isDark ? Colors.grey.shade300 : Colors.black87,
                             height: 1.5,
                           ),
                           maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],

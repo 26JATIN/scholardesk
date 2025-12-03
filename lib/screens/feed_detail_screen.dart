@@ -555,20 +555,20 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
               
               if (fileName.toLowerCase().endsWith('.pdf')) {
                 fileIcon = Icons.picture_as_pdf_rounded;
-                iconColor = const Color(0xFFE53935);
+                iconColor = AppTheme.errorColor;
               } else if (fileName.toLowerCase().endsWith('.doc') || 
                          fileName.toLowerCase().endsWith('.docx')) {
                 fileIcon = Icons.description_rounded;
-                iconColor = const Color(0xFF1976D2);
+                iconColor = AppTheme.primaryColor;
               } else if (fileName.toLowerCase().endsWith('.jpg') || 
                          fileName.toLowerCase().endsWith('.png') ||
                          fileName.toLowerCase().endsWith('.jpeg')) {
                 fileIcon = Icons.image_rounded;
-                iconColor = const Color(0xFF43A047);
+                iconColor = AppTheme.successColor;
               } else if (fileName.toLowerCase().endsWith('.zip') || 
                          fileName.toLowerCase().endsWith('.rar')) {
                 fileIcon = Icons.folder_zip_rounded;
-                iconColor = const Color(0xFFFFB300);
+                iconColor = AppTheme.warningColor;
               }
               
               return Container(

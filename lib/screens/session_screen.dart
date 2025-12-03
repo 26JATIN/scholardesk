@@ -73,7 +73,7 @@ class _SessionScreenState extends State<SessionScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Session changed to ${session['sessionName']}'),
-            backgroundColor: const Color(0xFF10B981),
+            backgroundColor: AppTheme.successColor,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),

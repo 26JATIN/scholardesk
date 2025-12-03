@@ -30,6 +30,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
   Map<String, String> _studentDetails = {};
   Map<String, String> _customFields = {};
   Map<String, String> _addressInfo = {};
+  String? _gender; // Track gender for color theming
   
   // Parent info
   String? _fatherPhotoUrl;
@@ -37,6 +38,12 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
   String? _motherPhotoUrl;
   Map<String, String> _motherDetails = {};
 
+  // Gender-based colors
+  Color get _studentPrimaryColor => _gender?.toLowerCase() == 'female' 
+      ? const Color(0xFFDB2777) // Professional Pink for girls
+      : const Color(0xFF1E40AF); // Professional Blue for boys
+  
+  Color get _additionalInfoColor => const Color(0xFFDC2626); // Red for additional info
   @override
   void initState() {
     super.initState();
@@ -99,6 +106,14 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
     final studentInfo = document.querySelector('#student-info');
     if (studentInfo != null) {
       _studentDetails = _parseDetailsSection(studentInfo);
+      // Extract gender from student details
+      for (var entry in _studentDetails.entries) {
+        if (entry.key.toLowerCase().contains('gender') || 
+            entry.key.toLowerCase().contains('sex')) {
+          _gender = entry.value;
+          break;
+        }
+      }
     }
 
     // Parse Custom Fields
@@ -343,7 +358,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor,
+              color: _studentPrimaryColor,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
@@ -404,7 +419,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: const Color(0xFF8B5CF6),
+              color: _additionalInfoColor,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
@@ -477,7 +492,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: const Color(0xFFF59E0B),
+              color: AppTheme.warningColor,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
@@ -536,8 +551,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
     }
     
     final headerColor = parentType == 'Father' 
-        ? const Color(0xFF10B981)
-        : const Color(0xFFEC4899);
+        ? AppTheme.primaryColor
+        : const Color(0xFFDB2777); // Professional Pink for Mother
     
     return Container(
       decoration: BoxDecoration(

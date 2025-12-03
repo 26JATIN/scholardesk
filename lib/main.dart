@@ -48,9 +48,13 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  // Cache the session future to prevent re-fetching on theme change
+  late Future<Map<String, dynamic>?> _sessionFuture;
+
   @override
   void initState() {
     super.initState();
+    _sessionFuture = ApiService().getSession();
     themeService.addListener(_onThemeChanged);
   }
 
@@ -88,7 +92,7 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       home: FutureBuilder<Map<String, dynamic>?>(
-        future: ApiService().getSession(),
+        future: _sessionFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(

@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/parser.dart' as html_parser;
-import 'package:html/dom.dart' as dom;
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../main.dart' show themeService;
 import 'school_code_screen.dart';
-import 'attendance_screen.dart';
 import 'session_screen.dart';
-import 'timetable_screen.dart';
 import 'personal_info_screen.dart';
 import 'report_card.dart';
 import 'change_password_screen.dart';
-import 'subjects_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -38,6 +33,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _name;
   String? _profileImageUrl;
   String? _details;
+  String? _gender; // Track gender for color theming
   
   // Parsed separate fields (from menu or detailed API)
   String? _parsedSemester;
@@ -48,6 +44,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   List<ProfileMenuItem> _menuItems = [];
+
+  // Gender-based profile border color
+  Color get _profileBorderColor => _gender?.toLowerCase() == 'female' 
+      ? const Color(0xFFDB2777) // Professional Pink for girls
+      : AppTheme.primaryColor; // Professional Blue for boys
 
   @override
   void initState() {
@@ -167,6 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         String? fetchedBatch;
         String? fetchedSemester;
         String? fetchedGroup;
+        String? fetchedGender;
 
         for (int i = 0; i < titles.length && i < values.length; i++) {
           final title = titles[i].text.trim();
@@ -184,6 +186,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             fetchedSemester = value;
           } else if ((lowerTitle.contains('group') || lowerTitle.contains('section')) && !lowerTitle.contains('blood')) {
             fetchedGroup = value;
+          } else if (lowerTitle.contains('gender') || lowerTitle.contains('sex')) {
+            fetchedGender = value;
           }
         }
         
@@ -216,6 +220,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (fetchedName != null && fetchedName.isNotEmpty) {
           setState(() {
             _name = fetchedName;
+            
+            // Set gender for color theming
+            if (fetchedGender != null && fetchedGender.isNotEmpty) {
+              _gender = fetchedGender;
+            }
             
             // Construct details string if we have extra info
             List<String> detailsParts = [];
@@ -402,7 +411,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .where((link) {
           final nameDiv = link.querySelector('.grid-name');
           final name = nameDiv?.text.trim() ?? 'Unknown';
-          return name.toLowerCase() != 'privacy';
+          // Filter out items we don't want
+          final lowerName = name.toLowerCase();
+          return lowerName != 'privacy' && 
+                 lowerName != 'attendance' && 
+                 lowerName != 'timetable' && 
+                 lowerName != 'subjects';
         })
         .map((link) {
       final nameDiv = link.querySelector('.grid-name');
@@ -416,51 +430,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }).toList();
 
-    // Manually add Attendance item if not already present
-    if (!_menuItems.any((item) => item.name.toLowerCase() == 'attendance')) {
-      _menuItems.insert(0, ProfileMenuItem(
-        name: 'Attendance',
-        action: () => _handleMenuAction('Attendance', null, null),
-      ));
-    }
-
-    // Manually add Timetable item if not already present
-    if (!_menuItems.any((item) => item.name.toLowerCase() == 'timetable')) {
-      _menuItems.insert(1, ProfileMenuItem(
-        name: 'Timetable',
-        action: () => _handleMenuAction('Timetable', null, null),
-      ));
-    }
-
     // Manually add Report Card item
     if (!_menuItems.any((item) => item.name.toLowerCase() == 'report card')) {
-      _menuItems.insert(2, ProfileMenuItem(
+      _menuItems.insert(0, ProfileMenuItem(
         name: 'Report Card',
         action: () => _handleMenuAction('Report Card', null, null),
-      ));
-    }
-
-    // Manually add Subjects item
-    if (!_menuItems.any((item) => item.name.toLowerCase() == 'subjects')) {
-      _menuItems.insert(3, ProfileMenuItem(
-        name: 'Subjects',
-        action: () => _handleMenuAction('Subjects', null, null),
       ));
     }
   }
 
   Future<void> _handleMenuAction(String name, String? href, String? onclick) async {
-    if (name.toLowerCase() == 'attendance') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => AttendanceScreen(
-            clientDetails: widget.clientDetails,
-            userData: widget.userData,
-          ),
-        ),
-      );
-    } else if (name.toLowerCase() == 'logout') {
+    if (name.toLowerCase() == 'logout') {
       await _logout();
     } else if (name.toLowerCase() == 'change password') {
       Navigator.push(
@@ -482,31 +462,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       );
-    } else if (name.toLowerCase() == 'timetable') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => TimetableScreen(
-            clientDetails: widget.clientDetails,
-            userData: widget.userData,
-          ),
-        ),
-      );
     } else if (name.toLowerCase() == 'report card' || name.toLowerCase() == 'results') {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => ReportCardScreen(
-            clientDetails: widget.clientDetails,
-            userData: widget.userData,
-          ),
-        ),
-      );
-    } else if (name.toLowerCase() == 'subjects') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => SubjectsScreen(
             clientDetails: widget.clientDetails,
             userData: widget.userData,
           ),
@@ -637,7 +597,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.primaryColor, width: 3),
+                      border: Border.all(color: _profileBorderColor, width: 3),
                     ),
                     child: _profileImageUrl != null && _profileImageUrl!.isNotEmpty
                         ? CircleAvatar(
@@ -651,15 +611,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 fit: BoxFit.cover,
                                 loadingBuilder: (context, child, loadingProgress) {
                                   if (loadingProgress == null) return child;
-                                  return const Center(
+                                  return Center(
                                     child: CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                                      valueColor: AlwaysStoppedAnimation<Color>(_profileBorderColor),
                                     ),
                                   );
                                 },
                                 errorBuilder: (context, error, stackTrace) {
                                   debugPrint('Error loading profile image: $error');
-                                  return const Icon(Icons.person, size: 50, color: AppTheme.primaryColor);
+                                  return Icon(Icons.person, size: 50, color: _profileBorderColor);
                                 },
                               ),
                             ),
@@ -667,7 +627,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         : CircleAvatar(
                             radius: 50,
                             backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
-                            child: const Icon(Icons.person, size: 50, color: AppTheme.primaryColor),
+                            child: Icon(Icons.person, size: 50, color: _profileBorderColor),
                           ),
                   ),
                   // Tap hint overlay
@@ -747,26 +707,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Color accentColor;
 
     switch (item.name.toLowerCase()) {
-      case 'attendance':
-        iconData = Icons.class_rounded;
-        accentColor = AppTheme.successColor;
-        break;
       case 'session':
         iconData = Icons.calendar_today_rounded;
-        accentColor = const Color(0xFF3B82F6);
-        break;
-      case 'timetable':
-        iconData = Icons.schedule_rounded;
-        accentColor = AppTheme.tertiaryColor;
+        accentColor = AppTheme.secondaryColor;
         break;
       case 'report card':
       case 'results':
         iconData = Icons.assignment_turned_in_rounded;
-        accentColor = AppTheme.secondaryColor;
-        break;
-      case 'subjects':
-        iconData = Icons.menu_book_rounded;
-        accentColor = const Color(0xFF14B8A6);
+        accentColor = AppTheme.successColor;
         break;
       case 'personal info':
       case 'profile':
@@ -783,7 +731,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         break;
       default:
         iconData = Icons.grid_view_rounded;
-        accentColor = const Color(0xFFA855F7);
+        accentColor = AppTheme.tertiaryColor;
     }
 
     return Container(

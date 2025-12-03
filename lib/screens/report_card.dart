@@ -466,17 +466,17 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
     switch (grade.toUpperCase()) {
       case 'O':
       case 'A+':
-        return const Color(0xFF10B981); // Green
+        return AppTheme.successColor;
       case 'A':
-        return const Color(0xFF3B82F6); // Blue
+        return AppTheme.primaryColor;
       case 'B+':
       case 'B':
-        return const Color(0xFFF59E0B); // Amber
+        return AppTheme.warningColor;
       case 'C':
       case 'P':
-        return const Color(0xFFF97316); // Orange
+        return AppTheme.accentColor;
       case 'F':
-        return const Color(0xFFEF4444); // Red
+        return AppTheme.errorColor;
       default:
         return Colors.grey;
     }
