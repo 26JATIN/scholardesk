@@ -22,7 +22,7 @@ void main() {
         userData: userData,
         itemId: '1',
         itemType: '1',
-        title: 'Test Announcement',
+        title: 'Test Cicular',
       ),
     ));
     

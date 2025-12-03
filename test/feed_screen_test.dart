@@ -25,8 +25,8 @@ void main() {
     
     // We can't easily mock the API call here without dependency injection or mocking http,
     // so we'll just verify the initial UI state.
-    // To verify the title "Announcements", we need to wait for the frame.
+    // To verify the title "Ciculars", we need to wait for the frame.
     await tester.pump();
-    expect(find.text('Announcements'), findsOneWidget);
+    expect(find.text('Ciculars'), findsOneWidget);
   });
 }

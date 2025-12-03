@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../services/feed_cache_service.dart';
 import '../theme/app_theme.dart';
@@ -316,7 +315,7 @@ class _FeedScreenState extends State<FeedScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('${trulyNewItems.length} new announcement${trulyNewItems.length > 1 ? 's' : ''}'),
+                content: Text('${trulyNewItems.length} new cicular${trulyNewItems.length > 1 ? 's' : ''}'),
                 duration: const Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
                 backgroundColor: AppTheme.successColor,
@@ -460,7 +459,7 @@ class _FeedScreenState extends State<FeedScreen> {
             if (uniqueNewItems.isNotEmpty && mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('${uniqueNewItems.length} new announcement${uniqueNewItems.length > 1 ? 's' : ''}'),
+                  content: Text('${uniqueNewItems.length} new cicular${uniqueNewItems.length > 1 ? 's' : ''}'),
                   duration: const Duration(seconds: 2),
                   behavior: SnackBarBehavior.floating,
                   backgroundColor: AppTheme.successColor,
@@ -723,20 +722,12 @@ class _FeedScreenState extends State<FeedScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Announcements',
+                    'Ciculars',
                     style: GoogleFonts.outfit(
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : Colors.black87,
                     ),
                   ),
-                  if (_isOffline) ...[
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.cloud_off_rounded,
-                      size: 16,
-                      color: AppTheme.warningColor,
-                    ),
-                  ],
                   if (_isRefreshingInBackground) ...[
                     const SizedBox(width: 8),
                     SizedBox(
@@ -758,43 +749,58 @@ class _FeedScreenState extends State<FeedScreen> {
               // New items indicator
               if (_newItemsCount > 0)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Chip(
-                    label: Text(
-                      '+$_newItemsCount new',
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.successColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '+$_newItemsCount',
                       style: GoogleFonts.inter(
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
                     ),
-                    backgroundColor: AppTheme.successColor,
-                    padding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                    side: BorderSide.none,
                   ),
                 ),
-              // Cache age indicator
+              // Cache age indicator - more compact
               if (_cacheAge.isNotEmpty && !_isLoading && _newItemsCount == 0)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Chip(
-                    label: Text(
-                      _cacheAge,
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: _isOffline 
-                            ? AppTheme.warningColor 
-                            : (isDark ? Colors.white70 : Colors.black54),
-                      ),
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _isOffline 
+                          ? AppTheme.warningColor.withOpacity(0.15)
+                          : (isDark ? AppTheme.darkCardColor : Colors.grey.shade200),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    backgroundColor: isDark 
-                        ? AppTheme.darkCardColor 
-                        : Colors.grey.shade100,
-                    padding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                    side: BorderSide.none,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_isOffline) ...[
+                          Icon(
+                            Icons.cloud_off_rounded,
+                            size: 12,
+                            color: AppTheme.warningColor,
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Text(
+                          _cacheAge,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: _isOffline 
+                                ? AppTheme.warningColor 
+                                : (isDark ? Colors.white60 : Colors.black54),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               IconButton(
@@ -850,7 +856,7 @@ class _FeedScreenState extends State<FeedScreen> {
                       child: TextField(
                         controller: _searchController,
                         decoration: InputDecoration(
-                          hintText: 'Search announcements...',
+                          hintText: 'Search ciculars...',
                           hintStyle: GoogleFonts.inter(
                             color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                           ),
@@ -948,7 +954,7 @@ class _FeedScreenState extends State<FeedScreen> {
                                     const SizedBox(height: 16),
                                     Text(
                                       _searchQuery.isEmpty
-                                          ? 'No announcements yet'
+                                          ? 'No ciculars yet'
                                           : 'No results found for "$_searchQuery"',
                                       style: GoogleFonts.inter(
                                         color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
@@ -959,7 +965,7 @@ class _FeedScreenState extends State<FeedScreen> {
                                     if (_searchQuery.isNotEmpty && _hasMoreData) ...[
                                       const SizedBox(height: 12),
                                       Text(
-                                        'Searched ${_feedItems.length} announcements',
+                                        'Searched ${_feedItems.length} ciculars',
                                         style: GoogleFonts.inter(
                                           color: isDark ? Colors.grey.shade600 : Colors.grey.shade500,
                                           fontSize: 13,
@@ -1099,8 +1105,8 @@ class _FeedScreenState extends State<FeedScreen> {
                           const SizedBox(height: 8),
                           Text(
                             allLoaded 
-                                ? 'All ${_feedItems.length} announcements loaded'
-                                : 'No more announcements',
+                                ? 'All ${_feedItems.length} ciculars loaded'
+                                : 'No more ciculars',
                             style: GoogleFonts.inter(
                               color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                               fontSize: 13,
@@ -1173,6 +1179,31 @@ class _FeedScreenState extends State<FeedScreen> {
                 : '';
             
             if (itemId.isNotEmpty && itemType.isNotEmpty) {
+              // Show offline warning if we're offline
+              if (_isOffline) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        const Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'You\'re offline. Some details may not load.',
+                            style: GoogleFonts.inter(fontSize: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                    duration: const Duration(seconds: 3),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: AppTheme.warningColor,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    margin: const EdgeInsets.all(16),
+                  ),
+                );
+              }
+              
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -1324,10 +1355,7 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
         ),
       ),
-    ).animate().fadeIn(delay: (60 * (index % 10)).ms).scale(
-          delay: (60 * (index % 10)).ms,
-          duration: 300.ms,
-        );
+    );
   }
 }
 

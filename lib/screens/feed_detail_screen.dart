@@ -114,7 +114,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
               ],
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
-                'Announcement',
+                'Cicular',
                 style: GoogleFonts.outfit(
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : Colors.black87,

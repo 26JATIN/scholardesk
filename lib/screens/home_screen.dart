@@ -789,8 +789,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               _buildQuickStats().animate().fadeIn(delay: 100.ms, duration: 400.ms).slideY(begin: 0.2, end: 0),
               const SizedBox(height: 24),
               
-              // Recent Announcements
-              _buildSectionHeader('Recent Announcements', () {
+              // Recent Ciculars
+              _buildSectionHeader('Recent Ciculars', () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -806,7 +806,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               _isLoadingFeed
                   ? const Center(child: CircularProgressIndicator())
                   : _feedItems.isEmpty
-                      ? _buildEmptyState('No announcements')
+                      ? _buildEmptyState('No ciculars')
                       : Column(
                           children: _feedItems.take(3).toList().asMap().entries.map((entry) {
                             return _buildFeedCard(entry.value, entry.key);
