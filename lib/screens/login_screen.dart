@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'otp_screen.dart';
+import '../main.dart' show themeService;
 
 class LoginScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -90,136 +91,145 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final clientName = widget.clientDetails['client_name'];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.primaryColor.withOpacity(0.1),
-              AppTheme.tertiaryColor.withOpacity(0.1),
-            ],
+      backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+            onPressed: () => themeService.toggleTheme(),
           ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // University Name
-                  Text(
-                    clientName ?? 'Welcome',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                      height: 1.2,
-                    ),
-                  ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.3),
-
-                  const SizedBox(height: 48),
-
-                  // Username Field
-                  _buildTextField(
-                    controller: _usernameController,
-                    hint: 'Username',
-                    icon: Icons.person_outline_rounded,
-                    delay: 400,
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // University Name
+                Text(
+                  clientName ?? 'Welcome',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                    height: 1.2,
                   ),
+                ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.3),
 
-                  const SizedBox(height: 18),
+                const SizedBox(height: 48),
 
-                  // Password Field
-                  _buildTextField(
-                    controller: _passwordController,
-                    hint: 'Password',
-                    icon: Icons.lock_outline_rounded,
-                    isPassword: true,
-                    delay: 500,
-                  ),
+                // Username Field
+                _buildTextField(
+                  controller: _usernameController,
+                  hint: 'Username',
+                  icon: Icons.person_outline_rounded,
+                  delay: 400,
+                  isDark: isDark,
+                ),
 
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.red.shade200),
+                const SizedBox(height: 18),
+
+                // Password Field
+                _buildTextField(
+                  controller: _passwordController,
+                  hint: 'Password',
+                  icon: Icons.lock_outline_rounded,
+                  isPassword: true,
+                  delay: 500,
+                  isDark: isDark,
+                ),
+
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark ? Colors.red.shade700 : Colors.red.shade200,
                       ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.error_outline, color: Colors.red.shade400, size: 20),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: GoogleFonts.inter(
-                                color: Colors.red.shade700,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 14,
-                              ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, 
+                          color: isDark ? Colors.red.shade300 : Colors.red.shade400, 
+                          size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _errorMessage!,
+                            style: GoogleFonts.inter(
+                              color: isDark ? Colors.red.shade300 : Colors.red.shade700,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
                             ),
                           ),
-                        ],
-                      ),
-                    ).animate().fadeIn().shake(),
-                  ],
-
-                  const SizedBox(height: 36),
-
-                  // Login Button with gradient
-                  Container(
-                    height: 58,
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.primaryGradient,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primaryColor.withOpacity(0.4),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
                         ),
                       ],
                     ),
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: Colors.white,
-                        shadowColor: Colors.transparent,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 26,
-                              width: 26,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Text(
-                              'Sign In',
-                              style: GoogleFonts.outfit(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                    ),
-                  ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.3),
+                  ).animate().fadeIn().shake(),
                 ],
-              ),
+
+                const SizedBox(height: 36),
+
+                // Login Button
+                Container(
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primaryColor.withOpacity(0.4),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _login,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      shadowColor: Colors.transparent,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 26,
+                            width: 26,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            'Sign In',
+                            style: GoogleFonts.outfit(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                  ),
+                ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.3),
+              ],
             ),
           ),
         ),
@@ -233,12 +243,13 @@ class _LoginScreenState extends State<LoginScreen> {
     required IconData icon,
     bool isPassword = false,
     required int delay,
+    required bool isDark,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardColor : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
+        boxShadow: isDark ? null : [
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
             blurRadius: 20,
@@ -252,7 +263,7 @@ class _LoginScreenState extends State<LoginScreen> {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: GoogleFonts.inter(
-            color: Colors.grey.shade400,
+            color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
             fontSize: 16,
           ),
           border: InputBorder.none,
@@ -264,7 +275,7 @@ class _LoginScreenState extends State<LoginScreen> {
             margin: const EdgeInsets.all(12),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              gradient: isPassword ? AppTheme.accentGradient : AppTheme.primaryGradient,
+              color: isPassword ? AppTheme.accentColor : AppTheme.primaryColor,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -279,7 +290,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     _obscurePassword
                         ? Icons.visibility_off_outlined
                         : Icons.visibility_outlined,
-                    color: Colors.grey.shade400,
+                    color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
                   ),
                   onPressed: () {
                     setState(() {
@@ -292,7 +303,7 @@ class _LoginScreenState extends State<LoginScreen> {
         style: GoogleFonts.inter(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: Colors.black87,
+          color: isDark ? Colors.white : Colors.black87,
         ),
         textInputAction: isPassword ? TextInputAction.done : TextInputAction.next,
         onSubmitted: isPassword ? (_) => _login() : null,

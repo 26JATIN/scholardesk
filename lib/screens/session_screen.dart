@@ -104,6 +104,7 @@ class _SessionScreenState extends State<SessionScreen> {
   @override
   Widget build(BuildContext context) {
     final currentSessionId = widget.userData['sessionId'].toString();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return PopScope(
       canPop: true,
@@ -113,27 +114,39 @@ class _SessionScreenState extends State<SessionScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FE),
+        backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
         body: CustomScrollView(
           slivers: [
             SliverAppBar.large(
               expandedHeight: 140,
               floating: false,
               pinned: true,
+              backgroundColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
+              surfaceTintColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
+              leading: IconButton(
+                icon: Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
                 'Select Session',
                 style: GoogleFonts.outfit(
                   fontWeight: FontWeight.bold,
                   fontSize: 24,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
               titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
             ),
           ),
           _isLoading
-              ? const SliverFillRemaining(
-                  child: Center(child: CircularProgressIndicator()),
+              ? SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator(
+                    color: isDark ? Colors.white : AppTheme.primaryColor,
+                  )),
                 )
               : _errorMessage != null
                   ? SliverFillRemaining(
@@ -141,11 +154,11 @@ class _SessionScreenState extends State<SessionScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.error_outline, size: 64, color: Colors.grey.shade400),
+                            Icon(Icons.error_outline, size: 64, color: isDark ? Colors.grey.shade600 : Colors.grey.shade400),
                             const SizedBox(height: 16),
                             Text(
                               'Error: $_errorMessage',
-                              style: GoogleFonts.inter(color: Colors.grey.shade600),
+                              style: GoogleFonts.inter(color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -163,7 +176,7 @@ class _SessionScreenState extends State<SessionScreen> {
                             return Container(
                               margin: const EdgeInsets.only(bottom: 14),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: isDark ? AppTheme.darkCardColor : Colors.white,
                                 borderRadius: BorderRadius.circular(20),
                                 border: isSelected
                                     ? Border.all(color: AppTheme.primaryColor, width: 2.5)
@@ -172,7 +185,9 @@ class _SessionScreenState extends State<SessionScreen> {
                                   BoxShadow(
                                     color: isSelected 
                                         ? AppTheme.primaryColor.withOpacity(0.2)
-                                        : Colors.black.withOpacity(0.06),
+                                        : isDark 
+                                            ? Colors.black.withOpacity(0.3)
+                                            : Colors.black.withOpacity(0.06),
                                     blurRadius: isSelected ? 15 : 10,
                                     offset: const Offset(0, 4),
                                   ),
@@ -191,11 +206,11 @@ class _SessionScreenState extends State<SessionScreen> {
                                         Container(
                                           padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
-                                            gradient: isSelected
-                                                ? AppTheme.primaryGradient
-                                                : LinearGradient(
-                                                    colors: [Colors.grey.shade200, Colors.grey.shade300],
-                                                  ),
+                                            color: isSelected
+                                                ? AppTheme.primaryColor
+                                                : isDark
+                                                    ? AppTheme.darkElevatedColor
+                                                    : Colors.grey.shade200,
                                             borderRadius: BorderRadius.circular(14),
                                             boxShadow: isSelected
                                                 ? [
@@ -209,7 +224,11 @@ class _SessionScreenState extends State<SessionScreen> {
                                           ),
                                           child: Icon(
                                             Icons.calendar_month_rounded,
-                                            color: isSelected ? Colors.white : Colors.grey.shade600,
+                                            color: isSelected 
+                                                ? Colors.white 
+                                                : isDark 
+                                                    ? Colors.grey.shade400
+                                                    : Colors.grey.shade600,
                                             size: 24,
                                           ),
                                         ),
@@ -223,7 +242,11 @@ class _SessionScreenState extends State<SessionScreen> {
                                                 style: GoogleFonts.outfit(
                                                   fontSize: 16,
                                                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                                  color: isSelected ? AppTheme.primaryColor : Colors.black87,
+                                                  color: isSelected 
+                                                      ? AppTheme.primaryColor 
+                                                      : isDark 
+                                                          ? Colors.white
+                                                          : Colors.black87,
                                                 ),
                                               ),
                                               const SizedBox(height: 4),
@@ -232,7 +255,7 @@ class _SessionScreenState extends State<SessionScreen> {
                                                   Icon(
                                                     Icons.event_rounded,
                                                     size: 14,
-                                                    color: Colors.grey.shade500,
+                                                    color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
                                                   ),
                                                   const SizedBox(width: 4),
                                                   Flexible(
@@ -240,7 +263,7 @@ class _SessionScreenState extends State<SessionScreen> {
                                                       '${session['startDate']} - ${session['endDate']}',
                                                       style: GoogleFonts.inter(
                                                         fontSize: 13,
-                                                        color: Colors.grey.shade600,
+                                                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                                                         fontWeight: FontWeight.w500,
                                                       ),
                                                       overflow: TextOverflow.ellipsis,
@@ -255,7 +278,7 @@ class _SessionScreenState extends State<SessionScreen> {
                                           Container(
                                             padding: const EdgeInsets.all(6),
                                             decoration: BoxDecoration(
-                                              gradient: AppTheme.successGradient,
+                                              color: AppTheme.successColor,
                                               shape: BoxShape.circle,
                                               boxShadow: [
                                                 BoxShadow(

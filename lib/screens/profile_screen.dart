@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as dom;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
+import '../main.dart' show themeService;
 import 'school_code_screen.dart';
 import 'attendance_screen.dart';
 import 'session_screen.dart';
@@ -539,22 +543,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FE),
+      backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
               ? Center(child: Text('Error: $_errorMessage'))
               : CustomScrollView(
                   slivers: [
-                    SliverAppBar.large(
-                      expandedHeight: 120,
+                    SliverAppBar(
+                      expandedHeight: 100,
                       floating: false,
                       pinned: true,
+                      backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
+                      surfaceTintColor: Colors.transparent,
+                      actions: [
+                        // Theme Toggle
+                        IconButton(
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            themeService.toggleTheme();
+                          },
+                          icon: Icon(
+                            isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                            color: isDark ? AppTheme.warningColor : AppTheme.primaryColor,
+                          ),
+                          tooltip: isDark ? 'Light mode' : 'Dark mode',
+                        ),
+                      ],
                       flexibleSpace: FlexibleSpaceBar(
-                        title: const Text(
+                        title: Text(
                           'Profile',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
                         ),
                         titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
                       ),
@@ -579,17 +604,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileHeader() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardColor : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.06) : Colors.transparent,
+        ),
       ),
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -614,19 +637,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF6366F1), width: 3),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF6366F1).withOpacity(0.2),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
+                      border: Border.all(color: AppTheme.primaryColor, width: 3),
                     ),
                     child: _profileImageUrl != null && _profileImageUrl!.isNotEmpty
                         ? CircleAvatar(
                             radius: 50,
-                            backgroundColor: Colors.grey.shade100,
+                            backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
                             child: ClipOval(
                               child: Image.network(
                                 _profileImageUrl!,
@@ -637,21 +653,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   if (loadingProgress == null) return child;
                                   return const Center(
                                     child: CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+                                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
                                     ),
                                   );
                                 },
                                 errorBuilder: (context, error, stackTrace) {
                                   debugPrint('Error loading profile image: $error');
-                                  return const Icon(Icons.person, size: 50, color: Color(0xFF6366F1));
+                                  return const Icon(Icons.person, size: 50, color: AppTheme.primaryColor);
                                 },
                               ),
                             ),
                           )
                         : CircleAvatar(
                             radius: 50,
-                            backgroundColor: Colors.grey.shade100,
-                            child: const Icon(Icons.person, size: 50, color: Color(0xFF6366F1)),
+                            backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+                            child: const Icon(Icons.person, size: 50, color: AppTheme.primaryColor),
                           ),
                   ),
                   // Tap hint overlay
@@ -661,18 +677,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFEC4899), Color(0xFFF472B6)],
-                        ),
+                        color: AppTheme.secondaryColor,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFEC4899).withOpacity(0.4),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkCardColor : Colors.white, 
+                          width: 2,
+                        ),
                       ),
                       child: const Icon(
                         Icons.info_outline,
@@ -687,10 +697,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 18),
             Text(
               _name ?? 'User',
-              style: const TextStyle(
+              style: GoogleFonts.outfit(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: isDark ? Colors.white : Colors.black87,
                 letterSpacing: 0.5,
               ),
               textAlign: TextAlign.center,
@@ -699,9 +709,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 10),
               Text(
                 _details!,
-                style: TextStyle(
+                style: GoogleFonts.inter(
                   fontSize: 14,
-                  color: Colors.grey.shade600,
+                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                   height: 1.5,
                 ),
                 textAlign: TextAlign.center,
@@ -732,60 +742,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildMenuItem(ProfileMenuItem item) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     IconData iconData;
-    List<Color> gradientColors;
+    Color accentColor;
 
     switch (item.name.toLowerCase()) {
       case 'attendance':
         iconData = Icons.class_rounded;
-        gradientColors = [const Color(0xFF10B981), const Color(0xFF059669)];
+        accentColor = AppTheme.successColor;
         break;
       case 'session':
         iconData = Icons.calendar_today_rounded;
-        gradientColors = [const Color(0xFF3B82F6), const Color(0xFF2563EB)];
+        accentColor = const Color(0xFF3B82F6);
         break;
       case 'timetable':
         iconData = Icons.schedule_rounded;
-        gradientColors = [const Color(0xFF8B5CF6), const Color(0xFF7C3AED)];
+        accentColor = AppTheme.tertiaryColor;
         break;
       case 'report card':
       case 'results':
         iconData = Icons.assignment_turned_in_rounded;
-        gradientColors = [const Color(0xFFEC4899), const Color(0xFFDB2777)];
+        accentColor = AppTheme.secondaryColor;
         break;
       case 'subjects':
         iconData = Icons.menu_book_rounded;
-        gradientColors = [const Color(0xFF14B8A6), const Color(0xFF0D9488)];
+        accentColor = const Color(0xFF14B8A6);
         break;
       case 'personal info':
       case 'profile':
         iconData = Icons.person_rounded;
-        gradientColors = [const Color(0xFF06B6D4), const Color(0xFF0891B2)];
+        accentColor = AppTheme.accentColor;
         break;
       case 'change password':
         iconData = Icons.lock_reset_rounded;
-        gradientColors = [const Color(0xFFF59E0B), const Color(0xFFD97706)];
+        accentColor = AppTheme.warningColor;
         break;
       case 'logout':
         iconData = Icons.logout_rounded;
-        gradientColors = [const Color(0xFFEF4444), const Color(0xFFDC2626)];
+        accentColor = AppTheme.errorColor;
         break;
       default:
         iconData = Icons.grid_view_rounded;
-        gradientColors = [const Color(0xFFA855F7), const Color(0xFF9333EA)];
+        accentColor = const Color(0xFFA855F7);
     }
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardColor : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: gradientColors[0].withOpacity(0.15),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.06) : Colors.transparent,
+        ),
       ),
       child: Material(
         color: Colors.transparent,
@@ -801,19 +808,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: gradientColors,
-                    ),
+                    color: accentColor,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: gradientColors[0].withOpacity(0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
                   ),
                   child: Icon(iconData, color: Colors.white, size: 26),
                 ),
@@ -821,10 +817,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Flexible(
                   child: Text(
                     item.name,
-                    style: const TextStyle(
+                    style: GoogleFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: isDark ? Colors.white : Colors.black87,
                     ),
                     textAlign: TextAlign.center,
                     maxLines: 2,

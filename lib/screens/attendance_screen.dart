@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../main.dart' show themeService;
 
 class AttendanceScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -224,6 +226,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
@@ -232,7 +236,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FE),
+        backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _errorMessage != null
@@ -245,7 +249,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                         Text(
                           'Error: $_errorMessage',
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.inter(color: Colors.black54),
+                          style: GoogleFonts.inter(color: isDark ? Colors.grey.shade400 : Colors.black54),
                         ),
                       ],
                     ),
@@ -255,11 +259,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade300),
+                            Icon(Icons.inbox_outlined, size: 64, color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
                             const SizedBox(height: 16),
                             Text(
                               'No attendance records found',
-                              style: GoogleFonts.inter(color: Colors.grey.shade400),
+                              style: GoogleFonts.inter(color: isDark ? Colors.grey.shade500 : Colors.grey.shade400),
                             ),
                           ],
                         ),
@@ -267,22 +271,34 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                     : NestedScrollView(
                         headerSliverBuilder: (context, innerBoxIsScrolled) {
                           return [
-                            SliverAppBar.large(
-                              expandedHeight: 120,
+                            SliverAppBar(
+                              expandedHeight: 100,
                               floating: false,
                               pinned: true,
-                              backgroundColor: Colors.white,
-                              surfaceTintColor: Colors.white,
+                              backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
+                              surfaceTintColor: Colors.transparent,
                               leading: IconButton(
-                                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
+                                icon: Icon(Icons.arrow_back_ios_new_rounded, color: isDark ? Colors.white : Colors.black87),
                                 onPressed: () => Navigator.pop(context),
                               ),
+                              actions: [
+                                IconButton(
+                                  onPressed: () {
+                                    HapticFeedback.lightImpact();
+                                    themeService.toggleTheme();
+                                  },
+                                  icon: Icon(
+                                    isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                                    color: isDark ? AppTheme.warningColor : AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ],
                               flexibleSpace: FlexibleSpaceBar(
                                 title: Text(
                                   'Attendance',
                                   style: GoogleFonts.outfit(
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
+                                    color: isDark ? Colors.white : Colors.black87,
                                   ),
                                 ),
                                 titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
@@ -295,7 +311,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                                   controller: _tabController,
                                   isScrollable: true,
                                   labelColor: AppTheme.primaryColor,
-                                  unselectedLabelColor: Colors.grey,
+                                  unselectedLabelColor: isDark ? Colors.grey.shade500 : Colors.grey,
                                   indicatorColor: AppTheme.primaryColor,
                                   indicatorWeight: 3,
                                   labelStyle: GoogleFonts.inter(
@@ -335,6 +351,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   }
 
   Widget _buildSubjectPage(AttendanceSubject subject, int index) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     double percentage = double.tryParse(subject.percentage ?? '0') ?? 0.0;
     Color progressColor = percentage >= 75 
         ? AppTheme.successColor 
@@ -347,11 +364,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? AppTheme.darkCardColor : Colors.white,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: isDark 
+                    ? Colors.black.withOpacity(0.3)
+                    : Colors.black.withOpacity(0.05),
                 blurRadius: 15,
                 offset: const Offset(0, 5),
               ),
@@ -365,7 +384,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                 style: GoogleFonts.outfit(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
               const SizedBox(height: 8),
@@ -373,7 +392,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    color: progressColor.withOpacity(0.1),
+                    color: progressColor.withOpacity(isDark ? 0.2 : 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -393,7 +412,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                 height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white,
+                  color: isDark ? AppTheme.darkElevatedColor : Colors.white,
                   boxShadow: [
                     BoxShadow(
                       color: progressColor.withOpacity(0.2),
@@ -408,7 +427,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                     CircularProgressIndicator(
                       value: percentage / 100,
                       strokeWidth: 10,
-                      backgroundColor: progressColor.withOpacity(0.1),
+                      backgroundColor: progressColor.withOpacity(isDark ? 0.2 : 0.1),
                       valueColor: AlwaysStoppedAnimation<Color>(progressColor),
                     ),
                     Center(
@@ -427,7 +446,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                             percentage >= 75 ? 'Safe' : 'Low',
                             style: GoogleFonts.inter(
                               fontSize: 12,
-                              color: Colors.grey.shade600,
+                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -444,11 +463,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildStatItem('Attended', subject.attended ?? '0', AppTheme.successColor),
-                  Container(width: 1, height: 30, color: Colors.grey.shade200),
-                  _buildStatItem('Delivered', subject.delivered ?? '0', AppTheme.primaryColor),
-                  Container(width: 1, height: 30, color: Colors.grey.shade200),
-                  _buildStatItem('Absent', subject.absent ?? '0', AppTheme.errorColor),
+                  _buildStatItem('Attended', subject.attended ?? '0', AppTheme.successColor, isDark),
+                  Container(width: 1, height: 30, color: isDark ? Colors.grey.shade700 : Colors.grey.shade200),
+                  _buildStatItem('Delivered', subject.delivered ?? '0', AppTheme.primaryColor, isDark),
+                  Container(width: 1, height: 30, color: isDark ? Colors.grey.shade700 : Colors.grey.shade200),
+                  _buildStatItem('Absent', subject.absent ?? '0', AppTheme.errorColor, isDark),
                 ],
               ),
             ],
@@ -461,11 +480,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? AppTheme.darkCardColor : Colors.white,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: isDark 
+                    ? Colors.black.withOpacity(0.3)
+                    : Colors.black.withOpacity(0.03),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -479,20 +500,20 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                 style: GoogleFonts.outfit(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
               const SizedBox(height: 16),
               if (subject.teacher != null && subject.teacher!.isNotEmpty)
-                _buildDetailRow(Icons.person_outline, 'Teacher', subject.teacher),
+                _buildDetailRow(Icons.person_outline, 'Teacher', subject.teacher, isDark),
               if (subject.fromDate != null && subject.toDate != null)
-                _buildDurationRow(subject.fromDate!, subject.toDate!),
+                _buildDurationRow(subject.fromDate!, subject.toDate!, isDark),
               if (subject.leaves != null)
-                _buildDetailRow(Icons.info_outline, 'Leaves', subject.leaves),
+                _buildDetailRow(Icons.info_outline, 'Leaves', subject.leaves, isDark),
               if (subject.totalApprovedDL != null)
-                _buildDetailRow(Icons.verified_outlined, 'Approved DL', subject.totalApprovedDL),
+                _buildDetailRow(Icons.verified_outlined, 'Approved DL', subject.totalApprovedDL, isDark),
               if (subject.totalApprovedML != null)
-                _buildDetailRow(Icons.medical_services_outlined, 'Approved ML', subject.totalApprovedML),
+                _buildDetailRow(Icons.medical_services_outlined, 'Approved ML', subject.totalApprovedML, isDark),
             ],
           ),
         ).animate().fadeIn(delay: 100.ms).slideX(begin: 0.1, end: 0),
@@ -507,7 +528,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildStatItem(String label, String value, Color color) {
+  Widget _buildStatItem(String label, String value, Color color, bool isDark) {
     return Column(
       children: [
         Text(
@@ -522,14 +543,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
           label,
           style: GoogleFonts.inter(
             fontSize: 12,
-            color: Colors.grey.shade600,
+            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String? value) {
+  Widget _buildDetailRow(IconData icon, String label, String? value, bool isDark) {
     if (value == null || value.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -538,10 +559,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: isDark ? AppTheme.darkElevatedColor : Colors.grey.shade50,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, size: 18, color: Colors.grey.shade700),
+            child: Icon(icon, size: 18, color: isDark ? Colors.grey.shade400 : Colors.grey.shade700),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -552,7 +573,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                   label,
                   style: GoogleFonts.inter(
                     fontSize: 12,
-                    color: Colors.grey.shade500,
+                    color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -560,7 +581,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                   value,
                   style: GoogleFonts.inter(
                     fontSize: 14,
-                    color: Colors.black87,
+                    color: isDark ? Colors.white : Colors.black87,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -572,7 +593,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildDurationRow(String fromDate, String toDate) {
+  Widget _buildDurationRow(String fromDate, String toDate, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -581,10 +602,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: isDark ? AppTheme.darkElevatedColor : Colors.grey.shade50,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.date_range_rounded, size: 18, color: Colors.grey.shade700),
+            child: Icon(Icons.date_range_rounded, size: 18, color: isDark ? Colors.grey.shade400 : Colors.grey.shade700),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -595,7 +616,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                   'Duration',
                   style: GoogleFonts.inter(
                     fontSize: 12,
-                    color: Colors.grey.shade500,
+                    color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -608,7 +629,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppTheme.successColor.withOpacity(0.1),
+                        color: AppTheme.successColor.withOpacity(isDark ? 0.2 : 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
@@ -627,11 +648,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                         ],
                       ),
                     ),
-                    Icon(Icons.arrow_forward, size: 12, color: Colors.grey.shade400),
+                    Icon(Icons.arrow_forward, size: 12, color: isDark ? Colors.grey.shade500 : Colors.grey.shade400),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppTheme.errorColor.withOpacity(0.1),
+                        color: AppTheme.errorColor.withOpacity(isDark ? 0.2 : 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
@@ -661,6 +682,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   }
 
   Widget _buildPredictionCard(AttendanceSubject subject, int index) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final delivered = int.tryParse(subject.delivered ?? '0') ?? 0;
     final attended = int.tryParse(subject.attended ?? '0') ?? 0;
     final dl = subject.dl;
@@ -733,14 +755,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                statusColor.withOpacity(0.1),
-                statusColor.withOpacity(0.05),
-              ],
-            ),
+            color: isDark 
+                ? statusColor.withOpacity(0.15)
+                : statusColor.withOpacity(0.05),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: statusColor.withOpacity(0.3),
@@ -760,7 +777,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                       style: GoogleFonts.outfit(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: isDark ? Colors.white : Colors.black87,
                       ),
                     ),
                   ),
@@ -785,13 +802,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? AppTheme.darkCardColor : Colors.white,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: _buildPredictionRow(
                   'Current Attendance',
                   currentAttendance,
                   currentAttendance >= 75 ? AppTheme.successColor : AppTheme.warningColor,
+                  isDark,
                 ),
               ),
               const SizedBox(height: 16),
@@ -799,7 +817,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                 'Classes to miss:',
                 style: GoogleFonts.inter(
                   fontSize: 13,
-                  color: Colors.black87,
+                  color: isDark ? Colors.white : Colors.black87,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -822,7 +840,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                       height: 40,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark ? AppTheme.darkCardColor : Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: statusColor.withOpacity(0.3)),
                       ),
@@ -853,7 +871,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
+                  color: statusColor.withOpacity(isDark ? 0.2 : 0.1),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: statusColor.withOpacity(0.3),
@@ -870,7 +888,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                             'Predicted:',
                             style: GoogleFonts.inter(
                               fontSize: 14,
-                              color: Colors.black87,
+                              color: isDark ? Colors.white : Colors.black87,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -893,7 +911,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
+                            color: Colors.blue.withOpacity(isDark ? 0.2 : 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -905,7 +923,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                                   '$approvedMLUsed approved ML counted',
                                   style: GoogleFonts.inter(
                                     fontSize: 11,
-                                    color: Colors.blue.shade700,
+                                    color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -927,7 +945,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                       message,
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        color: Colors.black54,
+                        color: isDark ? Colors.grey.shade400 : Colors.black54,
                       ),
                     ),
                   ),
@@ -938,7 +956,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
         );
   }
 
-  Widget _buildPredictionRow(String label, double percentage, Color color) {
+  Widget _buildPredictionRow(String label, double percentage, Color color, bool isDark) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -946,7 +964,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
           label,
           style: GoogleFonts.inter(
             fontSize: 13,
-            color: Colors.black87,
+            color: isDark ? Colors.white : Colors.black87,
             fontWeight: FontWeight.w500,
           ),
         ),

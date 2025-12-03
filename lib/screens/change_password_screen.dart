@@ -123,21 +123,26 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FE),
+      backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
       appBar: AppBar(
         title: Text(
           'Change Password',
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            color: isDark ? Colors.white : Colors.black87,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded, 
+            color: isDark ? Colors.white : Colors.black87,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -153,7 +158,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 style: GoogleFonts.outfit(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
               ).animate().fadeIn().slideY(begin: 0.2, end: 0),
               const SizedBox(height: 8),
@@ -161,7 +166,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 'Your new password must be different from previous used passwords.',
                 style: GoogleFonts.inter(
                   fontSize: 14,
-                  color: Colors.grey.shade600,
+                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                 ),
               ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.2, end: 0),
               const SizedBox(height: 32),
@@ -172,6 +177,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 hint: 'Enter your current password',
                 obscureText: _obscureOld,
                 onToggleVisibility: () => setState(() => _obscureOld = !_obscureOld),
+                isDark: isDark,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your old password';
@@ -188,6 +194,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 hint: 'Enter your new password',
                 obscureText: _obscureNew,
                 onToggleVisibility: () => setState(() => _obscureNew = !_obscureNew),
+                isDark: isDark,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a new password';
@@ -207,6 +214,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 hint: 'Re-enter your new password',
                 obscureText: _obscureConfirm,
                 onToggleVisibility: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                isDark: isDark,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please confirm your new password';
@@ -264,6 +272,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     required String hint,
     required bool obscureText,
     required VoidCallback onToggleVisibility,
+    required bool isDark,
     String? Function(String?)? validator,
   }) {
     return Column(
@@ -274,7 +283,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Colors.black87,
+            color: isDark ? Colors.white : Colors.black87,
           ),
         ),
         const SizedBox(height: 8),
@@ -282,20 +291,29 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           controller: controller,
           obscureText: obscureText,
           validator: validator,
-          style: GoogleFonts.inter(fontSize: 16),
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: GoogleFonts.inter(color: Colors.grey.shade400),
+            hintStyle: GoogleFonts.inter(
+              color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
+            ),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: isDark ? AppTheme.darkCardColor : Colors.white,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade200),
+              borderSide: BorderSide(
+                color: isDark ? Colors.grey.shade700 : Colors.grey.shade200,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade200),
+              borderSide: BorderSide(
+                color: isDark ? Colors.grey.shade700 : Colors.grey.shade200,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -308,7 +326,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             suffixIcon: IconButton(
               icon: Icon(
                 obscureText ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                color: Colors.grey.shade600,
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
               ),
               onPressed: onToggleVisibility,
             ),

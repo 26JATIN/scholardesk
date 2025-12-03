@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../main.dart' show themeService;
 
 class FeedDetailScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -78,6 +79,8 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
@@ -86,48 +89,46 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
         }
       },
       child: Scaffold(
+        backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
         body: CustomScrollView(
           slivers: [
-            // Modern App Bar with gradient
+            // Modern App Bar
             SliverAppBar.large(
               expandedHeight: 200,
               floating: false,
               pinned: true,
+              backgroundColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back_ios_rounded, 
+                  color: isDark ? Colors.white : Colors.black87),
+                onPressed: () => Navigator.pop(context),
+              ),
+              actions: [
+                IconButton(
+                  icon: Icon(
+                    isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                  onPressed: () => themeService.toggleTheme(),
+                ),
+              ],
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
                 'Announcement',
                 style: GoogleFonts.outfit(
                   fontWeight: FontWeight.bold,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withOpacity(0.3),
-                      offset: const Offset(0, 2),
-                      blurRadius: 4,
-                    ),
-                  ],
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
               background: Container(
-                decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.3),
-                      ],
-                    ),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.campaign_rounded,
-                      size: 80,
-                      color: Colors.white.withOpacity(0.3),
-                    ),
+                color: isDark ? AppTheme.darkSurfaceColor : AppTheme.primaryColor.withOpacity(0.1),
+                child: Center(
+                  child: Icon(
+                    Icons.campaign_rounded,
+                    size: 80,
+                    color: isDark 
+                        ? AppTheme.primaryColor.withOpacity(0.3) 
+                        : AppTheme.primaryColor.withOpacity(0.2),
                   ),
                 ),
               ),
@@ -157,7 +158,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                         _errorMessage!,
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
-                          color: Colors.black54,
+                          color: isDark ? Colors.grey.shade400 : Colors.black54,
                           fontSize: 15,
                         ),
                       ),
@@ -175,13 +176,13 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                     Icon(
                       Icons.inbox_outlined,
                       size: 64,
-                      color: Colors.grey.shade300,
+                      color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'No details found',
                       style: GoogleFonts.inter(
-                        color: Colors.grey.shade400,
+                        color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
                         fontSize: 15,
                       ),
                     ),
@@ -200,12 +201,9 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppTheme.primaryColor.withOpacity(0.1),
-                            AppTheme.accentColor.withOpacity(0.05),
-                          ],
-                        ),
+                        color: isDark 
+                            ? AppTheme.primaryColor.withOpacity(0.15) 
+                            : AppTheme.primaryColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
                           color: AppTheme.primaryColor.withOpacity(0.2),
@@ -217,15 +215,8 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              gradient: AppTheme.primaryGradient,
+                              color: AppTheme.primaryColor,
                               borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.primaryColor.withOpacity(0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
                             ),
                             child: const Icon(
                               Icons.notifications_active_rounded,
@@ -240,7 +231,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                               style: GoogleFonts.outfit(
                                 fontSize: 19,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: isDark ? Colors.white : Colors.black87,
                                 height: 1.3,
                               ),
                             ),
@@ -274,6 +265,8 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
   }
 
   Widget _buildContent() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     if (_detailData!.containsKey('circular')) {
       final circularData = _detailData!['circular'];
       
@@ -298,7 +291,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                   width: 4,
                   height: 24,
                   decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
+                    color: AppTheme.primaryColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -308,7 +301,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                   style: GoogleFonts.outfit(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
               ],
@@ -318,9 +311,9 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
             // Content Card
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? AppTheme.darkCardColor : Colors.white,
                 borderRadius: BorderRadius.circular(24),
-                boxShadow: [
+                boxShadow: isDark ? null : [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.06),
                     blurRadius: 20,
@@ -332,7 +325,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
               child: HtmlWidget(
                 htmlContent,
                 textStyle: GoogleFonts.inter(
-                  color: Colors.black87,
+                  color: isDark ? Colors.grey.shade300 : Colors.black87,
                   fontSize: 15,
                   height: 1.6,
                 ),
@@ -490,6 +483,8 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
   }
 
   Widget _buildAttachments() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     if (_detailData!.containsKey('circularAttachment')) {
       final attachmentData = _detailData!['circularAttachment'];
       
@@ -514,7 +509,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                   width: 4,
                   height: 24,
                   decoration: BoxDecoration(
-                    gradient: AppTheme.accentGradient,
+                    color: AppTheme.accentColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -524,14 +519,14 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                   style: GoogleFonts.outfit(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    gradient: AppTheme.accentGradient,
+                    color: AppTheme.accentColor,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -579,9 +574,9 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? AppTheme.darkCardColor : Colors.white,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
+                  boxShadow: isDark ? null : [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.05),
                       blurRadius: 15,
@@ -603,7 +598,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: iconColor.withOpacity(0.1),
+                              color: iconColor.withOpacity(isDark ? 0.2 : 0.1),
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Icon(
@@ -624,7 +619,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                                   style: GoogleFonts.inter(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
+                                    color: isDark ? Colors.white : Colors.black87,
                                   ),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -634,7 +629,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                                   'Tap to download',
                                   style: GoogleFonts.inter(
                                     fontSize: 12,
-                                    color: Colors.grey.shade500,
+                                    color: isDark ? Colors.grey.shade600 : Colors.grey.shade500,
                                   ),
                                 ),
                               ],
@@ -645,7 +640,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              gradient: AppTheme.primaryGradient,
+                              color: AppTheme.primaryColor,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(

@@ -5,6 +5,7 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as dom;
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../main.dart' show themeService;
 
 class TimetableScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -209,6 +210,8 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
@@ -217,6 +220,7 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
         }
       },
       child: Scaffold(
+        backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
         body: NestedScrollView(
           headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
@@ -224,17 +228,31 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
                 expandedHeight: 140,
                 floating: false,
                 pinned: true,
+                backgroundColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back_ios_rounded, 
+                    color: isDark ? Colors.white : Colors.black87),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                actions: [
+                  IconButton(
+                    icon: Icon(
+                      isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                    onPressed: () => themeService.toggleTheme(),
+                  ),
+                ],
               flexibleSpace: FlexibleSpaceBar(
                 title: Text(
                   'Timetable',
                   style: GoogleFonts.outfit(
                     fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
                 background: Container(
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.accentGradient,
-                  ),
+                  color: isDark ? AppTheme.darkSurfaceColor : AppTheme.accentColor.withOpacity(0.1),
                 ),
               ),
             ),
@@ -242,12 +260,12 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _StickyTabBarDelegate(
-                  TabBar(
+                  tabBar: TabBar(
                     controller: _tabController,
                     isScrollable: true,
-                    labelColor: AppTheme.primaryColor,
-                    unselectedLabelColor: Colors.grey,
-                    indicatorColor: AppTheme.primaryColor,
+                    labelColor: isDark ? Colors.white : AppTheme.primaryColor,
+                    unselectedLabelColor: isDark ? Colors.grey.shade600 : Colors.grey,
+                    indicatorColor: isDark ? AppTheme.accentColor : AppTheme.primaryColor,
                     indicatorWeight: 3,
                     labelStyle: GoogleFonts.inter(
                       fontWeight: FontWeight.bold,
@@ -265,7 +283,7 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
                             color: isToday 
-                                ? AppTheme.primaryColor.withOpacity(0.1) 
+                                ? (isDark ? AppTheme.accentColor.withOpacity(0.2) : AppTheme.primaryColor.withOpacity(0.1))
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -274,6 +292,7 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
                       );
                     }).toList(),
                   ),
+                  isDark: isDark,
                 ),
               ),
           ];
@@ -289,7 +308,7 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
                         const SizedBox(height: 16),
                         Text(
                           'Error: $_errorMessage',
-                          style: GoogleFonts.inter(color: Colors.black54),
+                          style: GoogleFonts.inter(color: isDark ? Colors.grey.shade400 : Colors.black54),
                         ),
                       ],
                     ),
@@ -305,19 +324,21 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
 
   Widget _buildDaySchedule(String day) {
     final periods = _timetable[day];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (periods == null || periods.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.event_busy_rounded, size: 64, color: Colors.grey.shade300),
+            Icon(Icons.event_busy_rounded, size: 64, 
+              color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
             const SizedBox(height: 16),
             Text(
               'No classes scheduled',
               style: GoogleFonts.inter(
                 fontSize: 16,
-                color: Colors.grey.shade500,
+                color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -337,20 +358,15 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                AppTheme.accentColor.withOpacity(0.02),
-              ],
-            ),
+            color: isDark ? AppTheme.darkCardColor : Colors.white,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: AppTheme.accentColor.withOpacity(0.2),
+              color: isDark 
+                  ? AppTheme.accentColor.withOpacity(0.2) 
+                  : AppTheme.accentColor.withOpacity(0.2),
               width: 1.5,
             ),
-            boxShadow: [
+            boxShadow: isDark ? null : [
               BoxShadow(
                 color: AppTheme.accentColor.withOpacity(0.1),
                 blurRadius: 20,
@@ -368,15 +384,8 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        gradient: AppTheme.accentGradient,
+                        color: AppTheme.accentColor,
                         borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.accentColor.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
                       child: const Icon(
                         Icons.schedule_rounded,
@@ -399,7 +408,7 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
                                     style: GoogleFonts.outfit(
                                       fontSize: 17,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.black87,
+                                      color: isDark ? Colors.white : Colors.black87,
                                     ),
                                   )
                                 : _isLoadingSubjects
@@ -433,7 +442,7 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
                                         style: GoogleFonts.outfit(
                                           fontSize: 17,
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.black87,
+                                          color: isDark ? Colors.white : Colors.black87,
                                         ),
                                       ),
                           ),
@@ -442,7 +451,7 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
+                              color: AppTheme.primaryColor.withOpacity(isDark ? 0.2 : 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -450,7 +459,7 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
                               style: GoogleFonts.jetBrainsMono(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: AppTheme.primaryColor,
+                                color: isDark ? AppTheme.primaryColor : AppTheme.primaryColor,
                               ),
                             ),
                           ),
@@ -473,8 +482,8 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _buildInfoChip(Icons.location_on_outlined, period['location'] ?? ''),
-                    _buildInfoChip(Icons.group_outlined, period['group'] ?? ''),
+                    _buildInfoChip(Icons.location_on_outlined, period['location'] ?? '', isDark),
+                    _buildInfoChip(Icons.group_outlined, period['group'] ?? '', isDark),
                   ],
                 ),
                 if (period['teacher'] != null && period['teacher']!.isNotEmpty) ...[
@@ -491,7 +500,7 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
                           period['teacher']!,
                           style: GoogleFonts.inter(
                             fontSize: 14,
-                            color: Colors.black87,
+                            color: isDark ? Colors.white70 : Colors.black87,
                             fontWeight: FontWeight.w500,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -508,11 +517,11 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildInfoChip(IconData icon, String label) {
+  Widget _buildInfoChip(IconData icon, String label, bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.accentColor.withOpacity(0.1),
+        color: AppTheme.accentColor.withOpacity(isDark ? 0.2 : 0.1),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -524,7 +533,7 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
             label,
             style: GoogleFonts.inter(
               fontSize: 12,
-              color: Colors.black87,
+              color: isDark ? Colors.white70 : Colors.black87,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -536,9 +545,10 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
 
 // Sticky TabBar Delegate
 class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
-  const _StickyTabBarDelegate(this.tabBar);
+  const _StickyTabBarDelegate({required this.tabBar, required this.isDark});
 
   final TabBar tabBar;
+  final bool isDark;
 
   @override
   double get minExtent => tabBar.preferredSize.height;
@@ -549,13 +559,13 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: isDark ? AppTheme.darkSurfaceColor : Theme.of(context).scaffoldBackgroundColor,
       child: tabBar,
     );
   }
 
   @override
   bool shouldRebuild(_StickyTabBarDelegate oldDelegate) {
-    return tabBar != oldDelegate.tabBar;
+    return tabBar != oldDelegate.tabBar || isDark != oldDelegate.isDark;
   }
 }

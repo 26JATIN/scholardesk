@@ -4,8 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'screens/school_code_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/api_service.dart';
+import 'services/theme_service.dart';
 import 'theme/app_theme.dart';
 import 'dart:io';
+
+// Global theme service instance
+final themeService = ThemeService();
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,8 +40,39 @@ class MyHttpOverrides extends HttpOverrides {
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    themeService.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    themeService.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() {
+    setState(() {});
+    // Update system UI based on theme
+    final isDark = themeService.themeMode == ThemeMode.dark;
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +80,8 @@ class MyApp extends StatelessWidget {
       title: 'ScholarDesk',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      // Optimize scrolling performance
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeService.themeMode,
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),

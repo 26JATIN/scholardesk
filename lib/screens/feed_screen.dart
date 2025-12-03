@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'feed_detail_screen.dart';
+import '../main.dart' show themeService;
 
 class FeedScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -253,6 +254,8 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
@@ -261,37 +264,44 @@ class _FeedScreenState extends State<FeedScreen> {
         }
       },
       child: Scaffold(
+        backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
         body: CustomScrollView(
           controller: _scrollController,
           slivers: [
-            // Modern App Bar with gradient
+            // Modern App Bar
             SliverAppBar.large(
               expandedHeight: 140,
               floating: false,
               pinned: true,
+              backgroundColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back_ios_rounded, 
+                  color: isDark ? Colors.white : Colors.black87),
+                onPressed: () => Navigator.pop(context),
+              ),
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
                 'Announcements',
                 style: GoogleFonts.outfit(
                   fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
               background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.secondaryColor,
-                      AppTheme.tertiaryColor,
-                    ],
-                  ),
-                ),
+                color: isDark ? AppTheme.darkSurfaceColor : AppTheme.secondaryColor.withOpacity(0.1),
               ),
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.refresh_rounded),
+                icon: Icon(
+                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+                onPressed: () => themeService.toggleTheme(),
+              ),
+              IconButton(
+                icon: Icon(Icons.refresh_rounded, 
+                  color: isDark ? Colors.white : Colors.black87),
                 onPressed: () {
                   _fetchFeed(isRefresh: true);
                 },
@@ -303,52 +313,58 @@ class _FeedScreenState extends State<FeedScreen> {
           SliverPersistentHeader(
             pinned: true,
             delegate: _SearchBarDelegate(
-              child: Container(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        blurRadius: 20,
-                        offset: const Offset(0, 4),
+              child: Builder(
+                builder: (context) {
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
+                  return Container(
+                    color: isDark ? AppTheme.darkSurfaceColor : Theme.of(context).scaffoldBackgroundColor,
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkCardColor : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: isDark ? null : [
+                          BoxShadow(
+                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search announcements...',
-                      hintStyle: GoogleFonts.inter(
-                        color: Colors.grey.shade400,
-                      ),
-                      prefixIcon: Icon(
-                        Icons.search_rounded,
-                        color: AppTheme.primaryColor,
-                      ),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear_rounded),
-                              onPressed: () {
-                                _searchController.clear();
-                              },
-                            )
-                          : null,
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 16,
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search announcements...',
+                          hintStyle: GoogleFonts.inter(
+                            color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            color: AppTheme.primaryColor,
+                          ),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(Icons.clear_rounded,
+                                    color: isDark ? Colors.grey.shade500 : Colors.grey),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                  },
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                        ),
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
                       ),
                     ),
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
           ),
@@ -363,29 +379,36 @@ class _FeedScreenState extends State<FeedScreen> {
                       child: Center(
                         child: Padding(
                           padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.error_outline_rounded,
-                                size: 64,
-                                color: AppTheme.errorColor,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _errorMessage!,
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.inter(color: Colors.black54),
-                              ),
-                              const SizedBox(height: 24),
-                              FilledButton.icon(
-                                onPressed: () {
-                                  _fetchFeed(isRefresh: true);
-                                },
-                                icon: const Icon(Icons.refresh_rounded),
-                                label: const Text('Retry'),
-                              ),
-                            ],
+                          child: Builder(
+                            builder: (context) {
+                              final isDark = Theme.of(context).brightness == Brightness.dark;
+                              return Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline_rounded,
+                                    size: 64,
+                                    color: AppTheme.errorColor,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    _errorMessage!,
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.inter(
+                                      color: isDark ? Colors.grey.shade400 : Colors.black54,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  FilledButton.icon(
+                                    onPressed: () {
+                                      _fetchFeed(isRefresh: true);
+                                    },
+                                    icon: const Icon(Icons.refresh_rounded),
+                                    label: const Text('Retry'),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -393,28 +416,33 @@ class _FeedScreenState extends State<FeedScreen> {
                   : _filteredFeedItems.isEmpty
                       ? SliverFillRemaining(
                           child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  _searchQuery.isEmpty
-                                      ? Icons.inbox_outlined
-                                      : Icons.search_off_rounded,
-                                  size: 64,
-                                  color: Colors.grey.shade300,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  _searchQuery.isEmpty
-                                      ? 'No announcements yet'
-                                      : 'No results found for "$_searchQuery"',
-                                  style: GoogleFonts.inter(
-                                    color: Colors.grey.shade400,
-                                    fontSize: 15,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
+                            child: Builder(
+                              builder: (context) {
+                                final isDark = Theme.of(context).brightness == Brightness.dark;
+                                return Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      _searchQuery.isEmpty
+                                          ? Icons.inbox_outlined
+                                          : Icons.search_off_rounded,
+                                      size: 64,
+                                      color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      _searchQuery.isEmpty
+                                          ? 'No announcements yet'
+                                          : 'No results found for "$_searchQuery"',
+                                      style: GoogleFonts.inter(
+                                        color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
+                                        fontSize: 15,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                         )
@@ -439,18 +467,23 @@ class _FeedScreenState extends State<FeedScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Center(
-                  child: Column(
-                    children: [
-                      const CircularProgressIndicator(),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Loading more...',
-                        style: GoogleFonts.inter(
-                          color: Colors.grey.shade600,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+                  child: Builder(
+                    builder: (context) {
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
+                      return Column(
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Loading more...',
+                            style: GoogleFonts.inter(
+                              color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -483,22 +516,27 @@ class _FeedScreenState extends State<FeedScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Center(
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.check_circle_outline_rounded,
-                        color: Colors.grey.shade300,
-                        size: 32,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'No more announcements',
-                        style: GoogleFonts.inter(
-                          color: Colors.grey.shade400,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+                  child: Builder(
+                    builder: (context) {
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
+                      return Column(
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline_rounded,
+                            color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                            size: 32,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No more announcements',
+                            style: GoogleFonts.inter(
+                              color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -510,6 +548,8 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildFeedCard(dynamic item, int index) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     // Safely extract values with null checks
     final title = (item['title'] != null && item['title']['S'] != null) 
         ? item['title']['S'] as String 
@@ -524,23 +564,21 @@ class _FeedScreenState extends State<FeedScreen> {
         ? item['creTime']['S'] as String
         : '';
 
-    // Generate a color gradient based on index
-    final gradients = [
-      AppTheme.primaryGradient,
-      AppTheme.accentGradient,
-      AppTheme.successGradient,
-      const LinearGradient(
-        colors: [Color(0xFFF093FB), Color(0xFFF5576C)],
-      ),
+    // Use solid colors based on index
+    final colors = [
+      AppTheme.primaryColor,
+      AppTheme.accentColor,
+      AppTheme.successColor,
+      AppTheme.secondaryColor,
     ];
-    final gradient = gradients[index % gradients.length];
+    final accentColor = colors[index % colors.length];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardColor : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
+        boxShadow: isDark ? null : [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
             blurRadius: 20,
@@ -579,11 +617,11 @@ class _FeedScreenState extends State<FeedScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Gradient header
+              // Solid color header
               Container(
                 height: 8,
                 decoration: BoxDecoration(
-                  gradient: gradient,
+                  color: accentColor,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(24),
                     topRight: Radius.circular(24),
@@ -601,15 +639,8 @@ class _FeedScreenState extends State<FeedScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            gradient: gradient,
+                            color: accentColor,
                             borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.primaryColor.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
                           ),
                           child: const Icon(
                             Icons.campaign_rounded,
@@ -627,7 +658,7 @@ class _FeedScreenState extends State<FeedScreen> {
                                 style: GoogleFonts.outfit(
                                   fontSize: 17,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                                  color: isDark ? Colors.white : Colors.black87,
                                 ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
@@ -640,14 +671,14 @@ class _FeedScreenState extends State<FeedScreen> {
                                       Icon(
                                         Icons.calendar_today_rounded,
                                         size: 12,
-                                        color: Colors.grey.shade500,
+                                        color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
                                         date,
                                         style: GoogleFonts.inter(
                                           fontSize: 12,
-                                          color: Colors.grey.shade600,
+                                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -658,7 +689,7 @@ class _FeedScreenState extends State<FeedScreen> {
                                         width: 3,
                                         height: 3,
                                         decoration: BoxDecoration(
-                                          color: Colors.grey.shade400,
+                                          color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                                           shape: BoxShape.circle,
                                         ),
                                       ),
@@ -668,14 +699,14 @@ class _FeedScreenState extends State<FeedScreen> {
                                       Icon(
                                         Icons.access_time_rounded,
                                         size: 12,
-                                        color: Colors.grey.shade500,
+                                        color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
                                         time,
                                         style: GoogleFonts.inter(
                                           fontSize: 12,
-                                          color: Colors.grey.shade600,
+                                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -689,7 +720,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         Icon(
                           Icons.arrow_forward_ios_rounded,
                           size: 16,
-                          color: Colors.grey.shade400,
+                          color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                         ),
                       ],
                     ),
@@ -698,14 +729,14 @@ class _FeedScreenState extends State<FeedScreen> {
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
+                          color: isDark ? AppTheme.darkElevatedColor : Colors.grey.shade50,
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Text(
                           desc,
                           style: GoogleFonts.inter(
                             fontSize: 14,
-                            color: Colors.black87,
+                            color: isDark ? Colors.grey.shade300 : Colors.black87,
                             height: 1.5,
                           ),
                           maxLines: 3,

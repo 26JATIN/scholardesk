@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
 
 class SubjectsScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -181,10 +182,14 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FE),
+      backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(
+              color: isDark ? Colors.white : AppTheme.primaryColor,
+            ))
           : _errorMessage != null
               ? Center(
                   child: Padding(
@@ -192,21 +197,21 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+                        Icon(Icons.error_outline, size: 64, color: isDark ? Colors.red.shade400 : Colors.red.shade300),
                         const SizedBox(height: 16),
                         Text(
                           'Error loading subjects',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade800,
+                            color: isDark ? Colors.white : Colors.grey.shade800,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           _errorMessage!,
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey.shade600),
+                          style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
                         ),
                         const SizedBox(height: 20),
                         ElevatedButton.icon(
@@ -219,6 +224,10 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                           },
                           icon: const Icon(Icons.refresh),
                           label: const Text('Retry'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                          ),
                         ),
                       ],
                     ),
@@ -230,10 +239,22 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                       expandedHeight: 120,
                       floating: false,
                       pinned: true,
+                      backgroundColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
+                      surfaceTintColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
+                      leading: IconButton(
+                        icon: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                      ),
                       flexibleSpace: FlexibleSpaceBar(
                         title: Text(
                           _semesterTitle,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
                         ),
                         titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
                       ),
@@ -242,7 +263,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                        child: _buildSummaryCard()
+                        child: _buildSummaryCard(isDark)
                             .animate()
                             .fadeIn(duration: 400.ms)
                             .slideY(begin: 0.2),
@@ -254,7 +275,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
-                            return _buildSubjectCard(_subjects[index], index)
+                            return _buildSubjectCard(_subjects[index], index, isDark)
                                 .animate()
                                 .fadeIn(delay: Duration(milliseconds: 100 * index), duration: 400.ms)
                                 .slideX(begin: 0.1);
@@ -268,7 +289,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     );
   }
 
-  Widget _buildSummaryCard() {
+  Widget _buildSummaryCard(bool isDark) {
     // Count subjects by type
     int theoryCount = _subjects.where((s) => s.type?.toLowerCase() == 'theory').length;
     int practicalCount = _subjects.where((s) => s.type?.toLowerCase() == 'practical').length;
@@ -278,15 +299,11 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-        ),
+        color: AppTheme.primaryColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.3),
+            color: AppTheme.primaryColor.withOpacity(0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -399,18 +416,20 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     );
   }
 
-  Widget _buildSubjectCard(Subject subject, int index) {
+  Widget _buildSubjectCard(Subject subject, int index, bool isDark) {
     final typeColor = _getTypeColor(subject.type);
     final typeIcon = _getTypeIcon(subject.type);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardColor : Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: isDark 
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -423,7 +442,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: typeColor.withOpacity(0.08),
+              color: typeColor.withOpacity(isDark ? 0.15 : 0.08),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
@@ -446,10 +465,10 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                           Expanded(
                             child: Text(
                               subject.name ?? 'Unknown Subject',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: isDark ? Colors.white : Colors.black87,
                               ),
                             ),
                           ),
@@ -457,7 +476,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: Colors.orange.withOpacity(0.15),
+                                color: Colors.orange.withOpacity(isDark ? 0.2 : 0.15),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Text(
@@ -492,11 +511,11 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             child: Column(
               children: [
                 if (subject.specialization != null)
-                  _buildDetailRow(Icons.category_rounded, 'Specialization', subject.specialization!),
-                _buildDetailRow(Icons.bookmark_rounded, 'Type', subject.type ?? 'N/A'),
-                _buildDetailRow(Icons.group_rounded, 'Group', subject.group ?? 'N/A'),
+                  _buildDetailRow(Icons.category_rounded, 'Specialization', subject.specialization!, isDark),
+                _buildDetailRow(Icons.bookmark_rounded, 'Type', subject.type ?? 'N/A', isDark),
+                _buildDetailRow(Icons.group_rounded, 'Group', subject.group ?? 'N/A', isDark),
                 if (subject.credits != null)
-                  _buildDetailRow(Icons.stars_rounded, 'Credits', subject.credits!),
+                  _buildDetailRow(Icons.stars_rounded, 'Credits', subject.credits!, isDark),
               ],
             ),
           ),
@@ -505,28 +524,28 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String value) {
+  Widget _buildDetailRow(IconData icon, String label, String value, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.grey.shade500),
+          Icon(icon, size: 18, color: isDark ? Colors.grey.shade500 : Colors.grey.shade500),
           const SizedBox(width: 12),
           Text(
             '$label:',
             style: TextStyle(
               fontSize: 13,
-              color: Colors.grey.shade600,
+              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: Colors.black87,
+                color: isDark ? Colors.white : Colors.black87,
               ),
               textAlign: TextAlign.right,
             ),

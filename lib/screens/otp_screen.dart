@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
+import '../main.dart' show themeService;
 
 class OtpScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -89,7 +90,10 @@ class _OtpScreenState extends State<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
+      backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -97,9 +101,9 @@ class _OtpScreenState extends State<OtpScreen> {
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? AppTheme.darkCardColor : Colors.white,
               borderRadius: BorderRadius.circular(12),
-              boxShadow: [
+              boxShadow: isDark ? null : [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
                   blurRadius: 8,
@@ -111,192 +115,190 @@ class _OtpScreenState extends State<OtpScreen> {
           ),
           onPressed: () => Navigator.pop(context),
         ),
-      ),
-      extendBodyBehindAppBar: true,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.secondaryColor.withOpacity(0.1),
-              AppTheme.tertiaryColor.withOpacity(0.1),
-            ],
+        actions: [
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+            onPressed: () => themeService.toggleTheme(),
           ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Icon with gradient
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.accentGradient,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.accentColor.withOpacity(0.3),
-                          blurRadius: 25,
-                          offset: const Offset(0, 10),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Icon with solid color
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.accentColor.withOpacity(0.3),
+                        blurRadius: 25,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.lock_clock_rounded,
+                    size: 60,
+                    color: Colors.white,
+                  ),
+                ).animate().fadeIn(duration: 600.ms).scale(delay: 200.ms),
+                
+                const SizedBox(height: 36),
+                
+                Text(
+                  'Verification',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 34,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                    height: 1.2,
+                  ),
+                ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.3),
+                
+                const SizedBox(height: 12),
+                Text(
+                  widget.mobileString ?? 'Enter the OTP sent to your mobile/email',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    color: isDark ? Colors.grey.shade400 : Colors.black54,
+                    height: 1.5,
+                  ),
+                ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.3),
+
+                const SizedBox(height: 48),
+
+                // OTP Field
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? AppTheme.darkCardColor : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: isDark ? null : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _otpController,
+                    maxLength: 4,
+                    decoration: InputDecoration(
+                      hintText: 'Enter 4-digit OTP',
+                      counterText: '',
+                      hintStyle: GoogleFonts.inter(
+                        color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+                        fontSize: 16,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 22,
+                      ),
+                      prefixIcon: Container(
+                        margin: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.successColor,
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      ],
+                        child: const Icon(
+                          Icons.password_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.lock_clock_rounded,
-                      size: 60,
-                      color: Colors.white,
-                    ),
-                  ).animate().fadeIn(duration: 600.ms).scale(delay: 200.ms),
-                  
-                  const SizedBox(height: 36),
-                  
-                  Text(
-                    'Verification',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(
-                      fontSize: 34,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                      height: 1.2,
-                    ),
-                  ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.3),
-                  
-                  const SizedBox(height: 12),
-                  Text(
-                    widget.mobileString ?? 'Enter the OTP sent to your mobile/email',
-                    textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
-                      fontSize: 15,
-                      color: Colors.black54,
-                      height: 1.5,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                      letterSpacing: 4.0,
                     ),
-                  ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.3),
+                    textAlign: TextAlign.center,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _verifyOtp(),
+                  ),
+                ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.3),
 
-                  const SizedBox(height: 48),
-
-                  // OTP Field
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 20),
                   Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
+                      color: isDark ? Colors.red.shade900.withOpacity(0.3) : Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isDark ? Colors.red.shade700 : Colors.red.shade200),
                     ),
-                    child: TextField(
-                      controller: _otpController,
-                      maxLength: 4,
-                      decoration: InputDecoration(
-                        hintText: 'Enter 4-digit OTP',
-                        counterText: '',
-                        hintStyle: GoogleFonts.inter(
-                          color: Colors.grey.shade400,
-                          fontSize: 16,
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 22,
-                        ),
-                        prefixIcon: Container(
-                          margin: const EdgeInsets.all(12),
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            gradient: AppTheme.successGradient,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.password_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                      style: GoogleFonts.inter(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                        letterSpacing: 4.0,
-                      ),
-                      textAlign: TextAlign.center,
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _verifyOtp(),
-                    ),
-                  ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.3),
-
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.red.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.error_outline, color: Colors.red.shade400, size: 20),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: GoogleFonts.inter(
-                                color: Colors.red.shade700,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 14,
-                              ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, 
+                          color: isDark ? Colors.red.shade300 : Colors.red.shade400, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _errorMessage!,
+                            style: GoogleFonts.inter(
+                              color: isDark ? Colors.red.shade300 : Colors.red.shade700,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
                             ),
                           ),
-                        ],
-                      ),
-                    ).animate().fadeIn().shake(),
-                  ],
-
-                  const SizedBox(height: 36),
-
-                  // Verify Button with gradient
-                  Container(
-                    height: 58,
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.successGradient,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.successColor.withOpacity(0.4),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
                         ),
                       ],
                     ),
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _verifyOtp,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: Colors.white,
-                        shadowColor: Colors.transparent,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
+                  ).animate().fadeIn().shake(),
+                ],
+
+                const SizedBox(height: 36),
+
+                // Verify Button with solid color
+                Container(
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: AppTheme.successColor,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.successColor.withOpacity(0.4),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
                       ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 26,
-                              width: 26,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                                color: Colors.white,
-                              ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _verifyOtp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      shadowColor: Colors.transparent,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 26,
+                            width: 26,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              color: Colors.white,
+                            ),
                             )
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -313,10 +315,9 @@ class _OtpScreenState extends State<OtpScreen> {
                                 const Icon(Icons.check_circle_outline, size: 22),
                               ],
                             ),
-                    ),
-                  ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.3),
-                ],
-              ),
+                  ),
+                ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.3),
+              ],
             ),
           ),
         ),

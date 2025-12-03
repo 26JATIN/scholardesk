@@ -191,6 +191,8 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
@@ -199,11 +201,16 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FE),
+        backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
         body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator(
+                color: isDark ? Colors.white : AppTheme.primaryColor,
+              ))
             : _errorMessage != null
-                ? Center(child: Text('Error: $_errorMessage'))
+                ? Center(child: Text(
+                    'Error: $_errorMessage',
+                    style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+                  ))
                 : NestedScrollView(
                     headerSliverBuilder: (context, innerBoxIsScrolled) {
                       return [
@@ -211,10 +218,13 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
                           expandedHeight: 120,
                           floating: false,
                           pinned: true,
-                          backgroundColor: Colors.white,
-                          surfaceTintColor: Colors.white,
+                          backgroundColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
+                          surfaceTintColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
                           leading: IconButton(
-                            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
+                            icon: Icon(
+                              Icons.arrow_back_ios_new_rounded, 
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
                             onPressed: () => Navigator.pop(context),
                           ),
                           flexibleSpace: FlexibleSpaceBar(
@@ -222,7 +232,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
                               'Personal Info',
                               style: GoogleFonts.outfit(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: isDark ? Colors.white : Colors.black87,
                               ),
                             ),
                             titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
@@ -234,7 +244,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
                             TabBar(
                               controller: _tabController,
                               labelColor: AppTheme.primaryColor,
-                              unselectedLabelColor: Colors.grey,
+                              unselectedLabelColor: isDark ? Colors.grey.shade500 : Colors.grey,
                               indicatorColor: AppTheme.primaryColor,
                               indicatorWeight: 3,
                               labelStyle: GoogleFonts.inter(
@@ -252,6 +262,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
                                 Tab(text: 'Parents'),
                               ],
                             ),
+                            isDark: isDark,
                           ),
                         ),
                       ];
@@ -264,7 +275,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
                           padding: const EdgeInsets.all(16),
                           child: Column(
                             children: [
-                              _buildStudentSection(),
+                              _buildStudentSection(isDark),
                               const SizedBox(height: 20),
                             ],
                           ),
@@ -275,7 +286,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
                           padding: const EdgeInsets.all(16),
                           child: Column(
                             children: [
-                              _buildCustomFieldsSection(),
+                              _buildCustomFieldsSection(isDark),
                               const SizedBox(height: 20),
                             ],
                           ),
@@ -286,7 +297,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
                           padding: const EdgeInsets.all(16),
                           child: Column(
                             children: [
-                              _buildAddressSection(),
+                              _buildAddressSection(isDark),
                               const SizedBox(height: 20),
                             ],
                           ),
@@ -297,9 +308,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
                           padding: const EdgeInsets.all(16),
                           child: Column(
                             children: [
-                              _buildParentSection('Father', _fatherPhotoUrl, _fatherDetails),
+                              _buildParentSection('Father', _fatherPhotoUrl, _fatherDetails, isDark),
                               const SizedBox(height: 16),
-                              _buildParentSection('Mother', _motherPhotoUrl, _motherDetails),
+                              _buildParentSection('Mother', _motherPhotoUrl, _motherDetails, isDark),
                               const SizedBox(height: 20),
                             ],
                           ),
@@ -311,14 +322,16 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
     );
   }
 
-  Widget _buildStudentSection() {
+  Widget _buildStudentSection(bool isDark) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardColor : Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: isDark 
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.08),
             blurRadius: 15,
             offset: const Offset(0, 6),
           ),
@@ -329,11 +342,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
         children: [
           Container(
             padding: const EdgeInsets.all(18),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
-              ),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
               children: [
@@ -361,7 +372,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
             padding: const EdgeInsets.all(16),
             child: Column(
               children: _studentDetails.entries
-                  .map((e) => _buildDetailRow(e.key, e.value))
+                  .map((e) => _buildDetailRow(e.key, e.value, isDark))
                   .toList(),
             ),
           ),
@@ -370,16 +381,18 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
     ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0);
   }
 
-  Widget _buildCustomFieldsSection() {
+  Widget _buildCustomFieldsSection(bool isDark) {
     if (_customFields.isEmpty) return const SizedBox.shrink();
     
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardColor : Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: isDark 
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.08),
             blurRadius: 15,
             offset: const Offset(0, 6),
           ),
@@ -390,11 +403,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
         children: [
           Container(
             padding: const EdgeInsets.all(18),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
-              ),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            decoration: BoxDecoration(
+              color: const Color(0xFF8B5CF6),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
               children: [
@@ -422,7 +433,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
             padding: const EdgeInsets.all(16),
             child: Column(
               children: _customFields.entries
-                  .map((e) => _buildDetailRow(e.key, e.value))
+                  .map((e) => _buildDetailRow(e.key, e.value, isDark))
                   .toList(),
             ),
           ),
@@ -431,16 +442,16 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
     ).animate().fadeIn(delay: 100.ms, duration: 600.ms).slideY(begin: 0.2, end: 0);
   }
 
-  Widget _buildAddressSection() {
+  Widget _buildAddressSection(bool isDark) {
     if (_addressInfo.isEmpty) return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.location_off_outlined, size: 64, color: Colors.grey.shade300),
+          Icon(Icons.location_off_outlined, size: 64, color: isDark ? Colors.grey.shade600 : Colors.grey.shade300),
           const SizedBox(height: 16),
           Text(
             'No address information found',
-            style: GoogleFonts.inter(color: Colors.grey.shade400),
+            style: GoogleFonts.inter(color: isDark ? Colors.grey.shade500 : Colors.grey.shade400),
           ),
         ],
       ),
@@ -448,11 +459,13 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
     
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardColor : Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: isDark 
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.08),
             blurRadius: 15,
             offset: const Offset(0, 6),
           ),
@@ -463,11 +476,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
         children: [
           Container(
             padding: const EdgeInsets.all(18),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-              ),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF59E0B),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
               children: [
@@ -495,7 +506,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
             padding: const EdgeInsets.all(16),
             child: Column(
               children: _addressInfo.entries
-                  .map((e) => _buildDetailRow(e.key, e.value))
+                  .map((e) => _buildDetailRow(e.key, e.value, isDark))
                   .toList(),
             ),
           ),
@@ -504,18 +515,18 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
     ).animate().fadeIn(delay: 200.ms, duration: 600.ms).slideY(begin: 0.2, end: 0);
   }
 
-  Widget _buildParentSection(String parentType, String? photoUrl, Map<String, String> details) {
+  Widget _buildParentSection(String parentType, String? photoUrl, Map<String, String> details, bool isDark) {
     if (details.isEmpty) {
       if (parentType == 'Father' && _fatherDetails.isEmpty && _motherDetails.isEmpty) {
          return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.family_restroom_outlined, size: 64, color: Colors.grey.shade300),
+              Icon(Icons.family_restroom_outlined, size: 64, color: isDark ? Colors.grey.shade600 : Colors.grey.shade300),
               const SizedBox(height: 16),
               Text(
                 'No parent information found',
-                style: GoogleFonts.inter(color: Colors.grey.shade400),
+                style: GoogleFonts.inter(color: isDark ? Colors.grey.shade500 : Colors.grey.shade400),
               ),
             ],
           ),
@@ -524,17 +535,19 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
       return const SizedBox.shrink();
     }
     
-    final gradientColors = parentType == 'Father' 
-        ? [const Color(0xFF10B981), const Color(0xFF059669)]
-        : [const Color(0xFFEC4899), const Color(0xFFDB2777)];
+    final headerColor = parentType == 'Father' 
+        ? const Color(0xFF10B981)
+        : const Color(0xFFEC4899);
     
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardColor : Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: isDark 
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.08),
             blurRadius: 15,
             offset: const Offset(0, 6),
           ),
@@ -546,7 +559,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: gradientColors),
+              color: headerColor,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
@@ -579,7 +592,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
                 if (photoUrl != null && !photoUrl.contains('prof-img.svg'))
                   CircleAvatar(
                     radius: 30,
-                    backgroundColor: Colors.grey.shade300,
+                    backgroundColor: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
                     child: ClipOval(
                       child: Image.network(
                         photoUrl,
@@ -587,7 +600,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
                         height: 60,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
-                          return Icon(Icons.person, size: 30, color: Colors.grey);
+                          return Icon(Icons.person, size: 30, color: isDark ? Colors.grey.shade500 : Colors.grey);
                         },
                       ),
                     ),
@@ -597,7 +610,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
                 Expanded(
                   child: Column(
                     children: details.entries
-                        .map((e) => _buildDetailRow(e.key, e.value))
+                        .map((e) => _buildDetailRow(e.key, e.value, isDark))
                         .toList(),
                   ),
                 ),
@@ -609,14 +622,16 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
     ).animate().fadeIn(delay: (parentType == 'Father' ? 300 : 400).ms, duration: 600.ms).slideY(begin: 0.2, end: 0);
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildDetailRow(String label, String value, bool isDark) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FE),
+        color: isDark ? AppTheme.darkElevatedColor : const Color(0xFFF8F9FE),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -627,7 +642,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
               label,
               style: GoogleFonts.inter(
                 fontSize: 13,
-                color: Colors.grey.shade600,
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -638,7 +653,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
               value,
               style: GoogleFonts.inter(
                 fontSize: 13,
-                color: Colors.black87,
+                color: isDark ? Colors.white : Colors.black87,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -651,9 +666,10 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
 
 // Sticky TabBar Delegate
 class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
-  const _StickyTabBarDelegate(this.tabBar);
+  const _StickyTabBarDelegate(this.tabBar, {required this.isDark});
 
   final TabBar tabBar;
+  final bool isDark;
 
   @override
   double get minExtent => tabBar.preferredSize.height;
@@ -664,13 +680,13 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
       child: tabBar,
     );
   }
 
   @override
   bool shouldRebuild(_StickyTabBarDelegate oldDelegate) {
-    return tabBar != oldDelegate.tabBar;
+    return tabBar != oldDelegate.tabBar || isDark != oldDelegate.isDark;
   }
 }

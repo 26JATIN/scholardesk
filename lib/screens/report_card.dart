@@ -115,10 +115,9 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
         if (rows.isEmpty) {
            // Fallback if > selector doesn't work as expected in this package
            // Select all trs and filter
-           final allRows = resultTable.querySelectorAll('tr');
+           resultTable.querySelectorAll('tr');
         }
         
-        SemesterResult? currentSemester;
         List<SubjectResult> currentSubjects = [];
         
         for (var row in rows) {
@@ -202,14 +201,24 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FE),
+      backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(
+              color: isDark ? Colors.white : AppTheme.primaryColor,
+            ))
           : _errorMessage != null
-              ? Center(child: Text('Error: $_errorMessage'))
+              ? Center(child: Text(
+                  'Error: $_errorMessage',
+                  style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+                ))
               : _semesters.isEmpty
-                  ? Center(child: Text('No report card data found'))
+                  ? Center(child: Text(
+                      'No report card data found',
+                      style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+                    ))
                   : NestedScrollView(
                       headerSliverBuilder: (context, innerBoxIsScrolled) {
                         return [
@@ -217,10 +226,13 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
                             expandedHeight: 120,
                             floating: false,
                             pinned: true,
-                            backgroundColor: Colors.white,
-                            surfaceTintColor: Colors.white,
+                            backgroundColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
+                            surfaceTintColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
                             leading: IconButton(
-                              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
+                              icon: Icon(
+                                Icons.arrow_back_ios_new_rounded, 
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
                               onPressed: () => Navigator.pop(context),
                             ),
                             flexibleSpace: FlexibleSpaceBar(
@@ -228,7 +240,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
                                 'Report Card',
                                 style: GoogleFonts.outfit(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                                  color: isDark ? Colors.white : Colors.black87,
                                 ),
                               ),
                               titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
@@ -241,7 +253,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
                                 controller: _tabController,
                                 isScrollable: true,
                                 labelColor: AppTheme.primaryColor,
-                                unselectedLabelColor: Colors.grey,
+                                unselectedLabelColor: isDark ? Colors.grey.shade500 : Colors.grey,
                                 indicatorColor: AppTheme.primaryColor,
                                 indicatorWeight: 3,
                                 labelStyle: GoogleFonts.inter(
@@ -265,19 +277,20 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
                                   );
                                 }).toList(),
                               ),
+                              isDark: isDark,
                             ),
                           ),
                         ];
                       },
                       body: TabBarView(
                         controller: _tabController,
-                        children: _semesters.map((semester) => _buildSemesterView(semester)).toList(),
+                        children: _semesters.map((semester) => _buildSemesterView(semester, isDark)).toList(),
                       ),
                     ),
     );
   }
 
-  Widget _buildSemesterView(SemesterResult semester) {
+  Widget _buildSemesterView(SemesterResult semester, bool isDark) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -285,11 +298,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppTheme.primaryColor, AppTheme.primaryColor.withOpacity(0.8)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: AppTheme.primaryColor,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
@@ -316,7 +325,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
           style: GoogleFonts.outfit(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            color: isDark ? Colors.white : Colors.black87,
           ),
         ),
         const SizedBox(height: 16),
@@ -327,7 +336,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
           final subject = entry.value;
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: _buildSubjectCard(subject)
+            child: _buildSubjectCard(subject, isDark)
                 .animate()
                 .fadeIn(delay: (50 * index).ms)
                 .slideX(begin: 0.1, end: 0),
@@ -363,17 +372,19 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildSubjectCard(SubjectResult subject) {
+  Widget _buildSubjectCard(SubjectResult subject, bool isDark) {
     Color gradeColor = _getGradeColor(subject.grade);
     
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardColor : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: isDark 
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -390,7 +401,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
                   style: GoogleFonts.inter(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -399,15 +410,17 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
+                        color: isDark ? AppTheme.darkElevatedColor : Colors.grey.shade50,
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey.shade200),
+                        border: Border.all(
+                          color: isDark ? Colors.grey.shade700 : Colors.grey.shade200,
+                        ),
                       ),
                       child: Text(
                         subject.code,
                         style: GoogleFonts.sourceCodePro(
                           fontSize: 12,
-                          color: Colors.grey.shade700,
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -417,7 +430,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
                       'Credits: ${subject.credits}',
                       style: GoogleFonts.inter(
                         fontSize: 13,
-                        color: Colors.grey.shade500,
+                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade500,
                       ),
                     ),
                   ],
@@ -431,7 +444,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with SingleTickerPr
             height: 48,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: gradeColor.withOpacity(0.1),
+              color: gradeColor.withOpacity(isDark ? 0.2 : 0.1),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: gradeColor.withOpacity(0.2)),
             ),
@@ -502,9 +515,10 @@ class SubjectResult {
 
 // Sticky TabBar Delegate
 class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
-  const _StickyTabBarDelegate(this.tabBar);
+  const _StickyTabBarDelegate(this.tabBar, {required this.isDark});
 
   final TabBar tabBar;
+  final bool isDark;
 
   @override
   double get minExtent => tabBar.preferredSize.height;
@@ -515,13 +529,13 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
       child: tabBar,
     );
   }
 
   @override
   bool shouldRebuild(_StickyTabBarDelegate oldDelegate) {
-    return tabBar != oldDelegate.tabBar;
+    return tabBar != oldDelegate.tabBar || isDark != oldDelegate.isDark;
   }
 }

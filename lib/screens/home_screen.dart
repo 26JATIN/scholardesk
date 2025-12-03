@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:html/parser.dart' as html_parser;
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../main.dart' show themeService;
 import 'feed_screen.dart';
 import 'feed_detail_screen.dart';
 import 'attendance_screen.dart';
@@ -450,14 +451,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Required for AutomaticKeepAliveClientMixin
-    // canPop: true on home tab enables predictive back animation when closing app
-    // canPop: false on profile tab lets us intercept and navigate to home instead
+    super.build(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return PopScope(
       canPop: _selectedIndex == 0,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
-        // didPop is true when on home tab - app closes with predictive animation
-        // didPop is false when on profile tab - we navigate to home
         if (!didPop && _selectedIndex == 1) {
           HapticFeedback.lightImpact();
           setState(() {
@@ -485,34 +484,85 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             ),
           ],
         ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _selectedIndex,
-          animationDuration: const Duration(milliseconds: 400),
-          onDestinationSelected: (index) {
-            if (_selectedIndex != index && mounted) {
-              // Haptic FIRST for immediate feedback
-              HapticFeedback.lightImpact();
-              setState(() {
-                _selectedIndex = index;
-              });
-              _pageController.animateToPage(
-                index,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOutCubic,
-              );
-            }
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: 'Home',
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkCardColor : Colors.white,
+            border: Border(
+              top: BorderSide(
+                color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
+                width: 1,
+              ),
             ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              selectedIcon: Icon(Icons.person_rounded),
-              label: 'Profile',
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(0, Icons.home_outlined, Icons.home_rounded, 'Home'),
+                  _buildNavItem(1, Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
+                ],
+              ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, IconData selectedIcon, String label) {
+    final isSelected = _selectedIndex == index;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return GestureDetector(
+      onTap: () {
+        if (_selectedIndex != index && mounted) {
+          HapticFeedback.lightImpact();
+          setState(() {
+            _selectedIndex = index;
+          });
+          _pageController.animateToPage(
+            index,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.symmetric(
+          horizontal: isSelected ? 20 : 16,
+          vertical: 10,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? AppTheme.primaryColor.withOpacity(isDark ? 0.2 : 0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? selectedIcon : icon,
+              size: 24,
+              color: isSelected 
+                  ? AppTheme.primaryColor
+                  : (isDark ? Colors.grey.shade500 : Colors.grey.shade600),
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -520,14 +570,47 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildHomeContent() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    
     return CustomScrollView(
       key: const PageStorageKey('home_scroll'),
       slivers: [
-        SliverAppBar.large(
-          expandedHeight: 140,
+        SliverAppBar(
+          expandedHeight: 120,
           floating: false,
           pinned: true,
+          backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
+          surfaceTintColor: Colors.transparent,
+          actions: [
+            // Theme Toggle
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: IconButton(
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  themeService.toggleTheme();
+                },
+                icon: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  transitionBuilder: (child, animation) {
+                    return RotationTransition(
+                      turns: Tween(begin: 0.5, end: 1.0).animate(animation),
+                      child: FadeTransition(opacity: animation, child: child),
+                    );
+                  },
+                  child: Icon(
+                    isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                    key: ValueKey(isDark),
+                    color: isDark ? AppTheme.warningColor : AppTheme.primaryColor,
+                  ),
+                ),
+                tooltip: isDark ? 'Light mode' : 'Dark mode',
+              ),
+            ),
+          ],
           flexibleSpace: FlexibleSpaceBar(
+            titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
             title: Column(
               mainAxisAlignment: MainAxisAlignment.end,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,59 +619,55 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   'Hello, ${_userName?.split(' ').first ?? 'Student'}! 👋',
                   style: GoogleFonts.outfit(
                     fontWeight: FontWeight.bold,
-                    fontSize: 24,
+                    fontSize: 22,
+                    color: textColor,
                   ),
                 ),
                 if (_currentSemester != null || _currentGroup != null)
-                  AnimatedOpacity(
-                    opacity: 1.0,
-                    duration: const Duration(milliseconds: 300),
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_currentSemester != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                'Sem $_currentSemester',
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.primaryColor,
-                                ),
+                  Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_currentSemester != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Sem $_currentSemester',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
                               ),
                             ),
-                          if (_currentSemester != null && _currentGroup != null)
-                            const SizedBox(width: 6),
-                          if (_currentGroup != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppTheme.accentColor.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                _currentGroup!,
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.accentColor,
-                                ),
+                          ),
+                        if (_currentSemester != null && _currentGroup != null)
+                          const SizedBox(width: 6),
+                        if (_currentGroup != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _currentGroup!,
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
                               ),
                             ),
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
                   ),
               ],
             ),
-            titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
           ),
         ),
         SliverPadding(
@@ -637,26 +716,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     if (_isLoadingTimetable) {
       return _buildLoadingCard();
     }
-
+    
     final upcomingClass = _getUpcomingClass();
     
     if (upcomingClass == null) {
       return Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF667EEA).withOpacity(0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
+          color: AppTheme.successColor,
+          borderRadius: BorderRadius.circular(24),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -664,33 +732,38 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(Icons.celebration_outlined, color: Colors.white, size: 22),
+                  child: const Icon(Icons.celebration_rounded, color: Colors.white, size: 24),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
                 Expanded(
-                  child: Text(
-                    'No More Classes Today!',
-                    style: GoogleFonts.outfit(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'No More Classes!',
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Enjoy your free time 🎉',
+                        style: GoogleFonts.inter(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Enjoy your free time 🎉',
-              style: GoogleFonts.inter(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 13,
-              ),
             ),
           ],
         ),
@@ -698,46 +771,54 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     }
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: AppTheme.primaryGradient,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        color: AppTheme.primaryColor,
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Text(
-                'Up Next',
-                style: GoogleFonts.inter(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(14),
                 ),
+                child: const Icon(Icons.schedule_rounded, color: Colors.white, size: 24),
               ),
-              const SizedBox(height: 4),
-              Text(
-                _getSubjectNameByCode(upcomingClass['subject'] ?? 'Class'),
-                style: GoogleFonts.outfit(
-                  color: Colors.white,
-                  fontSize: 19,
-                  fontWeight: FontWeight.bold,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Up Next',
+                      style: GoogleFonts.inter(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _getSubjectNameByCode(upcomingClass['subject'] ?? 'Class'),
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -746,24 +827,26 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               _buildInfoChip(Icons.location_on_outlined, upcomingClass['location'] ?? ''),
             ],
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(Icons.person_outline_rounded, color: Colors.white.withOpacity(0.9), size: 15),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  upcomingClass['teacher'] ?? '',
-                  style: GoogleFonts.inter(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+          if (upcomingClass['teacher']?.isNotEmpty ?? false) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.person_outline_rounded, color: Colors.white.withOpacity(0.8), size: 16),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    upcomingClass['teacher'] ?? '',
+                    style: GoogleFonts.inter(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -774,19 +857,19 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.white, size: 16),
+          Icon(icon, color: Colors.white, size: 15),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
               label,
               style: GoogleFonts.inter(
                 color: Colors.white,
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
               overflow: TextOverflow.ellipsis,
@@ -905,8 +988,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildStatCard(String title, String value, IconData icon, Color color, VoidCallback onTap) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Material(
-      color: Colors.white,
+      color: isDark ? AppTheme.darkCardColor : Colors.white,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
@@ -915,7 +1000,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: color.withOpacity(0.2), width: 1.5),
+            border: Border.all(
+              color: isDark ? color.withOpacity(0.3) : color.withOpacity(0.2), 
+              width: 1.5,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -923,7 +1011,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withOpacity(isDark ? 0.2 : 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: color, size: 24),
@@ -934,7 +1022,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 style: GoogleFonts.outfit(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
               const SizedBox(height: 4),
@@ -942,7 +1030,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 title,
                 style: GoogleFonts.inter(
                   fontSize: 13,
-                  color: Colors.black54,
+                  color: isDark ? Colors.grey.shade400 : Colors.black54,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -954,6 +1042,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildSectionHeader(String title, VoidCallback? onViewAll) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -963,7 +1053,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             style: GoogleFonts.outfit(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: isDark ? Colors.white : Colors.black87,
             ),
           ),
         ),
@@ -986,27 +1076,25 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final title = item['title']?['S'] ?? 'No Title';
     final desc = item['desc']?['S'] ?? '';
     final date = item['creDate']?['S'] ?? '';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    // Cycle through gradients for visual variety
-    final gradients = [
-      AppTheme.primaryGradient,
-      AppTheme.accentGradient,
-      AppTheme.successGradient,
+    // Cycle through colors for visual variety
+    final colors = [
+      AppTheme.primaryColor,
+      AppTheme.accentColor,
+      AppTheme.successColor,
+      AppTheme.secondaryColor,
     ];
-    final gradient = gradients[index % gradients.length];
+    final accentColor = colors[index % colors.length];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardColor : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
+        ),
       ),
       child: Material(
         color: Colors.transparent,
@@ -1027,99 +1115,88 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               ),
             );
           },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Gradient top border
-              Container(
-                height: 6,
-                decoration: BoxDecoration(
-                  gradient: gradient,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Icon with solid color background
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.campaign_rounded,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Icon with gradient background
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        gradient: gradient,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryColor.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      child: const Icon(
-                        Icons.campaign_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: GoogleFonts.outfit(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                      if (desc.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          desc,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: isDark ? Colors.grey.shade400 : Colors.black54,
+                            height: 1.4,
                           ),
-                          if (desc.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              desc,
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                color: Colors.black54,
-                                height: 1.4,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                          if (date.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Icon(Icons.calendar_today_rounded, size: 13, color: Colors.grey.shade500),
-                                const SizedBox(width: 6),
-                                Text(
-                                  date,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      if (date.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: accentColor.withOpacity(isDark ? 0.2 : 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.calendar_today_rounded, size: 12, color: accentColor),
+                              const SizedBox(width: 6),
+                              Text(
+                                date,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: accentColor,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey.shade400),
-                  ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.arrow_forward_ios_rounded, 
+                  size: 14, 
+                  color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1127,11 +1204,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildLoadingCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      height: 180,
+      height: 140,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? AppTheme.darkCardColor : Colors.white,
         borderRadius: BorderRadius.circular(24),
       ),
       child: const Center(child: CircularProgressIndicator()),
@@ -1139,16 +1217,21 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildEmptyState(String message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(32),
       child: Column(
         children: [
-          Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade300),
+          Icon(
+            Icons.inbox_outlined, 
+            size: 64, 
+            color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+          ),
           const SizedBox(height: 16),
           Text(
             message,
             style: GoogleFonts.inter(
-              color: Colors.grey.shade400,
+              color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
               fontSize: 14,
             ),
           ),
