@@ -703,20 +703,28 @@ class _FeedScreenState extends State<FeedScreen> {
       },
       child: Scaffold(
         backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
-        body: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            // Modern App Bar
-            SliverAppBar.large(
-              expandedHeight: 140,
-              floating: false,
-              pinned: true,
-              backgroundColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
-              leading: IconButton(
-                icon: Icon(Icons.arrow_back_ios_rounded, 
-                  color: isDark ? Colors.white : Colors.black87),
-                onPressed: () => Navigator.pop(context),
-              ),
+        body: RefreshIndicator(
+          onRefresh: () => _fetchFeed(isRefresh: true),
+          color: isDark ? Colors.white : Colors.black87,
+          backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
+          displacement: 20,
+          strokeWidth: 2.5,
+          triggerMode: RefreshIndicatorTriggerMode.anywhere,
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              // Modern App Bar
+              SliverAppBar.large(
+                expandedHeight: 140,
+                floating: false,
+                pinned: true,
+                backgroundColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back_ios_rounded, 
+                    color: isDark ? Colors.white : Colors.black87),
+                  onPressed: () => Navigator.pop(context),
+                ),
             flexibleSpace: FlexibleSpaceBar(
               title: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -809,24 +817,6 @@ class _FeedScreenState extends State<FeedScreen> {
                   color: isDark ? Colors.white : Colors.black87,
                 ),
                 onPressed: () => themeService.toggleTheme(),
-              ),
-              IconButton(
-                icon: _isRefreshingInBackground 
-                    ? SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                      )
-                    : Icon(Icons.refresh_rounded, 
-                        color: isDark ? Colors.white : Colors.black87),
-                onPressed: _isRefreshingInBackground 
-                    ? null 
-                    : () {
-                        _fetchFeed(isRefresh: true);
-                      },
               ),
             ],
           ),
@@ -1119,7 +1109,8 @@ class _FeedScreenState extends State<FeedScreen> {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
