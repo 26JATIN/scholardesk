@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:chitkaracompanion/screens/school_code_screen.dart';
+import 'package:scholardesk/screens/school_code_screen.dart';
 
 void main() {
   testWidgets('SchoolCodeScreen has input and button', (WidgetTester tester) async {

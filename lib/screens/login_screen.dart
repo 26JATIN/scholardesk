@@ -89,7 +89,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final logoUrl = widget.clientDetails['loginLogo'];
     final clientName = widget.clientDetails['client_name'];
 
     return Scaffold(
@@ -112,56 +111,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo
-                  if (logoUrl != null && logoUrl.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryColor.withOpacity(0.15),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Image.network(
-                        logoUrl,
-                        height: 80,
-                        errorBuilder: (context, error, stackTrace) => Icon(
-                          Icons.school_rounded,
-                          size: 64,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
-                    ).animate().fadeIn(duration: 600.ms).scale(delay: 200.ms)
-                  else
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryColor.withOpacity(0.3),
-                            blurRadius: 25,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.school_rounded,
-                        size: 56,
-                        color: Colors.white,
-                      ),
-                    ).animate().fadeIn(duration: 600.ms).scale(delay: 200.ms),
-                  
-                  const SizedBox(height: 32),
-                  
+                  // University Name
                   Text(
-                    clientName ?? 'Login',
+                    clientName ?? 'Welcome',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.outfit(
                       fontSize: 32,
@@ -169,17 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: Colors.black87,
                       height: 1.2,
                     ),
-                  ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.3),
-                  
-                  const SizedBox(height: 8),
-                  Text(
-                    'Please sign in to continue',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      color: Colors.black54,
-                    ),
-                  ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.3),
+                  ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.3),
 
                   const SizedBox(height: 48),
 

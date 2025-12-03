@@ -10,12 +10,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   static const String _baseUrl = 'https://gdemo.schoolpad.in/mobile/getClientDetails';
 
-  final Map<String, String> _headers = {
+  // Static headers to share cookies across all instances
+  static final Map<String, String> _headers = {
     'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36',
     'Content-Type': 'application/x-www-form-urlencoded',
     'Accept': 'application/json, text/javascript, */*; q=0.01',
     'Connection': 'keep-alive',
   };
+
+  // Track if cookies have been loaded this session
+  static bool _cookiesLoaded = false;
 
   // Allowed hosts for SSL connections
   static const List<String> _allowedHosts = [
@@ -28,6 +32,14 @@ class ApiService {
 
   ApiService() {
     _httpClient = _createSecureClient();
+  }
+
+  /// Ensures cookies are loaded - call this before making authenticated API calls
+  Future<void> ensureCookiesLoaded() async {
+    if (!_cookiesLoaded || !_headers.containsKey('Cookie')) {
+      await _loadCookies();
+      _cookiesLoaded = true;
+    }
   }
 
   /// Creates an HTTP client with SSL certificate validation
@@ -94,6 +106,7 @@ class ApiService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_keyCookies, rawCookie);
       _headers['Cookie'] = rawCookie;
+      _cookiesLoaded = true;
     }
   }
 
@@ -102,6 +115,7 @@ class ApiService {
     final cookie = prefs.getString(_keyCookies);
     if (cookie != null) {
       _headers['Cookie'] = cookie;
+      _cookiesLoaded = true;
     }
   }
 
@@ -130,6 +144,7 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
     _headers.remove('Cookie');
+    _cookiesLoaded = false;
   }
 
   // Semester/Academic Info methods

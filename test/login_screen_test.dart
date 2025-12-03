@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:chitkaracompanion/screens/login_screen.dart';
+import 'package:scholardesk/screens/login_screen.dart';
 
 void main() {
   testWidgets('LoginScreen has inputs and button', (WidgetTester tester) async {

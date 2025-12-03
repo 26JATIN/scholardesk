@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:chitkaracompanion/screens/feed_detail_screen.dart';
+import 'package:scholardesk/screens/feed_detail_screen.dart';
 
 void main() {
   testWidgets('FeedDetailScreen shows title', (WidgetTester tester) async {

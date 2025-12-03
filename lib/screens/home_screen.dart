@@ -84,6 +84,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Future<void> _fetchAllData() async {
     _userName = widget.userData['name'] ?? 'Student';
     
+    // Ensure cookies are loaded before making API calls
+    await _apiService.ensureCookiesLoaded();
+    
     // First load cached semester info for instant display
     _loadSemesterInfo();
     

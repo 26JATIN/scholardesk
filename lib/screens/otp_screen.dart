@@ -194,8 +194,10 @@ class _OtpScreenState extends State<OtpScreen> {
                     ),
                     child: TextField(
                       controller: _otpController,
+                      maxLength: 4,
                       decoration: InputDecoration(
-                        hintText: 'Enter 6-digit OTP',
+                        hintText: 'Enter 4-digit OTP',
+                        counterText: '',
                         hintStyle: GoogleFonts.inter(
                           color: Colors.grey.shade400,
                           fontSize: 16,
