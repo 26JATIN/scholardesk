@@ -240,10 +240,20 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
             );
           } else {
             setState(() {
-              _errorMessage = e.toString().replaceAll('Exception: ', '');
+              _errorMessage = isNetworkError ? 'No internet connection' : 'Data not available';
               _isLoading = false;
               _isRefreshing = false;
+              _isOffline = isNetworkError;
             });
+            
+            if (isNetworkError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please check internet connection'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           }
         }
       }

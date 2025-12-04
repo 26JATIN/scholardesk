@@ -75,7 +75,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     debugPrint('🔍 Loading profile for userId=$userId, clientAbbr=$clientAbbr');
     
     // Try to load from cache first
-    final cached = await _cacheService.getCachedBasicProfile(userId, clientAbbr, sessionId);
+    // Try to load from cache first
+    final cached = await _cacheService.getCachedBasicProfile(userId, clientAbbr);
     
     debugPrint('📦 Cache result: ${cached != null ? "FOUND" : "NOT FOUND"}');
     if (cached != null) {
@@ -104,7 +105,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         )).toList();
         
         _isLoading = false;
-        _cacheAge = _cacheService.getProfileCacheAgeString(userId, clientAbbr, sessionId);
+        _cacheAge = _cacheService.getProfileCacheAgeString(userId, clientAbbr);
         _isOffline = false;
       });
       
@@ -178,7 +179,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await _cacheService.cacheBasicProfile(
         userId: userId,
         clientAbbr: clientAbbr,
-        sessionId: sessionId,
         profile: CachedProfileBasic(
           name: _name,
           profileImageUrl: _profileImageUrl,
@@ -271,7 +271,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
         } else {
           // Try to load from cache as fallback
-          final cached = await _cacheService.getCachedBasicProfile(userId, clientAbbr, sessionId);
+          final cached = await _cacheService.getCachedBasicProfile(userId, clientAbbr);
           if (cached != null) {
             _name = cached.profile.name;
             _profileImageUrl = cached.profile.profileImageUrl;
@@ -286,7 +286,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _isLoading = false;
               _isRefreshing = false;
               _isOffline = isNetworkError;
-              _cacheAge = _cacheService.getProfileCacheAgeString(userId, clientAbbr, sessionId);
+              _cacheAge = _cacheService.getProfileCacheAgeString(userId, clientAbbr);
             });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -300,10 +300,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             );
           } else {
             setState(() {
-              _errorMessage = e.toString().replaceAll('Exception: ', '');
+              _errorMessage = isNetworkError ? 'No internet connection' : 'Data not available';
               _isLoading = false;
               _isRefreshing = false;
+              _isOffline = isNetworkError;
             });
+            
+            if (isNetworkError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please check internet connection'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           }
         }
       }
@@ -472,7 +482,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await _cacheService.cacheBasicProfile(
         userId: userId,
         clientAbbr: clientAbbr,
-        sessionId: sessionId,
         profile: CachedProfileBasic(
           name: _name,
           profileImageUrl: _profileImageUrl,

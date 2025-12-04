@@ -587,11 +587,26 @@ class _FeedScreenState extends State<FeedScreen> {
               ),
             );
           } else {
+            // Check if it's a network error
+            final isNetworkError = e.toString().toLowerCase().contains('socket') ||
+                                   e.toString().toLowerCase().contains('connection') ||
+                                   e.toString().toLowerCase().contains('network');
+
             setState(() {
-              _errorMessage = e.toString().replaceAll('Exception: ', '');
+              _errorMessage = isNetworkError ? 'No internet connection' : 'Data not available';
               _isLoading = false;
               _hasMoreData = false;
+              _isOffline = true;
             });
+                                   
+            if (isNetworkError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please check internet connection'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           }
         }
       }

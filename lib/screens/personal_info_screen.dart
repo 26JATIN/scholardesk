@@ -70,10 +70,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
     
     final userId = widget.userData['userId'].toString();
     final clientAbbr = widget.clientDetails['client_abbr'];
-    final sessionId = widget.userData['sessionId'].toString();
     
     // Try to load from cache first (NEVER EXPIRES)
-    final cached = await _cacheService.getCachedPersonalInfo(userId, clientAbbr, sessionId);
+    final cached = await _cacheService.getCachedPersonalInfo(userId, clientAbbr);
     
     if (cached != null) {
       // Load cached data immediately
@@ -88,7 +87,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
       
       setState(() {
         _isLoading = false;
-        _cacheAge = _cacheService.getPersonalInfoCacheAgeString(userId, clientAbbr, sessionId);
+        _cacheAge = _cacheService.getPersonalInfoCacheAgeString(userId, clientAbbr);
         _isOffline = false;
       });
       
@@ -151,7 +150,6 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
       await _cacheService.cachePersonalInfo(
         userId: userId,
         clientAbbr: clientAbbr,
-        sessionId: sessionId,
         info: CachedPersonalInfo(
           studentDetails: _studentDetails,
           customFields: _customFields,
@@ -224,8 +222,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
           }
         } else {
           // Try to load from cache as fallback
-          final sessionId = widget.userData['sessionId'].toString();
-          final cached = await _cacheService.getCachedPersonalInfo(userId, clientAbbr, sessionId);
+          final cached = await _cacheService.getCachedPersonalInfo(userId, clientAbbr);
           if (cached != null) {
             _studentDetails = cached.info.studentDetails;
             _customFields = cached.info.customFields;
@@ -240,7 +237,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
               _isLoading = false;
               _isRefreshing = false;
               _isOffline = isNetworkError;
-              _cacheAge = _cacheService.getPersonalInfoCacheAgeString(userId, clientAbbr, sessionId);
+              _cacheAge = _cacheService.getPersonalInfoCacheAgeString(userId, clientAbbr);
             });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -254,10 +251,20 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
             );
           } else {
             setState(() {
-              _errorMessage = e.toString().replaceAll('Exception: ', '');
+              _errorMessage = isNetworkError ? 'No internet connection' : 'Data not available';
               _isLoading = false;
               _isRefreshing = false;
+              _isOffline = isNetworkError;
             });
+            
+            if (isNetworkError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please check internet connection'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           }
         }
       }

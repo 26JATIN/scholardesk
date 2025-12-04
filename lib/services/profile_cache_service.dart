@@ -138,24 +138,23 @@ class ProfileCacheService {
 
   // === Basic Profile Cache ===
 
-  String _getProfileCacheKey(String userId, String clientAbbr, String sessionId) {
-    return '$_profileCacheKeyPrefix${userId}_${clientAbbr}_$sessionId';
+  String _getProfileCacheKey(String userId, String clientAbbr) {
+    return '$_profileCacheKeyPrefix${userId}_$clientAbbr';
   }
 
-  String _getProfileCacheTimeKey(String userId, String clientAbbr, String sessionId) {
-    return '$_profileCacheTimeKeyPrefix${userId}_${clientAbbr}_$sessionId';
+  String _getProfileCacheTimeKey(String userId, String clientAbbr) {
+    return '$_profileCacheTimeKeyPrefix${userId}_$clientAbbr';
   }
 
   Future<void> cacheBasicProfile({
     required String userId,
     required String clientAbbr,
-    required String sessionId,
     required CachedProfileBasic profile,
   }) async {
     await init();
     
-    final cacheKey = _getProfileCacheKey(userId, clientAbbr, sessionId);
-    final cacheTimeKey = _getProfileCacheTimeKey(userId, clientAbbr, sessionId);
+    final cacheKey = _getProfileCacheKey(userId, clientAbbr);
+    final cacheTimeKey = _getProfileCacheTimeKey(userId, clientAbbr);
     
     await _prefs!.setString(cacheKey, jsonEncode(profile.toJson()));
     await _prefs!.setInt(cacheTimeKey, DateTime.now().millisecondsSinceEpoch);
@@ -163,11 +162,11 @@ class ProfileCacheService {
     debugPrint('📦 Cached basic profile for user $userId');
   }
 
-  Future<ProfileCacheResult?> getCachedBasicProfile(String userId, String clientAbbr, String sessionId) async {
+  Future<ProfileCacheResult?> getCachedBasicProfile(String userId, String clientAbbr) async {
     await init();
     
-    final cacheKey = _getProfileCacheKey(userId, clientAbbr, sessionId);
-    final cacheTimeKey = _getProfileCacheTimeKey(userId, clientAbbr, sessionId);
+    final cacheKey = _getProfileCacheKey(userId, clientAbbr);
+    final cacheTimeKey = _getProfileCacheTimeKey(userId, clientAbbr);
     
     final cachedJson = _prefs!.getString(cacheKey);
     final cachedTime = _prefs!.getInt(cacheTimeKey);
@@ -194,8 +193,8 @@ class ProfileCacheService {
     }
   }
 
-  String getProfileCacheAgeString(String userId, String clientAbbr, String sessionId) {
-    final cacheTimeKey = _getProfileCacheTimeKey(userId, clientAbbr, sessionId);
+  String getProfileCacheAgeString(String userId, String clientAbbr) {
+    final cacheTimeKey = _getProfileCacheTimeKey(userId, clientAbbr);
     final cachedTime = _prefs?.getInt(cacheTimeKey);
     
     if (cachedTime == null) return '';
@@ -211,24 +210,23 @@ class ProfileCacheService {
 
   // === Detailed Personal Info Cache (NEVER EXPIRES) ===
 
-  String _getPersonalInfoCacheKey(String userId, String clientAbbr, String sessionId) {
-    return '$_personalInfoCacheKeyPrefix${userId}_${clientAbbr}_$sessionId';
+  String _getPersonalInfoCacheKey(String userId, String clientAbbr) {
+    return '$_personalInfoCacheKeyPrefix${userId}_$clientAbbr';
   }
 
-  String _getPersonalInfoCacheTimeKey(String userId, String clientAbbr, String sessionId) {
-    return '$_personalInfoCacheTimeKeyPrefix${userId}_${clientAbbr}_$sessionId';
+  String _getPersonalInfoCacheTimeKey(String userId, String clientAbbr) {
+    return '$_personalInfoCacheTimeKeyPrefix${userId}_$clientAbbr';
   }
 
   Future<void> cachePersonalInfo({
     required String userId,
     required String clientAbbr,
-    required String sessionId,
     required CachedPersonalInfo info,
   }) async {
     await init();
     
-    final cacheKey = _getPersonalInfoCacheKey(userId, clientAbbr, sessionId);
-    final cacheTimeKey = _getPersonalInfoCacheTimeKey(userId, clientAbbr, sessionId);
+    final cacheKey = _getPersonalInfoCacheKey(userId, clientAbbr);
+    final cacheTimeKey = _getPersonalInfoCacheTimeKey(userId, clientAbbr);
     
     await _prefs!.setString(cacheKey, jsonEncode(info.toJson()));
     await _prefs!.setInt(cacheTimeKey, DateTime.now().millisecondsSinceEpoch);
@@ -236,11 +234,11 @@ class ProfileCacheService {
     debugPrint('📦 Cached detailed personal info for user $userId (NEVER EXPIRES)');
   }
 
-  Future<PersonalInfoCacheResult?> getCachedPersonalInfo(String userId, String clientAbbr, String sessionId) async {
+  Future<PersonalInfoCacheResult?> getCachedPersonalInfo(String userId, String clientAbbr) async {
     await init();
     
-    final cacheKey = _getPersonalInfoCacheKey(userId, clientAbbr, sessionId);
-    final cacheTimeKey = _getPersonalInfoCacheTimeKey(userId, clientAbbr, sessionId);
+    final cacheKey = _getPersonalInfoCacheKey(userId, clientAbbr);
+    final cacheTimeKey = _getPersonalInfoCacheTimeKey(userId, clientAbbr);
     
     final cachedJson = _prefs!.getString(cacheKey);
     final cachedTime = _prefs!.getInt(cacheTimeKey);
@@ -267,8 +265,8 @@ class ProfileCacheService {
     }
   }
 
-  String getPersonalInfoCacheAgeString(String userId, String clientAbbr, String sessionId) {
-    final cacheTimeKey = _getPersonalInfoCacheTimeKey(userId, clientAbbr, sessionId);
+  String getPersonalInfoCacheAgeString(String userId, String clientAbbr) {
+    final cacheTimeKey = _getPersonalInfoCacheTimeKey(userId, clientAbbr);
     final cachedTime = _prefs?.getInt(cacheTimeKey);
     
     if (cachedTime == null) return '';
@@ -284,26 +282,26 @@ class ProfileCacheService {
 
   // === Clear Cache ===
 
-  Future<void> clearProfileCache(String userId, String clientAbbr, String sessionId) async {
+  Future<void> clearProfileCache(String userId, String clientAbbr) async {
     await init();
     
-    await _prefs!.remove(_getProfileCacheKey(userId, clientAbbr, sessionId));
-    await _prefs!.remove(_getProfileCacheTimeKey(userId, clientAbbr, sessionId));
+    await _prefs!.remove(_getProfileCacheKey(userId, clientAbbr));
+    await _prefs!.remove(_getProfileCacheTimeKey(userId, clientAbbr));
     
     debugPrint('🗑️ Cleared basic profile cache for user $userId');
   }
 
-  Future<void> clearPersonalInfoCache(String userId, String clientAbbr, String sessionId) async {
+  Future<void> clearPersonalInfoCache(String userId, String clientAbbr) async {
     await init();
     
-    await _prefs!.remove(_getPersonalInfoCacheKey(userId, clientAbbr, sessionId));
-    await _prefs!.remove(_getPersonalInfoCacheTimeKey(userId, clientAbbr, sessionId));
+    await _prefs!.remove(_getPersonalInfoCacheKey(userId, clientAbbr));
+    await _prefs!.remove(_getPersonalInfoCacheTimeKey(userId, clientAbbr));
     
     debugPrint('🗑️ Cleared personal info cache for user $userId');
   }
 
-  Future<void> clearAllCache(String userId, String clientAbbr, String sessionId) async {
-    await clearProfileCache(userId, clientAbbr, sessionId);
-    await clearPersonalInfoCache(userId, clientAbbr, sessionId);
+  Future<void> clearAllCache(String userId, String clientAbbr) async {
+    await clearProfileCache(userId, clientAbbr);
+    await clearPersonalInfoCache(userId, clientAbbr);
   }
 }

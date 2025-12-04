@@ -255,10 +255,23 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       }
     } catch (e) {
       debugPrint('Error fetching subject details: $e');
+      final isNetworkError = e.toString().toLowerCase().contains('socket') ||
+                             e.toString().toLowerCase().contains('connection') ||
+                             e.toString().toLowerCase().contains('network');
+
       if (mounted) {
         setState(() {
           _isLoadingSubjects = false;
         });
+        
+        if (_subjectDetails.isEmpty && isNetworkError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please check internet connection'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -416,6 +429,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           _isLoadingFeed = false;
           _isOffline = isNetworkError;
         });
+        
+        if (_feedItems.isEmpty && isNetworkError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please check internet connection'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -481,10 +503,23 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       }
     } catch (e) {
       debugPrint('Error fetching timetable: $e');
+      final isNetworkError = e.toString().toLowerCase().contains('socket') ||
+                             e.toString().toLowerCase().contains('connection') ||
+                             e.toString().toLowerCase().contains('network');
+                             
       if (mounted) {
         setState(() {
           _isLoadingTimetable = false;
         });
+        
+        if (_timetable.isEmpty && isNetworkError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please check internet connection'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -618,7 +653,20 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       }
     } catch (e) {
       debugPrint('Error fetching attendance: $e');
-      // Handle error silently
+      final isNetworkError = e.toString().toLowerCase().contains('socket') ||
+                             e.toString().toLowerCase().contains('connection') ||
+                             e.toString().toLowerCase().contains('network');
+
+      if (mounted) {
+        if (_subjects.isEmpty && isNetworkError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please check internet connection'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
