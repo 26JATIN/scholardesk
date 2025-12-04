@@ -53,11 +53,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   bool _isLoadingSubjects = true;
   
   // Cache state
-  String _feedCacheAge = '';
-  String _timetableCacheAge = '';
-  String _attendanceCacheAge = '';
-  String _subjectsCacheAge = '';
-  bool _isOffline = false;
   
   String? _userName;
   String? _currentSemester;
@@ -204,7 +199,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             isOptional: s.isOptional,
           )).toList();
           _isLoadingSubjects = false;
-          _subjectsCacheAge = _subjectsCacheService.getCacheAgeString(userId, clientAbbr, sessionId);
         });
       }
       
@@ -251,7 +245,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       
       if (mounted) {
         setState(() {
-          _subjectsCacheAge = 'Just now';
         });
       }
     } catch (e) {
@@ -358,7 +351,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         setState(() {
           _feedItems = cached.items;
           _isLoadingFeed = false;
-          _feedCacheAge = cached.getCacheAgeString();
         });
       }
       
@@ -423,8 +415,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         setState(() {
           _feedItems = updatedCache.items;
           _isLoadingFeed = false;
-          _feedCacheAge = 'Just now';
-          _isOffline = false;
         });
       }
     } catch (e) {
@@ -436,7 +426,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       if (mounted) {
         setState(() {
           _isLoadingFeed = false;
-          _isOffline = isNetworkError;
         });
         
         // Only show error if we have NO data
@@ -467,7 +456,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         setState(() {
           _timetable = cached.timetable;
           _isLoadingTimetable = false;
-          _timetableCacheAge = _timetableCacheService.getCacheAgeString(userId, clientAbbr, sessionId);
         });
       }
       
@@ -509,7 +497,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       if (mounted) {
         setState(() {
           _isLoadingTimetable = false;
-          _timetableCacheAge = 'Just now';
         });
       }
     } catch (e) {
@@ -621,7 +608,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             ..totalApprovedML = s.totalApprovedML
           ).toList();
           _isLoadingSubjects = false;
-          _attendanceCacheAge = _attendanceCacheService.getCacheAgeString(userId, clientAbbr, sessionId);
         });
       }
       
@@ -677,7 +663,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       if (mounted) {
         setState(() {
           _isLoadingSubjects = false;
-          _attendanceCacheAge = 'Just now';
         });
       }
     } catch (e) {

@@ -1263,9 +1263,6 @@ class _FeedScreenState extends State<FeedScreen> {
     final desc = (item['desc'] != null && item['desc']['S'] != null)
         ? (item['desc']['S'] as String).decodeHtml
         : '';
-    final dateStr = (item['creDate'] != null && item['creDate']['S'] != null)
-        ? item['creDate']['S'] as String
-        : '';
     final timeStr = (item['creTime'] != null && item['creTime']['S'] != null)
         ? item['creTime']['S'] as String
         : '';

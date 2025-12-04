@@ -5,7 +5,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
-import '../theme/app_theme.dart';
 import '../utils/string_extensions.dart';
 import '../main.dart' show themeService;
 

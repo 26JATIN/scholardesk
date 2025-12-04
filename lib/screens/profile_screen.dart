@@ -70,7 +70,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     
     final userId = widget.userData['userId'].toString();
     final clientAbbr = widget.clientDetails['client_abbr'];
-    final sessionId = widget.userData['sessionId'].toString();
+    widget.userData['sessionId'].toString();
     
     debugPrint('🔍 Loading profile for userId=$userId, clientAbbr=$clientAbbr');
     
@@ -126,7 +126,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _fetchProfileMenu({bool isBackgroundRefresh = false, bool isRefresh = false}) async {
     final userId = widget.userData['userId'].toString();
     final clientAbbr = widget.clientDetails['client_abbr'];
-    final sessionId = widget.userData['sessionId'].toString();
+    widget.userData['sessionId'].toString();
     
     // Store existing data in case of refresh failure
     final existingName = _name;
