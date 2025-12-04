@@ -496,8 +496,25 @@ class _FeedScreenState extends State<FeedScreen> {
             );
             
             setState(() {
+              // Calculate truly new items count BEFORE updating state
+              final oldIds = _feedItems.map((e) {
+                final id = e['itemId']?['N']?.toString() ?? '';
+                final ts = e['timeStamp']?['N']?.toString() ?? '';
+                return '$id-$ts';
+              }).toSet();
+
+              int newCount = 0;
+              for (var item in processedNewItems) {
+                final id = item['itemId']?['N']?.toString() ?? '';
+                final ts = item['timeStamp']?['N']?.toString() ?? '';
+                final key = '$id-$ts';
+                if (!oldIds.contains(key)) {
+                  newCount++;
+                }
+              }
+              
               _feedItems = mergedItems;
-              _newItemsCount = processedNewItems.length; // This might be misleading if we just refreshed content
+              _newItemsCount = newCount;
               
               // Rebuild loaded IDs from the merged list
               _loadedItemIds.clear();
