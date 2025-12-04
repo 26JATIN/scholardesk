@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as dom;
 import '../services/api_service.dart';
+import '../services/timetable_cache_service.dart';
 import '../theme/app_theme.dart';
 import '../main.dart' show themeService;
 
@@ -21,12 +22,16 @@ class TimetableScreen extends StatefulWidget {
   State<TimetableScreen> createState() => _TimetableScreenState();
 }
 
-class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProviderStateMixin {
+class _TimetableScreenState extends State<TimetableScreen> with TickerProviderStateMixin {
   final ApiService _apiService = ApiService();
+  final TimetableCacheService _cacheService = TimetableCacheService();
   bool _isLoading = true;
+  bool _isRefreshing = false;
   String? _errorMessage;
+  String _cacheAge = '';
+  bool _isOffline = false;
   Map<String, List<Map<String, String>>> _timetable = {};
-  late TabController _tabController;
+  TabController? _tabController;
   final List<String> _days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   
   // Subject code to name mapping
@@ -37,21 +42,93 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
   void initState() {
     super.initState();
     _tabController = TabController(length: _days.length, vsync: this);
-    _fetchTimetable();
-    _fetchSubjectNames(); // Fetch subjects in parallel
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadFromCacheAndFetch();
+    });
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchTimetable() async {
+  /// Load cached data first, then fetch from API if needed
+  Future<void> _loadFromCacheAndFetch() async {
+    await _cacheService.init();
+    
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    final sessionId = widget.userData['sessionId'].toString();
+    
+    // Try to load from cache first
+    final cached = await _cacheService.getCachedTimetable(userId, clientAbbr, sessionId);
+    
+    if (cached != null && cached.timetable.isNotEmpty) {
+      // Load cached items immediately
+      _timetable = cached.timetable;
+      _subjectNames = cached.subjectNames;
+      _isLoadingSubjects = cached.subjectNames.isEmpty;
+      
+      setState(() {
+        _isLoading = false;
+        _cacheAge = _cacheService.getCacheAgeString(userId, clientAbbr, sessionId);
+        _isOffline = false;
+      });
+      
+      // Set initial tab to current day
+      _setInitialTab();
+      
+      int totalPeriods = _timetable.values.fold(0, (sum, periods) => sum + periods.length);
+      debugPrint('📦 Loaded timetable with $totalPeriods periods from cache');
+      
+      // Check for updates in background if cache is old
+      if (!cached.isValid) {
+        debugPrint('🔍 Cache is stale, refreshing in background...');
+        _fetchTimetable(isBackgroundRefresh: true);
+        if (_isLoadingSubjects) {
+          _fetchSubjectNames(isBackgroundRefresh: true);
+        }
+      }
+    } else {
+      // No cache, fetch from API
+      debugPrint('📭 No cache found, fetching from API');
+      _fetchTimetable();
+      _fetchSubjectNames();
+    }
+  }
+  
+  void _setInitialTab() {
+    final now = DateTime.now();
+    // weekday: 1 = Mon, 7 = Sun. We map Mon(1) -> 0, Sat(6) -> 5.
+    if (now.weekday >= 1 && now.weekday <= 6) {
+      _tabController?.animateTo(now.weekday - 1);
+    }
+  }
+
+  Future<void> _fetchTimetable({bool isBackgroundRefresh = false, bool isRefresh = false}) async {
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    
+    // Store existing data in case of refresh failure
+    final existingTimetable = Map<String, List<Map<String, String>>>.from(_timetable);
+    final existingSubjectNames = Map<String, String>.from(_subjectNames);
+    final existingCacheAge = _cacheAge;
+    
+    if (isRefresh) {
+      setState(() {
+        _isRefreshing = true;
+        _errorMessage = null;
+      });
+    } else if (!isBackgroundRefresh) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+    
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
-      final clientAbbr = widget.clientDetails['client_abbr'];
-      final userId = widget.userData['userId'].toString();
       final sessionId = widget.userData['sessionId'].toString();
       final roleId = widget.userData['roleId'].toString();
       final appKey = widget.userData['apiKey'].toString();
@@ -67,27 +144,121 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
       );
 
       _parseTimetable(htmlContent);
-
-      setState(() {
-        _isLoading = false;
-      });
       
-      // Set initial tab to current day if possible
-      final now = DateTime.now();
-      // weekday: 1 = Mon, 7 = Sun. We map Mon(1) -> 0, Sat(6) -> 5.
-      if (now.weekday >= 1 && now.weekday <= 6) {
-        _tabController.animateTo(now.weekday - 1);
+      // Cache the results
+      if (_timetable.isNotEmpty) {
+        await _cacheService.cacheTimetable(
+          userId: userId,
+          clientAbbr: clientAbbr,
+          sessionId: sessionId,
+          timetable: _timetable,
+          subjectNames: _subjectNames,
+        );
       }
 
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isRefreshing = false;
+          _isOffline = false;
+          _cacheAge = 'Just now';
+        });
+        
+        // Set initial tab to current day if possible
+        if (!isBackgroundRefresh && !isRefresh) {
+          _setInitialTab();
+        }
+        
+        if (isRefresh && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Timetable updated'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: AppTheme.successColor,
+            ),
+          );
+        }
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
+      debugPrint('Timetable Screen - Error: $e');
+      if (mounted) {
+        // Check if it's a network error
+        final errorStr = e.toString().toLowerCase();
+        final isNetworkError = errorStr.contains('socket') || 
+                               errorStr.contains('connection') || 
+                               errorStr.contains('network') ||
+                               errorStr.contains('timeout') ||
+                               errorStr.contains('host');
+        
+        // If we had existing data (refresh case), restore it
+        if (existingTimetable.isNotEmpty) {
+          setState(() {
+            _timetable = existingTimetable;
+            _subjectNames = existingSubjectNames;
+            _isLoading = false;
+            _isRefreshing = false;
+            _isOffline = isNetworkError;
+            _cacheAge = existingCacheAge;
+          });
+          if (isRefresh) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isNetworkError 
+                    ? 'No internet connection' 
+                    : 'Failed to refresh: ${e.toString().replaceAll('Exception: ', '')}'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: AppTheme.warningColor,
+              ),
+            );
+          }
+        } else {
+          // Try to load from cache as fallback
+          final sessionId = widget.userData['sessionId'].toString();
+          final cached = await _cacheService.getCachedTimetable(userId, clientAbbr, sessionId);
+          if (cached != null && cached.timetable.isNotEmpty) {
+            _timetable = cached.timetable;
+            _subjectNames = cached.subjectNames;
+            
+            setState(() {
+              _isLoading = false;
+              _isRefreshing = false;
+              _isOffline = isNetworkError;
+              _cacheAge = _cacheService.getCacheAgeString(userId, clientAbbr, sessionId);
+            });
+            _setInitialTab();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isNetworkError 
+                    ? 'No internet - Showing cached data ($_cacheAge)'
+                    : 'Error - Showing cached data'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: AppTheme.warningColor,
+              ),
+            );
+          } else {
+            setState(() {
+              _errorMessage = e.toString().replaceAll('Exception: ', '');
+              _isLoading = false;
+              _isRefreshing = false;
+            });
+          }
+        }
+      }
     }
   }
+  
+  /// Handle pull to refresh
+  Future<void> _handleRefresh() async {
+    await Future.wait([
+      _fetchTimetable(isRefresh: true),
+      _fetchSubjectNames(isBackgroundRefresh: true),
+    ]);
+  }
 
-  Future<void> _fetchSubjectNames() async {
+  Future<void> _fetchSubjectNames({bool isBackgroundRefresh = false}) async {
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
       final clientAbbr = widget.clientDetails['client_abbr'];
@@ -235,6 +406,43 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
                   onPressed: () => Navigator.pop(context),
                 ),
                 actions: [
+                  if (_isRefreshing)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              isDark ? Colors.white70 : AppTheme.primaryColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (_cacheAge.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: (_isOffline ? AppTheme.warningColor : AppTheme.successColor).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _isOffline ? 'Offline' : _cacheAge,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _isOffline ? AppTheme.warningColor : AppTheme.successColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   IconButton(
                     icon: Icon(
                       isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
@@ -277,7 +485,7 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
                     ),
                     tabs: _days.map((day) {
                       final now = DateTime.now();
-                      final isToday = day == _days[now.weekday - 1];
+                      final isToday = now.weekday >= 1 && now.weekday <= 6 && day == _days[now.weekday - 1];
                       return Tab(
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -327,19 +535,30 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (periods == null || periods.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      return RefreshIndicator(
+        onRefresh: _handleRefresh,
+        color: AppTheme.primaryColor,
+        backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
+        child: ListView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           children: [
-            Icon(Icons.event_busy_rounded, size: 64, 
-              color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
-            const SizedBox(height: 16),
-            Text(
-              'No classes scheduled',
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
-                fontWeight: FontWeight.w500,
+            SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.event_busy_rounded, size: 64, 
+                    color: isDark ? Colors.grey.shade700 : Colors.grey.shade300),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No classes scheduled',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -347,40 +566,45 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: periods.length,
-      itemBuilder: (context, index) {
-        final period = periods[index];
-        final subjectCode = period['subject'] ?? '';
-        final subjectName = _subjectNames[subjectCode];
-        
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: isDark ? AppTheme.darkCardColor : Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: isDark 
-                  ? AppTheme.accentColor.withOpacity(0.2) 
-                  : AppTheme.accentColor.withOpacity(0.2),
-              width: 1.5,
-            ),
-            boxShadow: isDark ? null : [
-              BoxShadow(
-                color: AppTheme.accentColor.withOpacity(0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      color: AppTheme.primaryColor,
+      backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        itemCount: periods.length,
+        itemBuilder: (context, index) {
+          final period = periods[index];
+          final subjectCode = period['subject'] ?? '';
+          final subjectName = _subjectNames[subjectCode];
+          
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkCardColor : Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark 
+                    ? AppTheme.accentColor.withOpacity(0.2) 
+                    : AppTheme.accentColor.withOpacity(0.2),
+                width: 1.5,
               ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
+              boxShadow: isDark ? null : [
+                BoxShadow(
+                  color: AppTheme.accentColor.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -514,6 +738,7 @@ class _TimetableScreenState extends State<TimetableScreen> with SingleTickerProv
           ),
         ).animate().fadeIn(delay: (50 * index).ms).scale(delay: (50 * index).ms);
       },
+      ),
     );
   }
 

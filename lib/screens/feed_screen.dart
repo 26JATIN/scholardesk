@@ -53,13 +53,12 @@ class _FeedScreenState extends State<FeedScreen> {
 
   /// Load cached data first, then fetch only new items
   Future<void> _loadFromCacheAndFetch() async {
-    await _cacheService.init();
-    
     final userId = widget.userData['userId'].toString();
     final clientAbbr = widget.clientDetails['client_abbr'];
+    final sessionId = widget.userData['sessionId'].toString();
     
     // Try to load from cache first
-    final cached = await _cacheService.getCachedFeed(userId, clientAbbr);
+    final cached = await _cacheService.getCachedFeed(userId, clientAbbr, sessionId);
     
     if (cached != null && cached.items.isNotEmpty) {
       // Load cached items immediately - cache is permanent, always valid
@@ -73,16 +72,17 @@ class _FeedScreenState extends State<FeedScreen> {
         _applySearchFilter();
         _isLoading = false;
         _nextPageStart = cached.nextPage;
-        _hasMoreData = cached.hasMore; // Will be false if all old feeds loaded
-        _cacheAge = _cacheService.getCacheAgeString(userId, clientAbbr);
+        _hasMoreData = cached.hasMore;
+        _cacheAge = cached.getCacheAgeString();
         _isOffline = false;
       });
       
       debugPrint('📦 Loaded ${cached.items.length} items from cache');
-      debugPrint('📊 All old feeds loaded: ${cached.allOldFeedsLoaded}, hasMore: ${cached.hasMore}');
+      debugPrint('📊 hasMore: ${cached.hasMore}');
       
       // Only check for NEW items if enough time has passed (throttle API calls)
-      if (_cacheService.shouldCheckForNewItems(userId, clientAbbr)) {
+      final shouldCheck = await _cacheService.shouldCheckForNewItems(userId, clientAbbr, sessionId);
+      if (shouldCheck) {
         debugPrint('🔍 Checking for new items...');
         _fetchNewItemsOnly();
       } else {
@@ -101,20 +101,6 @@ class _FeedScreenState extends State<FeedScreen> {
         _scrollController.position.maxScrollExtent - 300;
     
     if (isNearBottom && !_isLoadingMore && _hasMoreData) {
-      final userId = widget.userData['userId'].toString();
-      final clientAbbr = widget.clientDetails['client_abbr'];
-      
-      // Don't load more if all old feeds are already loaded
-      if (_cacheService.areAllOldFeedsLoaded(userId, clientAbbr)) {
-        if (_hasMoreData) {
-          setState(() {
-            _hasMoreData = false;
-            _nextPageStart = null;
-          });
-        }
-        return;
-      }
-      
       debugPrint('🔄 Triggering load more...');
       _loadMoreFeed();
     }
@@ -345,6 +331,7 @@ class _FeedScreenState extends State<FeedScreen> {
           final mergedItems = await _cacheService.mergeNewItems(
             userId: userId,
             clientAbbr: clientAbbr,
+            sessionId: sessionId,
             newItems: trulyNewItems,
             nextPage: _nextPageStart,
             hasMore: _hasMoreData,
@@ -376,6 +363,7 @@ class _FeedScreenState extends State<FeedScreen> {
           await _cacheService.cacheFeed(
             userId: userId,
             clientAbbr: clientAbbr,
+            sessionId: sessionId,
             items: _feedItems,
             nextPage: _nextPageStart,
             hasMore: _hasMoreData,
@@ -407,10 +395,11 @@ class _FeedScreenState extends State<FeedScreen> {
   Future<void> _fetchFeed({dynamic start = 0, bool isRefresh = false}) async {
     final userId = widget.userData['userId'].toString();
     final clientAbbr = widget.clientDetails['client_abbr'];
+    final sessionId = widget.userData['sessionId'].toString();
     
     if (isRefresh) {
       // For refresh, try to load from cache first while fetching new
-      final cached = await _cacheService.getCachedFeed(userId, clientAbbr);
+      final cached = await _cacheService.getCachedFeed(userId, clientAbbr, sessionId);
       
       setState(() {
         _isLoading = cached == null || cached.items.isEmpty;
@@ -436,7 +425,7 @@ class _FeedScreenState extends State<FeedScreen> {
             _loadedItemIds.add('$itemId-$timestamp');
           }
           _applySearchFilter();
-          _cacheAge = _cacheService.getCacheAgeString(userId, clientAbbr);
+          _cacheAge = cached.getCacheAgeString();
         });
       }
     } else if (start == 0) {
@@ -449,7 +438,6 @@ class _FeedScreenState extends State<FeedScreen> {
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
       final roleId = widget.userData['roleId'].toString();
-      final sessionId = widget.userData['sessionId'].toString();
       final appKey = widget.userData['apiKey'].toString();
 
       final response = await _apiService.getAppFeed(
@@ -493,6 +481,7 @@ class _FeedScreenState extends State<FeedScreen> {
             final mergedItems = await _cacheService.mergeNewItems(
               userId: userId,
               clientAbbr: clientAbbr,
+              sessionId: sessionId,
               newItems: uniqueNewItems,
               nextPage: actuallyHasMore ? nextPage : null,
               hasMore: actuallyHasMore,
@@ -532,6 +521,7 @@ class _FeedScreenState extends State<FeedScreen> {
         await _cacheService.cacheFeed(
           userId: userId,
           clientAbbr: clientAbbr,
+          sessionId: sessionId,
           items: _feedItems,
           nextPage: actuallyHasMore ? nextPage : null,
           hasMore: actuallyHasMore,
@@ -572,7 +562,7 @@ class _FeedScreenState extends State<FeedScreen> {
           );
         } else {
           // Try to load from cache as fallback
-          final cached = await _cacheService.getCachedFeed(userId, clientAbbr);
+          final cached = await _cacheService.getCachedFeed(userId, clientAbbr, sessionId);
           if (cached != null && cached.items.isNotEmpty) {
             setState(() {
               _feedItems = List.from(cached.items);
@@ -584,7 +574,7 @@ class _FeedScreenState extends State<FeedScreen> {
               _applySearchFilter();
               _isLoading = false;
               _isOffline = true;
-              _cacheAge = _cacheService.getCacheAgeString(userId, clientAbbr);
+              _cacheAge = cached.getCacheAgeString();
               _nextPageStart = cached.nextPage;
               _hasMoreData = cached.hasMore;
             });
@@ -609,19 +599,6 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _loadMoreFeed() async {
-    final userId = widget.userData['userId'].toString();
-    final clientAbbr = widget.clientDetails['client_abbr'];
-    
-    // Check if all old feeds are already loaded - never load more if true
-    if (_cacheService.areAllOldFeedsLoaded(userId, clientAbbr)) {
-      debugPrint('🛑 All old feeds already loaded - skipping load more');
-      setState(() {
-        _hasMoreData = false;
-        _nextPageStart = null;
-      });
-      return;
-    }
-    
     if (_isLoadingMore || !_hasMoreData || _nextPageStart == null) return;
 
     setState(() {
@@ -630,6 +607,8 @@ class _FeedScreenState extends State<FeedScreen> {
 
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
+      final clientAbbr = widget.clientDetails['client_abbr'];
+      final userId = widget.userData['userId'].toString();
       final roleId = widget.userData['roleId'].toString();
       final sessionId = widget.userData['sessionId'].toString();
       final appKey = widget.userData['apiKey'].toString();
@@ -655,15 +634,28 @@ class _FeedScreenState extends State<FeedScreen> {
       if (mounted) {
         final List<dynamic> newItems = response['feed'] ?? [];
         
-        // If API returns empty list, mark all old feeds as loaded permanently
+        // If API returns empty list, show toast and stop loading
         if (newItems.isEmpty) {
-          debugPrint('📭 API returned no items - marking all old feeds as loaded');
-          await _cacheService.markAllOldFeedsLoaded(userId, clientAbbr);
+          debugPrint('📭 API returned no more items');
           setState(() {
             _isLoadingMore = false;
             _hasMoreData = false;
             _nextPageStart = null;
           });
+          
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'End of the list for older circulars',
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+              ),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: isDark ? AppTheme.darkCardColor : Colors.grey.shade200,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
           return;
         }
         
@@ -680,28 +672,33 @@ class _FeedScreenState extends State<FeedScreen> {
           }
         }
         
-        // If all items were duplicates, we've loaded everything
+        // If all items were duplicates, show toast
         if (uniqueNewItems.isEmpty) {
-          debugPrint('🔄 All items were duplicates - marking all old feeds as loaded');
-          await _cacheService.markAllOldFeedsLoaded(userId, clientAbbr);
+          debugPrint('🔄 All items were duplicates');
           setState(() {
             _isLoadingMore = false;
             _hasMoreData = false;
             _nextPageStart = null;
           });
+          
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'End of the list for older circulars',
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+              ),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: isDark ? AppTheme.darkCardColor : Colors.grey.shade200,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
           return;
         }
         
         final nextPage = response['next'];
         final hasNext = nextPage != null && nextPage is Map && nextPage.isNotEmpty;
-        
-        // No next page means we've loaded all old feeds
-        final bool actuallyHasMore = hasNext;
-        
-        if (!actuallyHasMore) {
-          debugPrint('📭 No next page - marking all old feeds as loaded');
-          await _cacheService.markAllOldFeedsLoaded(userId, clientAbbr);
-        }
 
         setState(() {
           _feedItems.addAll(uniqueNewItems);
@@ -710,17 +707,18 @@ class _FeedScreenState extends State<FeedScreen> {
           // Apply current search filter to include new items
           _applySearchFilter();
           _isLoadingMore = false;
-          _nextPageStart = actuallyHasMore ? nextPage : null;
-          _hasMoreData = actuallyHasMore;
+          _nextPageStart = hasNext ? nextPage : null;
+          _hasMoreData = hasNext;
         });
         
         // Append to cache
         await _cacheService.appendToCache(
           userId: userId,
           clientAbbr: clientAbbr,
+          sessionId: sessionId,
           newItems: uniqueNewItems,
-          nextPage: actuallyHasMore ? nextPage : null,
-          hasMore: actuallyHasMore,
+          nextPage: hasNext ? nextPage : null,
+          hasMore: hasNext,
         );
         
         debugPrint('Feed: Load more added ${uniqueNewItems.length} unique items. Total: ${_feedItems.length}');
@@ -1141,22 +1139,17 @@ class _FeedScreenState extends State<FeedScreen> {
                   child: Builder(
                     builder: (context) {
                       final isDark = Theme.of(context).brightness == Brightness.dark;
-                      final userId = widget.userData['userId'].toString();
-                      final clientAbbr = widget.clientDetails['client_abbr'];
-                      final allLoaded = _cacheService.areAllOldFeedsLoaded(userId, clientAbbr);
                       
                       return Column(
                         children: [
                           Icon(
-                            allLoaded ? Icons.inventory_2_outlined : Icons.check_circle_outline_rounded,
+                            Icons.check_circle_outline_rounded,
                             color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
                             size: 32,
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            allLoaded 
-                                ? 'All ${_feedItems.length} ciculars loaded'
-                                : 'No more ciculars',
+                            'All ${_feedItems.length} circulars loaded',
                             style: GoogleFonts.inter(
                               color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                               fontSize: 13,

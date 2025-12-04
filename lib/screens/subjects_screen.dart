@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
+import '../services/subjects_cache_service.dart';
 import '../theme/app_theme.dart';
 
 class SubjectsScreen extends StatefulWidget {
@@ -20,8 +21,12 @@ class SubjectsScreen extends StatefulWidget {
 
 class _SubjectsScreenState extends State<SubjectsScreen> {
   final ApiService _apiService = ApiService();
+  final SubjectsCacheService _cacheService = SubjectsCacheService();
   bool _isLoading = true;
+  bool _isRefreshing = false;
   String? _errorMessage;
+  String _cacheAge = '';
+  bool _isOffline = false;
   List<Subject> _subjects = [];
   String _semesterTitle = 'Subjects';
   String? _currentSemester;
@@ -30,16 +35,84 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchSubjects();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadFromCacheAndFetch();
+    });
   }
 
-  Future<void> _fetchSubjects() async {
+  /// Load cached data first, then fetch from API if needed
+  Future<void> _loadFromCacheAndFetch() async {
+    await _cacheService.init();
+    
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    final sessionId = widget.userData['sessionId'].toString();
+    
+    // Try to load from cache first
+    final cached = await _cacheService.getCachedSubjects(userId, clientAbbr, sessionId);
+    
+    if (cached != null && cached.subjects.isNotEmpty) {
+      // Load cached items immediately
+      _subjects = cached.subjects.map((s) => Subject(
+        name: s.name,
+        specialization: s.specialization,
+        code: s.code,
+        type: s.type,
+        group: s.group,
+        credits: s.credits,
+        isOptional: s.isOptional,
+      )).toList();
+      _semesterTitle = cached.semesterTitle;
+      _currentSemester = cached.currentSemester;
+      _currentGroup = cached.currentGroup;
+      
+      setState(() {
+        _isLoading = false;
+        _cacheAge = _cacheService.getCacheAgeString(userId, clientAbbr, sessionId);
+        _isOffline = false;
+      });
+      
+      debugPrint('📦 Loaded ${cached.subjects.length} subjects from cache');
+      
+      // Check for updates in background if cache is old
+      if (!cached.isValid) {
+        debugPrint('🔍 Cache is stale, refreshing in background...');
+        _fetchSubjects(isBackgroundRefresh: true);
+      }
+    } else {
+      // No cache, fetch from API
+      debugPrint('📭 No cache found, fetching from API');
+      _fetchSubjects();
+    }
+  }
+
+  Future<void> _fetchSubjects({bool isBackgroundRefresh = false, bool isRefresh = false}) async {
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    
+    // Store existing data in case of refresh failure
+    final existingSubjects = List<Subject>.from(_subjects);
+    final existingSemesterTitle = _semesterTitle;
+    final existingCurrentSemester = _currentSemester;
+    final existingCurrentGroup = _currentGroup;
+    final existingCacheAge = _cacheAge;
+    
+    if (isRefresh) {
+      setState(() {
+        _isRefreshing = true;
+        _errorMessage = null;
+      });
+    } else if (!isBackgroundRefresh) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+    
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
-      final clientAbbr = widget.clientDetails['client_abbr'];
-      final userId = widget.userData['userId'].toString();
-      final sessionId = widget.userData['sessionId'].toString();
       final roleId = widget.userData['roleId'].toString();
+      final sessionId = widget.userData['sessionId'].toString();
       final appKey = widget.userData['apiKey'].toString();
 
       final htmlContent = await _apiService.getSubjects(
@@ -60,16 +133,131 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
           group: _currentGroup,
         );
       }
+      
+      // Cache the results
+      if (_subjects.isNotEmpty) {
+        await _cacheService.cacheSubjects(
+          userId: userId,
+          clientAbbr: clientAbbr,
+          sessionId: sessionId,
+          subjects: _subjects.map((s) => CachedSubject(
+            name: s.name,
+            specialization: s.specialization,
+            code: s.code,
+            type: s.type,
+            group: s.group,
+            credits: s.credits,
+            isOptional: s.isOptional,
+          )).toList(),
+          semesterTitle: _semesterTitle,
+          currentSemester: _currentSemester,
+          currentGroup: _currentGroup,
+        );
+      }
 
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isRefreshing = false;
+          _isOffline = false;
+          _cacheAge = 'Just now';
+        });
+        
+        if (isRefresh && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Subjects updated'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: AppTheme.successColor,
+            ),
+          );
+        }
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
+      debugPrint('Subjects Screen - Error: $e');
+      if (mounted) {
+        // Check if it's a network error
+        final errorStr = e.toString().toLowerCase();
+        final isNetworkError = errorStr.contains('socket') || 
+                               errorStr.contains('connection') || 
+                               errorStr.contains('network') ||
+                               errorStr.contains('timeout') ||
+                               errorStr.contains('host');
+        
+        // If we had existing data (refresh case), restore it
+        if (existingSubjects.isNotEmpty) {
+          setState(() {
+            _subjects = existingSubjects;
+            _semesterTitle = existingSemesterTitle;
+            _currentSemester = existingCurrentSemester;
+            _currentGroup = existingCurrentGroup;
+            _isLoading = false;
+            _isRefreshing = false;
+            _isOffline = isNetworkError;
+            _cacheAge = existingCacheAge;
+          });
+          if (isRefresh) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isNetworkError 
+                    ? 'No internet connection' 
+                    : 'Failed to refresh: ${e.toString().replaceAll('Exception: ', '')}'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: AppTheme.warningColor,
+              ),
+            );
+          }
+        } else {
+          // Try to load from cache as fallback
+          final sessionId = widget.userData['sessionId'].toString();
+          final cached = await _cacheService.getCachedSubjects(userId, clientAbbr, sessionId);
+          if (cached != null && cached.subjects.isNotEmpty) {
+            _subjects = cached.subjects.map((s) => Subject(
+              name: s.name,
+              specialization: s.specialization,
+              code: s.code,
+              type: s.type,
+              group: s.group,
+              credits: s.credits,
+              isOptional: s.isOptional,
+            )).toList();
+            _semesterTitle = cached.semesterTitle;
+            _currentSemester = cached.currentSemester;
+            _currentGroup = cached.currentGroup;
+            
+            setState(() {
+              _isLoading = false;
+              _isRefreshing = false;
+              _isOffline = isNetworkError;
+              _cacheAge = _cacheService.getCacheAgeString(userId, clientAbbr, sessionId);
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isNetworkError 
+                    ? 'No internet - Showing cached data ($_cacheAge)'
+                    : 'Error - Showing cached data'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: AppTheme.warningColor,
+              ),
+            );
+          } else {
+            setState(() {
+              _errorMessage = e.toString().replaceAll('Exception: ', '');
+              _isLoading = false;
+              _isRefreshing = false;
+            });
+          }
+        }
+      }
     }
+  }
+  
+  /// Handle pull to refresh
+  Future<void> _handleRefresh() async {
+    await _fetchSubjects(isRefresh: true);
   }
 
   void _parseSubjects(String htmlContent) {
@@ -233,7 +421,12 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                     ),
                   ),
                 )
-              : CustomScrollView(
+              : RefreshIndicator(
+                  onRefresh: _handleRefresh,
+                  color: AppTheme.primaryColor,
+                  backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
+                  child: CustomScrollView(
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                   slivers: [
                     SliverAppBar.large(
                       expandedHeight: 120,
@@ -248,15 +441,57 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                         ),
                         onPressed: () => Navigator.pop(context),
                       ),
+                      actions: [
+                        if (_isRefreshing)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 16),
+                            child: Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    isDark ? Colors.white70 : AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        else if (_cacheAge.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 16),
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: (_isOffline ? AppTheme.warningColor : AppTheme.successColor).withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _isOffline ? 'Offline' : _cacheAge,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _isOffline ? AppTheme.warningColor : AppTheme.successColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                       flexibleSpace: FlexibleSpaceBar(
                         title: Text(
                           _semesterTitle,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
+                            fontSize: 16,
                             color: isDark ? Colors.white : Colors.black87,
                           ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
-                        titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+                        titlePadding: const EdgeInsets.only(left: 56, bottom: 16, right: 80),
                       ),
                     ),
                     // Summary Card
@@ -282,6 +517,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                       ),
                     ),
                   ],
+                  ),
                 ),
     );
   }

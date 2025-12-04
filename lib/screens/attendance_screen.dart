@@ -4,6 +4,7 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
+import '../services/attendance_cache_service.dart';
 import '../theme/app_theme.dart';
 import '../main.dart' show themeService;
 
@@ -23,10 +24,14 @@ class AttendanceScreen extends StatefulWidget {
   State<AttendanceScreen> createState() => _AttendanceScreenState();
 }
 
-class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerProviderStateMixin {
+class _AttendanceScreenState extends State<AttendanceScreen> with TickerProviderStateMixin {
   final ApiService _apiService = ApiService();
+  final AttendanceCacheService _cacheService = AttendanceCacheService();
   bool _isLoading = true;
+  bool _isRefreshing = false;
   String? _errorMessage;
+  String _cacheAge = '';
+  bool _isOffline = false;
   List<AttendanceSubject> _subjects = [];
   Map<int, int> _classesToMissMap = {}; // Track classes to miss per subject
   TabController? _tabController;
@@ -34,7 +39,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
-    _fetchAttendance();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadFromCacheAndFetch();
+    });
   }
 
   @override
@@ -42,12 +49,116 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     _tabController?.dispose();
     super.dispose();
   }
+  
+  /// Safely update tab controller when subjects change
+  void _updateTabController({int? preferredIndex}) {
+    if (_subjects.isEmpty) {
+      _tabController?.dispose();
+      _tabController = null;
+      return;
+    }
+    
+    int initialIndex = preferredIndex ?? _tabController?.index ?? 0;
+    
+    // If we have an initial subject code, find its index
+    if (widget.initialSubjectCode != null && preferredIndex == null && _tabController == null) {
+      final index = _subjects.indexWhere((s) => 
+        s.code?.toLowerCase() == widget.initialSubjectCode!.toLowerCase() ||
+        (s.name?.toLowerCase().contains(widget.initialSubjectCode!.toLowerCase()) ?? false)
+      );
+      if (index != -1) {
+        initialIndex = index;
+      }
+    }
+    
+    final newIndex = initialIndex.clamp(0, _subjects.length - 1);
+    
+    // Only recreate if length changed or controller doesn't exist
+    if (_tabController == null || _tabController!.length != _subjects.length) {
+      _tabController?.dispose();
+      _tabController = TabController(
+        length: _subjects.length, 
+        vsync: this,
+        initialIndex: newIndex,
+      );
+    } else if (_tabController!.index != newIndex) {
+      _tabController!.animateTo(newIndex);
+    }
+  }
 
-  Future<void> _fetchAttendance() async {
+  /// Load cached data first, then fetch from API if needed
+  Future<void> _loadFromCacheAndFetch() async {
+    await _cacheService.init();
+    
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    final sessionId = widget.userData['sessionId'].toString();
+    
+    // Try to load from cache first
+    final cached = await _cacheService.getCachedAttendance(userId, clientAbbr, sessionId);
+    
+    if (cached != null && cached.subjects.isNotEmpty) {
+      // Load cached items immediately
+      _subjects = cached.subjects.map((s) => AttendanceSubject()
+        ..name = s.name
+        ..code = s.code
+        ..teacher = s.teacher
+        ..duration = s.duration
+        ..fromDate = s.fromDate
+        ..toDate = s.toDate
+        ..delivered = s.delivered
+        ..attended = s.attended
+        ..absent = s.absent
+        ..leaves = s.leaves
+        ..percentage = s.percentage
+        ..totalApprovedDL = s.totalApprovedDL
+        ..totalApprovedML = s.totalApprovedML
+      ).toList();
+      
+      _updateTabController();
+      
+      setState(() {
+        _isLoading = false;
+        _cacheAge = _cacheService.getCacheAgeString(userId, clientAbbr, sessionId);
+        _isOffline = false;
+      });
+      
+      debugPrint('📦 Loaded ${cached.subjects.length} subjects from cache');
+      
+      // Check for updates in background if cache is old
+      if (!cached.isValid) {
+        debugPrint('🔍 Cache is stale, refreshing in background...');
+        _fetchAttendance(isBackgroundRefresh: true);
+      }
+    } else {
+      // No cache, fetch from API
+      debugPrint('📭 No cache found, fetching from API');
+      _fetchAttendance();
+    }
+  }
+
+  Future<void> _fetchAttendance({bool isBackgroundRefresh = false, bool isRefresh = false}) async {
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    
+    // Store existing subjects in case of refresh failure
+    final existingSubjects = List<AttendanceSubject>.from(_subjects);
+    final existingCacheAge = _cacheAge;
+    
+    if (isRefresh) {
+      setState(() {
+        _isRefreshing = true;
+        _errorMessage = null;
+      });
+    } else if (!isBackgroundRefresh) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+    
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
-      final clientAbbr = widget.clientDetails['client_abbr'];
-      final userId = widget.userData['userId'].toString();
       final roleId = widget.userData['roleId'].toString();
       final sessionId = widget.userData['sessionId'].toString();
       final appKey = widget.userData['apiKey'].toString();
@@ -62,32 +173,139 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
       );
 
       _parseHtml(htmlContent);
-      setState(() {
-        _isLoading = false;
-        if (_subjects.isNotEmpty) {
-          int initialIndex = 0;
-          if (widget.initialSubjectCode != null) {
-            final index = _subjects.indexWhere((s) => 
-              s.code?.toLowerCase() == widget.initialSubjectCode!.toLowerCase() ||
-              (s.name?.toLowerCase().contains(widget.initialSubjectCode!.toLowerCase()) ?? false)
-            );
-            if (index != -1) {
-              initialIndex = index;
-            }
-          }
-          _tabController = TabController(
-            length: _subjects.length, 
-            vsync: this, 
-            initialIndex: initialIndex
+      
+      // Cache the results
+      if (_subjects.isNotEmpty) {
+        await _cacheService.cacheAttendance(
+          userId: userId,
+          clientAbbr: clientAbbr,
+          sessionId: sessionId,
+          subjects: _subjects.map((s) => CachedAttendanceSubject(
+            name: s.name,
+            code: s.code,
+            teacher: s.teacher,
+            duration: s.duration,
+            fromDate: s.fromDate,
+            toDate: s.toDate,
+            delivered: s.delivered,
+            attended: s.attended,
+            absent: s.absent,
+            leaves: s.leaves,
+            percentage: s.percentage,
+            totalApprovedDL: s.totalApprovedDL,
+            totalApprovedML: s.totalApprovedML,
+          )).toList(),
+        );
+      }
+      
+      if (mounted) {
+        final currentIndex = _tabController?.index;
+        _updateTabController(preferredIndex: currentIndex);
+        
+        setState(() {
+          _isLoading = false;
+          _isRefreshing = false;
+          _isOffline = false;
+          _cacheAge = 'Just now';
+        });
+        
+        if (isRefresh && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Attendance updated'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: AppTheme.successColor,
+            ),
           );
         }
-      });
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
+      debugPrint('Attendance Screen - Error: $e');
+      if (mounted) {
+        // Check if it's a network error
+        final errorStr = e.toString().toLowerCase();
+        final isNetworkError = errorStr.contains('socket') || 
+                               errorStr.contains('connection') || 
+                               errorStr.contains('network') ||
+                               errorStr.contains('timeout') ||
+                               errorStr.contains('host');
+        
+        // If we had existing data (refresh case), restore it
+        if (existingSubjects.isNotEmpty) {
+          setState(() {
+            _subjects = existingSubjects;
+            _isLoading = false;
+            _isRefreshing = false;
+            _isOffline = isNetworkError;
+            _cacheAge = existingCacheAge;
+          });
+          if (isRefresh) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isNetworkError 
+                    ? 'No internet connection' 
+                    : 'Failed to refresh: ${e.toString().replaceAll('Exception: ', '')}'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: AppTheme.warningColor,
+              ),
+            );
+          }
+        } else {
+          // Try to load from cache as fallback
+          final sessionId = widget.userData['sessionId'].toString();
+          final cached = await _cacheService.getCachedAttendance(userId, clientAbbr, sessionId);
+          if (cached != null && cached.subjects.isNotEmpty) {
+            _subjects = cached.subjects.map((s) => AttendanceSubject()
+              ..name = s.name
+              ..code = s.code
+              ..teacher = s.teacher
+              ..duration = s.duration
+              ..fromDate = s.fromDate
+              ..toDate = s.toDate
+              ..delivered = s.delivered
+              ..attended = s.attended
+              ..absent = s.absent
+              ..leaves = s.leaves
+              ..percentage = s.percentage
+              ..totalApprovedDL = s.totalApprovedDL
+              ..totalApprovedML = s.totalApprovedML
+            ).toList();
+            
+            _updateTabController();
+            
+            setState(() {
+              _isLoading = false;
+              _isRefreshing = false;
+              _isOffline = isNetworkError;
+              _cacheAge = _cacheService.getCacheAgeString(userId, clientAbbr, sessionId);
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isNetworkError 
+                    ? 'No internet - Showing cached data ($_cacheAge)'
+                    : 'Error - Showing cached data'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: AppTheme.warningColor,
+              ),
+            );
+          } else {
+            setState(() {
+              _errorMessage = e.toString().replaceAll('Exception: ', '');
+              _isLoading = false;
+              _isRefreshing = false;
+            });
+          }
+        }
+      }
     }
+  }
+  
+  /// Handle pull to refresh
+  Future<void> _handleRefresh() async {
+    await _fetchAttendance(isRefresh: true);
   }
 
   void _parseHtml(String htmlString) {
@@ -294,12 +512,46 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                                 ),
                               ],
                               flexibleSpace: FlexibleSpaceBar(
-                                title: Text(
-                                  'Attendance',
-                                  style: GoogleFonts.outfit(
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark ? Colors.white : Colors.black87,
-                                  ),
+                                title: Row(
+                                  children: [
+                                    Text(
+                                      'Attendance',
+                                      style: GoogleFonts.outfit(
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? Colors.white : Colors.black87,
+                                      ),
+                                    ),
+                                    if (_isRefreshing) ...[
+                                      const SizedBox(width: 8),
+                                      SizedBox(
+                                        width: 12,
+                                        height: 12,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                            isDark ? Colors.white70 : AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ] else if (_cacheAge.isNotEmpty) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: (_isOffline ? AppTheme.warningColor : AppTheme.successColor).withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          _isOffline ? 'Offline' : _cacheAge,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w500,
+                                            color: _isOffline ? AppTheme.warningColor : AppTheme.successColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                                 titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
                               ),
@@ -357,9 +609,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
         ? AppTheme.successColor 
         : (percentage >= 60 ? AppTheme.warningColor : AppTheme.errorColor);
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      color: AppTheme.primaryColor,
+      backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        children: [
         // Subject Header Card
         Container(
           padding: const EdgeInsets.all(20),
@@ -525,6 +782,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
         
         const SizedBox(height: 40),
       ],
+      ),
     );
   }
 

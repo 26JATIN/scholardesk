@@ -297,6 +297,10 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        // Handle case where API returns a List instead of Map (e.g., empty array [])
+        if (data is List) {
+          return {'feed': data, 'next': null};
+        }
         return data as Map<String, dynamic>;
       } else {
         throw Exception('Failed to load feed: ${response.statusCode}');

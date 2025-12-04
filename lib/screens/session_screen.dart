@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
+import '../services/session_cache_service.dart';
 import 'home_screen.dart';
 import '../theme/app_theme.dart';
 
@@ -21,21 +22,78 @@ class SessionScreen extends StatefulWidget {
 
 class _SessionScreenState extends State<SessionScreen> {
   final ApiService _apiService = ApiService();
+  final SessionCacheService _cacheService = SessionCacheService();
   bool _isLoading = true;
+  bool _isRefreshing = false;
   String? _errorMessage;
   List<dynamic> _sessions = [];
+  String _cacheAge = '';
+  bool _isOffline = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchSessions();
+    _loadFromCacheAndFetch();
   }
 
-  Future<void> _fetchSessions() async {
+  Future<void> _loadFromCacheAndFetch() async {
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    
+    await _cacheService.init();
+    
+    final cached = await _cacheService.getCachedSessions(userId, clientAbbr);
+    
+    if (cached != null) {
+      // Load cached data immediately
+      setState(() {
+        _sessions = cached.sessions.map((s) => {
+          'sessionId': s.sessionId,
+          'sessionName': s.sessionName,
+          'startDate': s.startDate,
+          'endDate': s.endDate,
+        }).toList();
+        _isLoading = false;
+        _cacheAge = _cacheService.getCacheAgeString(userId, clientAbbr);
+        _isOffline = false;
+      });
+      
+      debugPrint('📦 Loaded ${_sessions.length} sessions from cache');
+      
+      // If cache is still valid, don't fetch from API
+      if (cached.isValid) {
+        debugPrint('✅ Cache is still valid, skipping API fetch');
+        return;
+      }
+      
+      // Cache expired, fetch fresh data in background
+      debugPrint('⏰ Cache expired, fetching fresh data...');
+      _fetchSessions(isBackground: true);
+    } else {
+      // No cache, fetch from API
+      debugPrint('📭 No cache found, fetching from API');
+      _fetchSessions();
+    }
+  }
+
+  Future<void> _fetchSessions({bool isRefresh = false, bool isBackground = false}) async {
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    
+    if (isRefresh) {
+      setState(() {
+        _isRefreshing = true;
+        _errorMessage = null;
+      });
+    } else if (!isBackground) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
-      final clientAbbr = widget.clientDetails['client_abbr'];
-      final userId = widget.userData['userId'].toString();
 
       final sessions = await _apiService.getAllSession(
         baseUrl: baseUrl,
@@ -43,16 +101,67 @@ class _SessionScreenState extends State<SessionScreen> {
         userId: userId,
       );
 
-      setState(() {
-        _sessions = sessions;
-        _isLoading = false;
-      });
+      // Cache the sessions
+      await _cacheService.cacheSessions(
+        userId: userId,
+        clientAbbr: clientAbbr,
+        sessions: sessions,
+      );
+
+      if (mounted) {
+        setState(() {
+          _sessions = sessions;
+          _isLoading = false;
+          _isRefreshing = false;
+          _isOffline = false;
+          _cacheAge = 'Just now';
+        });
+        
+        if (isRefresh) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Sessions updated'),
+              backgroundColor: AppTheme.successColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
+      if (mounted) {
+        // If we have cached data, show it with offline indicator
+        if (_sessions.isNotEmpty) {
+          setState(() {
+            _isLoading = false;
+            _isRefreshing = false;
+            _isOffline = true;
+          });
+          
+          if (isRefresh) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Could not refresh. Using cached data.'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            );
+          }
+        } else {
+          setState(() {
+            _errorMessage = e.toString();
+            _isLoading = false;
+            _isRefreshing = false;
+          });
+        }
+      }
     }
+  }
+
+  Future<void> _handleRefresh() async {
+    await _fetchSessions(isRefresh: true);
   }
 
   Future<void> _changeSession(Map<String, dynamic> session) async {
@@ -115,32 +224,107 @@ class _SessionScreenState extends State<SessionScreen> {
       },
       child: Scaffold(
         backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
-        body: CustomScrollView(
-          slivers: [
-            SliverAppBar.large(
-              expandedHeight: 140,
-              floating: false,
-              pinned: true,
-              backgroundColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
-              surfaceTintColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
-              leading: IconButton(
-                icon: Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: isDark ? Colors.white : Colors.black87,
+        body: RefreshIndicator(
+          onRefresh: _handleRefresh,
+          color: AppTheme.primaryColor,
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            slivers: [
+              SliverAppBar.large(
+                expandedHeight: 140,
+                floating: false,
+                pinned: true,
+                backgroundColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
+                surfaceTintColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
+                leading: IconButton(
+                  icon: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                  onPressed: () => Navigator.pop(context),
                 ),
-                onPressed: () => Navigator.pop(context),
-              ),
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                'Select Session',
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
-                  color: isDark ? Colors.white : Colors.black87,
+              flexibleSpace: FlexibleSpaceBar(
+                title: Text(
+                  'Select Session',
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24,
+                    color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
-              titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+              titlePadding: const EdgeInsets.only(left: 56, bottom: 16, right: 100),
             ),
+            actions: [
+              if (_isRefreshing)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: isDark ? Colors.white70 : AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
+              if (_isOffline && !_isRefreshing)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.cloud_off_rounded,
+                        size: 14,
+                        color: Colors.orange.shade700,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Cached',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (_cacheAge.isNotEmpty && !_isRefreshing)
+                Container(
+                  margin: const EdgeInsets.only(right: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (isDark ? Colors.green.shade900 : Colors.green.shade50).withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.save_rounded,
+                        size: 14,
+                        color: isDark ? Colors.green.shade300 : Colors.green.shade700,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _cacheAge,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.green.shade300 : Colors.green.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
           _isLoading
               ? SliverFillRemaining(
@@ -305,7 +489,8 @@ class _SessionScreenState extends State<SessionScreen> {
                         ),
                       ),
                     ),
-          ],
+            ],
+          ),
         ),
       ),
     );

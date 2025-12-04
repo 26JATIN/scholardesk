@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../services/api_service.dart';
+import '../services/profile_cache_service.dart';
 import '../theme/app_theme.dart';
 import '../main.dart' show themeService;
 import 'school_code_screen.dart';
@@ -28,6 +30,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final ApiService _apiService = ApiService();
+  final ProfileCacheService _cacheService = ProfileCacheService();
   
   // Student info
   String? _name;
@@ -42,7 +45,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _parsedRollNo;
 
   bool _isLoading = true;
+  bool _isRefreshing = false;
   String? _errorMessage;
+  String _cacheAge = '';
+  bool _isOffline = false;
   List<ProfileMenuItem> _menuItems = [];
 
   // Gender-based profile border color
@@ -53,13 +59,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchProfileMenu();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadFromCacheAndFetch();
+    });
   }
 
-  Future<void> _fetchProfileMenu() async {
+  /// Load cached data first, then fetch from API if needed
+  Future<void> _loadFromCacheAndFetch() async {
+    await _cacheService.init();
+    
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    final sessionId = widget.userData['sessionId'].toString();
+    
+    debugPrint('🔍 Loading profile for userId=$userId, clientAbbr=$clientAbbr');
+    
+    // Try to load from cache first
+    final cached = await _cacheService.getCachedBasicProfile(userId, clientAbbr, sessionId);
+    
+    debugPrint('📦 Cache result: ${cached != null ? "FOUND" : "NOT FOUND"}');
+    if (cached != null) {
+      debugPrint('📦 Cached name: ${cached.profile.name}');
+      debugPrint('📦 Cached photo: ${cached.profile.profileImageUrl}');
+      debugPrint('📦 Cached details: ${cached.profile.details}');
+      debugPrint('📦 Cached menu items: ${cached.profile.menuItems.length}');
+    }
+    
+    if (cached != null && mounted) {
+      // Load cached data immediately - must set all state variables inside setState
+      setState(() {
+        _name = cached.profile.name;
+        _profileImageUrl = cached.profile.profileImageUrl;
+        _details = cached.profile.details;
+        _gender = cached.profile.gender;
+        _parsedSemester = cached.profile.parsedSemester;
+        _parsedGroup = cached.profile.parsedGroup;
+        _parsedBatch = cached.profile.parsedBatch;
+        _parsedRollNo = cached.profile.parsedRollNo;
+        
+        // Restore menu items
+        _menuItems = cached.profile.menuItems.map((name) => ProfileMenuItem(
+          name: name,
+          action: () => _handleMenuAction(name, null, null),
+        )).toList();
+        
+        _isLoading = false;
+        _cacheAge = _cacheService.getProfileCacheAgeString(userId, clientAbbr, sessionId);
+        _isOffline = false;
+      });
+      
+      debugPrint('✅ Loaded profile from cache: name=$_name, photo=$_profileImageUrl');
+      
+      // Check for updates in background if cache is old
+      if (!cached.isValid) {
+        debugPrint('🔍 Cache is stale, refreshing in background...');
+        _fetchProfileMenu(isBackgroundRefresh: true);
+      }
+    } else {
+      // No cache, fetch from API
+      debugPrint('📭 No cache found, fetching from API');
+      _fetchProfileMenu();
+    }
+  }
+
+  Future<void> _fetchProfileMenu({bool isBackgroundRefresh = false, bool isRefresh = false}) async {
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    final sessionId = widget.userData['sessionId'].toString();
+    
+    // Store existing data in case of refresh failure
+    final existingName = _name;
+    final existingPhoto = _profileImageUrl;
+    final existingDetails = _details;
+    final existingGender = _gender;
+    final existingMenuItems = List<ProfileMenuItem>.from(_menuItems);
+    final existingCacheAge = _cacheAge;
+    
+    if (isRefresh) {
+      setState(() {
+        _isRefreshing = true;
+        _errorMessage = null;
+      });
+    } else if (!isBackgroundRefresh) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+    
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
-      final clientAbbr = widget.clientDetails['client_abbr'];
       final data = await _apiService.getProfileMenu(baseUrl, clientAbbr);
       
       // 1. Try to get basic info from JSON first (fallback)
@@ -82,16 +171,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
       
       // 3. Update state with parsed data or JSON fallback
-      setState(() {
-        // If HTML parsing didn't find a name/photo, use JSON values
-        _name ??= jsonName;
-        _profileImageUrl ??= jsonPhoto;
+      _name ??= jsonName;
+      _profileImageUrl ??= jsonPhoto;
+      
+      // Cache the profile data
+      await _cacheService.cacheBasicProfile(
+        userId: userId,
+        clientAbbr: clientAbbr,
+        sessionId: sessionId,
+        profile: CachedProfileBasic(
+          name: _name,
+          profileImageUrl: _profileImageUrl,
+          details: _details,
+          gender: _gender,
+          parsedSemester: _parsedSemester,
+          parsedGroup: _parsedGroup,
+          parsedBatch: _parsedBatch,
+          parsedRollNo: _parsedRollNo,
+          menuItems: _menuItems.map((m) => m.name).toList(),
+        ),
+      );
+      
+      debugPrint('📦 Cached profile: name=$_name, photo=$_profileImageUrl, details=$_details');
+      
+      if (mounted) {
+        setState(() {
+          // Ensure all state variables are set for UI update
+          _isLoading = false;
+          _isRefreshing = false;
+          _isOffline = false;
+          _cacheAge = 'Just now';
+        });
         
-        debugPrint('Final Profile Name (Menu): $_name');
-        debugPrint('Final Profile Photo (Menu): $_profileImageUrl');
-        
-        _isLoading = false;
-      });
+        if (isRefresh && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Profile updated'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: AppTheme.successColor,
+            ),
+          );
+        }
+      }
       
       // Save semester info if parsed
       if (_parsedSemester != null || _parsedBatch != null || _parsedGroup != null) {
@@ -112,11 +234,85 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
       
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
+      debugPrint('Profile Screen - Error: $e');
+      if (mounted) {
+        // Check if it's a network error
+        final errorStr = e.toString().toLowerCase();
+        final isNetworkError = errorStr.contains('socket') || 
+                               errorStr.contains('connection') || 
+                               errorStr.contains('network') ||
+                               errorStr.contains('timeout') ||
+                               errorStr.contains('host');
+        
+        // If we had existing data, restore it
+        if (existingName != null || existingMenuItems.isNotEmpty) {
+          setState(() {
+            _name = existingName;
+            _profileImageUrl = existingPhoto;
+            _details = existingDetails;
+            _gender = existingGender;
+            _menuItems = existingMenuItems;
+            _isLoading = false;
+            _isRefreshing = false;
+            _isOffline = isNetworkError;
+            _cacheAge = existingCacheAge;
+          });
+          if (isRefresh) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isNetworkError 
+                    ? 'No internet connection' 
+                    : 'Failed to refresh'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: AppTheme.warningColor,
+              ),
+            );
+          }
+        } else {
+          // Try to load from cache as fallback
+          final cached = await _cacheService.getCachedBasicProfile(userId, clientAbbr, sessionId);
+          if (cached != null) {
+            _name = cached.profile.name;
+            _profileImageUrl = cached.profile.profileImageUrl;
+            _details = cached.profile.details;
+            _gender = cached.profile.gender;
+            _menuItems = cached.profile.menuItems.map((name) => ProfileMenuItem(
+              name: name,
+              action: () => _handleMenuAction(name, null, null),
+            )).toList();
+            
+            setState(() {
+              _isLoading = false;
+              _isRefreshing = false;
+              _isOffline = isNetworkError;
+              _cacheAge = _cacheService.getProfileCacheAgeString(userId, clientAbbr, sessionId);
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isNetworkError 
+                    ? 'No internet - Showing cached data ($_cacheAge)'
+                    : 'Error - Showing cached data'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: AppTheme.warningColor,
+              ),
+            );
+          } else {
+            setState(() {
+              _errorMessage = e.toString().replaceAll('Exception: ', '');
+              _isLoading = false;
+              _isRefreshing = false;
+            });
+          }
+        }
+      }
     }
+  }
+
+  /// Handle pull to refresh
+  Future<void> _handleRefresh() async {
+    await _fetchProfileMenu(isRefresh: true);
   }
 
   Future<void> _fetchProfileDetails() async {
@@ -233,17 +429,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Combine Degree/Program/Batch intelligently
             String academicInfo = '';
             // Prefer Program, fallback to Degree, or combine if distinct
-            if (fetchedProgram != null && fetchedProgram!.isNotEmpty) {
-              academicInfo = fetchedProgram!;
+            if (fetchedProgram != null && fetchedProgram.isNotEmpty) {
+              academicInfo = fetchedProgram;
               // Normalize strings to check for duplication (ignore case and special chars)
-              String normProgram = fetchedProgram!.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+              String normProgram = fetchedProgram.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
               String normDegree = (fetchedDegree ?? '').toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
               
-              if (fetchedDegree != null && fetchedDegree!.isNotEmpty && !normProgram.contains(normDegree)) {
+              if (fetchedDegree != null && fetchedDegree.isNotEmpty && !normProgram.contains(normDegree)) {
                  academicInfo = '$fetchedDegree - $academicInfo';
               }
             } else if (fetchedDegree != null) {
-              academicInfo = fetchedDegree!;
+              academicInfo = fetchedDegree;
             }
             
             // Add Semester and Group (prefer fetched, fallback to parsed from menu)
@@ -271,6 +467,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           });
         }
       }
+
+      // Cache the complete profile data after fetching from detailed API
+      await _cacheService.cacheBasicProfile(
+        userId: userId,
+        clientAbbr: clientAbbr,
+        sessionId: sessionId,
+        profile: CachedProfileBasic(
+          name: _name,
+          profileImageUrl: _profileImageUrl,
+          details: _details,
+          gender: _gender,
+          parsedSemester: _parsedSemester,
+          parsedGroup: _parsedGroup,
+          parsedBatch: _parsedBatch,
+          parsedRollNo: _parsedRollNo,
+          menuItems: _menuItems.map((item) => item.name).toList(),
+        ),
+      );
+      debugPrint('📦 Profile details cached after detailed API fetch: name=$_name, photo=$_profileImageUrl');
 
     } catch (e) {
       debugPrint('Error fetching profile details: $e');
@@ -511,7 +726,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
               ? Center(child: Text('Error: $_errorMessage'))
-              : CustomScrollView(
+              : RefreshIndicator(
+                  onRefresh: _handleRefresh,
+                  color: AppTheme.primaryColor,
+                  backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
+                  child: CustomScrollView(
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                   slivers: [
                     SliverAppBar(
                       expandedHeight: 100,
@@ -520,6 +740,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
                       surfaceTintColor: Colors.transparent,
                       actions: [
+                        // Cache age indicator
+                        if (_isRefreshing)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    isDark ? Colors.white70 : AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        else if (_cacheAge.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: (_isOffline ? AppTheme.warningColor : AppTheme.successColor).withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _isOffline ? 'Offline' : _cacheAge,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _isOffline ? AppTheme.warningColor : AppTheme.successColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         // Theme Toggle
                         IconButton(
                           onPressed: () {
@@ -559,6 +817,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                   ],
+                  ),
                 ),
     );
   }
@@ -604,20 +863,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             radius: 50,
                             backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
                             child: ClipOval(
-                              child: Image.network(
-                                _profileImageUrl!,
+                              child: CachedNetworkImage(
+                                imageUrl: _profileImageUrl!,
                                 width: 100,
                                 height: 100,
                                 fit: BoxFit.cover,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Center(
-                                    child: CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(_profileBorderColor),
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
+                                placeholder: (context, url) => Center(
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(_profileBorderColor),
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) {
                                   debugPrint('Error loading profile image: $error');
                                   return Icon(Icons.person, size: 50, color: _profileBorderColor);
                                 },

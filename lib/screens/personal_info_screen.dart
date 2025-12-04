@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:html/parser.dart' as html_parser;
+import 'package:cached_network_image/cached_network_image.dart';
 import '../services/api_service.dart';
+import '../services/profile_cache_service.dart';
 import '../theme/app_theme.dart';
 
 class PersonalInfoScreen extends StatefulWidget {
@@ -18,14 +20,17 @@ class PersonalInfoScreen extends StatefulWidget {
   State<PersonalInfoScreen> createState() => _PersonalInfoScreenState();
 }
 
-class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTickerProviderStateMixin {
+class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProviderStateMixin {
   final ApiService _apiService = ApiService();
+  final ProfileCacheService _cacheService = ProfileCacheService();
   bool _isLoading = true;
+  bool _isRefreshing = false;
   String? _errorMessage;
-  late TabController _tabController;
+  String _cacheAge = '';
+  bool _isOffline = false;
+  TabController? _tabController;
   
   // Student info
-  String? _studentPhotoUrl;
   Map<String, String> _studentDetails = {};
   Map<String, String> _customFields = {};
   Map<String, String> _addressInfo = {};
@@ -43,24 +48,89 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
       : const Color(0xFF1E40AF); // Professional Blue for boys
   
   Color get _additionalInfoColor => const Color(0xFFDC2626); // Red for additional info
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _fetchPersonalInfo();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadFromCacheAndFetch();
+    });
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchPersonalInfo() async {
+  /// Load cached data first, then fetch from API if needed
+  Future<void> _loadFromCacheAndFetch() async {
+    await _cacheService.init();
+    
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    final sessionId = widget.userData['sessionId'].toString();
+    
+    // Try to load from cache first (NEVER EXPIRES)
+    final cached = await _cacheService.getCachedPersonalInfo(userId, clientAbbr, sessionId);
+    
+    if (cached != null) {
+      // Load cached data immediately
+      _studentDetails = cached.info.studentDetails;
+      _customFields = cached.info.customFields;
+      _addressInfo = cached.info.addressInfo;
+      _gender = cached.info.gender;
+      _fatherPhotoUrl = cached.info.fatherPhotoUrl;
+      _fatherDetails = cached.info.fatherDetails;
+      _motherPhotoUrl = cached.info.motherPhotoUrl;
+      _motherDetails = cached.info.motherDetails;
+      
+      setState(() {
+        _isLoading = false;
+        _cacheAge = _cacheService.getPersonalInfoCacheAgeString(userId, clientAbbr, sessionId);
+        _isOffline = false;
+      });
+      
+      debugPrint('📦 Loaded personal info from cache (NEVER EXPIRES)');
+      
+      // Personal info cache never expires, but we can still allow refresh
+    } else {
+      // No cache, fetch from API
+      debugPrint('📭 No cache found, fetching from API');
+      _fetchPersonalInfo();
+    }
+  }
+
+  Future<void> _fetchPersonalInfo({bool isRefresh = false}) async {
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    
+    // Store existing data in case of refresh failure
+    final existingStudentDetails = Map<String, String>.from(_studentDetails);
+    final existingCustomFields = Map<String, String>.from(_customFields);
+    final existingAddressInfo = Map<String, String>.from(_addressInfo);
+    final existingGender = _gender;
+    final existingFatherPhotoUrl = _fatherPhotoUrl;
+    final existingFatherDetails = Map<String, String>.from(_fatherDetails);
+    final existingMotherPhotoUrl = _motherPhotoUrl;
+    final existingMotherDetails = Map<String, String>.from(_motherDetails);
+    final existingCacheAge = _cacheAge;
+    
+    if (isRefresh) {
+      setState(() {
+        _isRefreshing = true;
+        _errorMessage = null;
+      });
+    } else {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+    
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
-      final clientAbbr = widget.clientDetails['client_abbr'];
-      final userId = widget.userData['userId'].toString();
       final sessionId = widget.userData['sessionId'].toString();
       final roleId = widget.userData['roleId'].toString();
       final appKey = widget.userData['apiKey'].toString();
@@ -76,16 +146,127 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
       );
 
       _parseHtml(htmlContent);
+      
+      // Cache the personal info (NEVER EXPIRES)
+      await _cacheService.cachePersonalInfo(
+        userId: userId,
+        clientAbbr: clientAbbr,
+        sessionId: sessionId,
+        info: CachedPersonalInfo(
+          studentDetails: _studentDetails,
+          customFields: _customFields,
+          addressInfo: _addressInfo,
+          gender: _gender,
+          fatherPhotoUrl: _fatherPhotoUrl,
+          fatherDetails: _fatherDetails,
+          motherPhotoUrl: _motherPhotoUrl,
+          motherDetails: _motherDetails,
+        ),
+      );
 
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isRefreshing = false;
+          _isOffline = false;
+          _cacheAge = 'Just now';
+        });
+        
+        if (isRefresh && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Personal info updated'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: AppTheme.successColor,
+            ),
+          );
+        }
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
+      debugPrint('Personal Info Screen - Error: $e');
+      if (mounted) {
+        // Check if it's a network error
+        final errorStr = e.toString().toLowerCase();
+        final isNetworkError = errorStr.contains('socket') || 
+                               errorStr.contains('connection') || 
+                               errorStr.contains('network') ||
+                               errorStr.contains('timeout') ||
+                               errorStr.contains('host');
+        
+        // If we had existing data (refresh case), restore it
+        if (existingStudentDetails.isNotEmpty) {
+          setState(() {
+            _studentDetails = existingStudentDetails;
+            _customFields = existingCustomFields;
+            _addressInfo = existingAddressInfo;
+            _gender = existingGender;
+            _fatherPhotoUrl = existingFatherPhotoUrl;
+            _fatherDetails = existingFatherDetails;
+            _motherPhotoUrl = existingMotherPhotoUrl;
+            _motherDetails = existingMotherDetails;
+            _isLoading = false;
+            _isRefreshing = false;
+            _isOffline = isNetworkError;
+            _cacheAge = existingCacheAge;
+          });
+          if (isRefresh) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isNetworkError 
+                    ? 'No internet connection' 
+                    : 'Failed to refresh'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: AppTheme.warningColor,
+              ),
+            );
+          }
+        } else {
+          // Try to load from cache as fallback
+          final sessionId = widget.userData['sessionId'].toString();
+          final cached = await _cacheService.getCachedPersonalInfo(userId, clientAbbr, sessionId);
+          if (cached != null) {
+            _studentDetails = cached.info.studentDetails;
+            _customFields = cached.info.customFields;
+            _addressInfo = cached.info.addressInfo;
+            _gender = cached.info.gender;
+            _fatherPhotoUrl = cached.info.fatherPhotoUrl;
+            _fatherDetails = cached.info.fatherDetails;
+            _motherPhotoUrl = cached.info.motherPhotoUrl;
+            _motherDetails = cached.info.motherDetails;
+            
+            setState(() {
+              _isLoading = false;
+              _isRefreshing = false;
+              _isOffline = isNetworkError;
+              _cacheAge = _cacheService.getPersonalInfoCacheAgeString(userId, clientAbbr, sessionId);
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isNetworkError 
+                    ? 'No internet - Showing cached data ($_cacheAge)'
+                    : 'Error - Showing cached data'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: AppTheme.warningColor,
+              ),
+            );
+          } else {
+            setState(() {
+              _errorMessage = e.toString().replaceAll('Exception: ', '');
+              _isLoading = false;
+              _isRefreshing = false;
+            });
+          }
+        }
+      }
     }
+  }
+
+  /// Handle pull to refresh
+  Future<void> _handleRefresh() async {
+    await _fetchPersonalInfo(isRefresh: true);
   }
 
   void _parseHtml(String htmlString) {
@@ -97,7 +278,6 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
       final style = studentPhoto.attributes['style'] ?? '';
       final urlMatch = RegExp(r'url\((.*?)\)').firstMatch(style);
       if (urlMatch != null) {
-        _studentPhotoUrl = urlMatch.group(1)?.replaceAll(r'\/', '/');
       }
     }
 
@@ -249,8 +429,79 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
                                 color: isDark ? Colors.white : Colors.black87,
                               ),
                             ),
-                            titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+                            titlePadding: const EdgeInsets.only(left: 56, bottom: 16, right: 100),
                           ),
+                          actions: [
+                            if (_isRefreshing)
+                              Container(
+                                margin: const EdgeInsets.only(right: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: isDark ? Colors.white70 : AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ),
+                            if (_isOffline && !_isRefreshing)
+                              Container(
+                                margin: const EdgeInsets.only(right: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.cloud_off_rounded,
+                                      size: 14,
+                                      color: Colors.orange.shade700,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Cached',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.orange.shade700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (_cacheAge.isNotEmpty && !_isRefreshing)
+                              Container(
+                                margin: const EdgeInsets.only(right: 16),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: (isDark ? Colors.green.shade900 : Colors.green.shade50).withOpacity(0.8),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.save_rounded,
+                                      size: 14,
+                                      color: isDark ? Colors.green.shade300 : Colors.green.shade700,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _cacheAge,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark ? Colors.green.shade300 : Colors.green.shade700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
                         ),
                         SliverPersistentHeader(
                           pinned: true,
@@ -285,48 +536,68 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
                       controller: _tabController,
                       children: [
                         // Tab 1: Student Details
-                        SingleChildScrollView(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              _buildStudentSection(isDark),
-                              const SizedBox(height: 20),
-                            ],
+                        RefreshIndicator(
+                          onRefresh: _handleRefresh,
+                          color: AppTheme.primaryColor,
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              children: [
+                                _buildStudentSection(isDark),
+                                const SizedBox(height: 20),
+                              ],
+                            ),
                           ),
                         ),
                         
                         // Tab 2: Additional Info
-                        SingleChildScrollView(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              _buildCustomFieldsSection(isDark),
-                              const SizedBox(height: 20),
-                            ],
+                        RefreshIndicator(
+                          onRefresh: _handleRefresh,
+                          color: AppTheme.primaryColor,
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              children: [
+                                _buildCustomFieldsSection(isDark),
+                                const SizedBox(height: 20),
+                              ],
+                            ),
                           ),
                         ),
                         
                         // Tab 3: Address
-                        SingleChildScrollView(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              _buildAddressSection(isDark),
-                              const SizedBox(height: 20),
-                            ],
+                        RefreshIndicator(
+                          onRefresh: _handleRefresh,
+                          color: AppTheme.primaryColor,
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              children: [
+                                _buildAddressSection(isDark),
+                                const SizedBox(height: 20),
+                              ],
+                            ),
                           ),
                         ),
                         
                         // Tab 4: Parents
-                        SingleChildScrollView(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              _buildParentSection('Father', _fatherPhotoUrl, _fatherDetails, isDark),
-                              const SizedBox(height: 16),
-                              _buildParentSection('Mother', _motherPhotoUrl, _motherDetails, isDark),
-                              const SizedBox(height: 20),
-                            ],
+                        RefreshIndicator(
+                          onRefresh: _handleRefresh,
+                          color: AppTheme.primaryColor,
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              children: [
+                                _buildParentSection('Father', _fatherPhotoUrl, _fatherDetails, isDark),
+                                const SizedBox(height: 16),
+                                _buildParentSection('Mother', _motherPhotoUrl, _motherDetails, isDark),
+                                const SizedBox(height: 20),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -608,12 +879,17 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with SingleTick
                     radius: 30,
                     backgroundColor: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
                     child: ClipOval(
-                      child: Image.network(
-                        photoUrl,
+                      child: CachedNetworkImage(
+                        imageUrl: photoUrl,
                         width: 60,
                         height: 60,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
+                        placeholder: (context, url) => Icon(
+                          Icons.person, 
+                          size: 30, 
+                          color: isDark ? Colors.grey.shade500 : Colors.grey,
+                        ),
+                        errorWidget: (context, url, error) {
                           return Icon(Icons.person, size: 30, color: isDark ? Colors.grey.shade500 : Colors.grey);
                         },
                       ),
