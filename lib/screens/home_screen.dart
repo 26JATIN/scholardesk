@@ -8,8 +8,10 @@ import '../services/feed_cache_service.dart';
 import '../services/timetable_cache_service.dart';
 import '../services/attendance_cache_service.dart';
 import '../services/subjects_cache_service.dart';
+import '../services/update_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/string_extensions.dart';
+import '../widgets/update_dialog.dart';
 import '../main.dart' show themeService;
 import 'feed_screen.dart';
 import 'feed_detail_screen.dart';
@@ -38,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   final TimetableCacheService _timetableCacheService = TimetableCacheService();
   final AttendanceCacheService _attendanceCacheService = AttendanceCacheService();
   final SubjectsCacheService _subjectsCacheService = SubjectsCacheService();
+  final UpdateService _updateService = UpdateService();
   late PageController _pageController;
   late PageController _classPageController;
   
@@ -70,6 +73,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
     _classPageController = PageController(viewportFraction: 0.92);
     _fetchAllData();
+    
+    // Check for app updates after a short delay
+    Future.delayed(const Duration(seconds: 2), () {
+      _checkForUpdates();
+    });
   }
 
   @override
@@ -77,6 +85,34 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     _pageController.dispose();
     _classPageController.dispose();
     super.dispose();
+  }
+
+  /// Check for app updates from GitHub releases
+  Future<void> _checkForUpdates() async {
+    if (!mounted) return;
+    
+    try {
+      // Initialize the update service to get current version
+      await _updateService.init();
+      
+      final update = await _updateService.checkForUpdate();
+      
+      if (update != null && mounted) {
+        // Show the update dialog
+        await UpdateDialog.show(
+          context,
+          update,
+          onSkip: () {
+            debugPrint('📦 User skipped update ${update.version}');
+          },
+          onDismiss: () {
+            debugPrint('📦 User dismissed update dialog');
+          },
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error checking for updates: $e');
+    }
   }
 
   Future<void> _fetchAllData() async {
@@ -176,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     }
   }
 
-  Future<void> _fetchSubjectDetails() async {
+  Future<void> _fetchSubjectDetails({bool forceRefresh = false}) async {
     await _subjectsCacheService.init();
     
     final userId = widget.userData['userId'].toString();
@@ -202,11 +238,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         });
       }
       
-      // If cache is still valid, skip API call
-      if (cached.isValid) {
+      // If cache is valid and not forced, skip API call
+      if (!forceRefresh && cached.isValid) {
         debugPrint('📦 Using valid subjects cache');
         return;
       }
+      debugPrint(forceRefresh ? '🔄 Forcing subjects refresh...' : '🔍 Subjects cache is stale, refreshing in background...');
     }
     
     // Fetch from API
@@ -242,6 +279,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           isOptional: s.isOptional,
         )).toList(),
       );
+      
+      // OPTIMIZATION: Update timetable cache with subject names found in subjects section
+      // This prevents TimetableScreen from needing to fetch names separately
+      if (_subjectDetails.isNotEmpty) {
+        _updateTimetableSubjectNames();
+      }
       
       if (mounted) {
         setState(() {
@@ -336,7 +379,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     }
   }
 
-  Future<void> _fetchFeed() async {
+  Future<void> _fetchFeed({bool forceRefresh = false}) async {
     final userId = widget.userData['userId'].toString();
     final clientAbbr = widget.clientDetails['client_abbr'];
     final sessionId = widget.userData['sessionId'].toString();
@@ -354,13 +397,17 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         });
       }
       
-      // Check if we should refresh in background
-      final shouldCheck = await _feedCacheService.shouldCheckForNewItems(userId, clientAbbr, sessionId);
-      if (!shouldCheck) {
-        debugPrint('📦 Using valid feed cache (skipping background check)');
-        return;
+      // If not forced, check if we should refresh in background
+      if (!forceRefresh) {
+        final shouldCheck = await _feedCacheService.shouldCheckForNewItems(userId, clientAbbr, sessionId);
+        if (!shouldCheck) {
+          debugPrint('📦 Using valid feed cache (skipping background check)');
+          return;
+        }
+        debugPrint('🔍 Checking for new feed items in background...');
+      } else {
+        debugPrint('🔄 Forcing feed refresh...');
       }
-      debugPrint('🔍 Checking for new feed items in background...');
     }
     
     // Fetch from API
@@ -441,7 +488,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     }
   }
 
-  Future<void> _fetchTimetable() async {
+  Future<void> _fetchTimetable({bool forceRefresh = false}) async {
     await _timetableCacheService.init();
     
     final userId = widget.userData['userId'].toString();
@@ -459,12 +506,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         });
       }
       
-      // If cache is valid, we can skip API call unless it's stale
-      if (cached.isValid) {
+      // If cache is valid and not forced, we can skip API call
+      if (!forceRefresh && cached.isValid) {
         debugPrint('📦 Using valid timetable cache');
         return;
       }
-      debugPrint('🔍 Timetable cache is stale, refreshing in background...');
+      debugPrint(forceRefresh ? '🔄 Forcing timetable refresh...' : '🔍 Timetable cache is stale, refreshing in background...');
     }
     
     // Fetch from API
@@ -579,7 +626,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     }
   }
 
-  Future<void> _fetchAttendance() async {
+  Future<void> _fetchAttendance({bool forceRefresh = false}) async {
     await _attendanceCacheService.init();
     
     final userId = widget.userData['userId'].toString();
@@ -608,15 +655,17 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             ..totalApprovedML = s.totalApprovedML
           ).toList();
           _isLoadingSubjects = false;
+          
+          _isLoadingSubjects = false;
         });
       }
       
-      // If cache is valid, we can skip API call unless it's stale
-      if (cached.isValid) {
+      // If cache is valid and not forced, we can skip API call
+      if (!forceRefresh && cached.isValid) {
         debugPrint('📦 Using valid attendance cache');
         return;
       }
-      debugPrint('🔍 Attendance cache is stale, refreshing in background...');
+      debugPrint(forceRefresh ? '🔄 Forcing attendance refresh...' : '🔍 Attendance cache is stale, refreshing in background...');
     }
     
     // Fetch from API
@@ -684,6 +733,43 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           );
         }
       }
+    }
+  }
+
+  Future<void> _updateTimetableSubjectNames() async {
+    try {
+      final userId = widget.userData['userId'].toString();
+      final clientAbbr = widget.clientDetails['client_abbr'];
+      final sessionId = widget.userData['sessionId'].toString();
+      
+      // Create map of code -> name
+      final Map<String, String> subjectNames = {};
+      
+      // Use _subjectDetails (from Subjects section) instead of _subjects (from Attendance)
+      for (var subject in _subjectDetails) {
+        if (subject.code != null && subject.name != null) {
+          subjectNames[subject.code!] = subject.name!;
+        }
+      }
+      
+      if (subjectNames.isEmpty) return;
+      
+      // Get existing timetable cache to preserve the grid
+      final cached = await _timetableCacheService.getCachedTimetable(userId, clientAbbr, sessionId);
+      
+      if (cached != null && cached.timetable.isNotEmpty) {
+        // Update cache with new subject names
+        await _timetableCacheService.cacheTimetable(
+          userId: userId,
+          clientAbbr: clientAbbr,
+          sessionId: sessionId,
+          timetable: cached.timetable,
+          subjectNames: subjectNames,
+        );
+        debugPrint('🔄 Updated timetable cache with ${subjectNames.length} subject names from Attendance');
+      }
+    } catch (e) {
+      debugPrint('Error updating timetable subjects: $e');
     }
   }
 
@@ -860,14 +946,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   String _getSubjectNameByCode(String code) {
-    // Try to find the subject in attendance data by code
-    for (var subject in _subjects) {
+    // Try to find the subject in subjects data by code
+    for (var subject in _subjectDetails) {
       if (subject.code == code) {
         return subject.name ?? code;
       }
     }
     
-    // If not found in attendance, return the code as is
+    // If not found in subjects, return the code as is
     return code;
   }
 
@@ -1023,11 +1109,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     
     // Fetch all data fresh (cache will be updated)
     await Future.wait([
-      _fetchFeed(),
-      _fetchTimetable(),
-      _fetchAttendance(),
+      _fetchFeed(forceRefresh: true),
+      _fetchTimetable(forceRefresh: true),
+      _fetchAttendance(forceRefresh: true),
       _fetchSubjectsData(),
-      _fetchSubjectDetails(),
+      _fetchSubjectDetails(forceRefresh: true),
     ]);
   }
 

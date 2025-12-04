@@ -6,7 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/api_service.dart';
 import '../services/profile_cache_service.dart';
+import '../services/update_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/update_dialog.dart';
 import '../main.dart' show themeService;
 import 'school_code_screen.dart';
 import 'session_screen.dart';
@@ -31,6 +33,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final ApiService _apiService = ApiService();
   final ProfileCacheService _cacheService = ProfileCacheService();
+  final UpdateService _updateService = UpdateService();
   
   // Student info
   String? _name;
@@ -661,6 +664,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
         action: () => _handleMenuAction('Report Card', null, null),
       ));
     }
+    
+    // Add Check for Updates item
+    if (!_menuItems.any((item) => item.name.toLowerCase() == 'check for updates')) {
+      // Find logout position and insert before it, or at end
+      final logoutIndex = _menuItems.indexWhere((item) => item.name.toLowerCase() == 'logout');
+      final insertIndex = logoutIndex >= 0 ? logoutIndex : _menuItems.length;
+      
+      _menuItems.insert(insertIndex, ProfileMenuItem(
+        name: 'Check for Updates',
+        action: () => _handleMenuAction('Check for Updates', null, null),
+      ));
+    }
+    
+    // Add About item
+    if (!_menuItems.any((item) => item.name.toLowerCase() == 'about')) {
+      // Find logout position and insert before it, or at end
+      final logoutIndex = _menuItems.indexWhere((item) => item.name.toLowerCase() == 'logout');
+      final insertIndex = logoutIndex >= 0 ? logoutIndex : _menuItems.length;
+      
+      _menuItems.insert(insertIndex, ProfileMenuItem(
+        name: 'About',
+        action: () => _handleMenuAction('About', null, null),
+      ));
+    }
   }
 
   Future<void> _handleMenuAction(String name, String? href, String? onclick) async {
@@ -706,12 +733,167 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       );
+    } else if (name.toLowerCase() == 'check for updates') {
+      await _checkForUpdatesManually();
+    } else if (name.toLowerCase() == 'about') {
+      _showAboutDialog();
     } else {
       // Default handling
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Selected: $name')),
       );
     }
+  }
+
+  /// Check for updates manually (force check)
+  Future<void> _checkForUpdatesManually() async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      // Initialize update service to get current version
+      await _updateService.init();
+      
+      final update = await _updateService.checkForUpdate(force: true);
+      
+      if (!mounted) return;
+      
+      // Dismiss loading
+      Navigator.of(context).pop();
+      
+      if (update != null) {
+        await UpdateDialog.show(context, update);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white),
+                const SizedBox(width: 12),
+                Text('You\'re on the latest version (v${UpdateService.currentVersion})'),
+              ],
+            ),
+            backgroundColor: AppTheme.successColor,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Failed to check for updates. Please try again.'),
+          backgroundColor: AppTheme.errorColor,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  /// Show about dialog with app info
+  void _showAboutDialog() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Ensure version is fetched
+    await _updateService.init();
+    
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkCardColor : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // App icon
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(
+                  Icons.school_rounded,
+                  size: 48,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'ScholarDesk',
+                style: GoogleFonts.outfit(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Version ${UpdateService.currentVersion}+${UpdateService.buildNumber}',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Your Academic Companion',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    'Close',
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _logout() async {
@@ -989,6 +1171,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       case 'change password':
         iconData = Icons.lock_reset_rounded;
         accentColor = AppTheme.warningColor;
+        break;
+      case 'check for updates':
+        iconData = Icons.system_update_rounded;
+        accentColor = AppTheme.accentColor;
+        break;
+      case 'about':
+        iconData = Icons.info_rounded;
+        accentColor = AppTheme.tertiaryColor;
         break;
       case 'logout':
         iconData = Icons.logout_rounded;

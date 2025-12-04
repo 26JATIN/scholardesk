@@ -89,6 +89,10 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
         if (_isLoadingSubjects) {
           _fetchSubjectNames(isBackgroundRefresh: true);
         }
+      } else if (_isLoadingSubjects) {
+        // Cache is valid but we don't have subject names (likely cached by Home Screen)
+        debugPrint('🔍 Cache valid but missing subjects, fetching names...');
+        _fetchSubjectNames(isBackgroundRefresh: true);
       }
     } else {
       // No cache, fetch from API

@@ -37,6 +37,16 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+    
+    // Custom APK naming for releases: ScholarDesk-v{version}.apk
+    applicationVariants.all {
+        val variant = this
+        variant.outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            val versionName = variant.versionName ?: "1.0.0"
+            output.outputFileName = "ScholarDesk-v${versionName}.apk"
+        }
+    }
 }
 
 flutter {
