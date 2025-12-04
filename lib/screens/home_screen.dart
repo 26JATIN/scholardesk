@@ -19,6 +19,7 @@ import 'attendance_screen.dart';
 import 'timetable_screen.dart';
 import 'profile_screen.dart';
 import 'subjects_screen.dart';
+import 'medical_leave_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -992,6 +993,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               child: _buildHomeContent(),
             ),
             RepaintBoundary(
+              key: const ValueKey('medical_leave_page'),
+              child: _buildMedicalLeaveContent(),
+            ),
+            RepaintBoundary(
               key: const ValueKey('profile_page'),
               child: _buildProfileContent(),
             ),
@@ -1021,7 +1026,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _buildNavItemSmooth(0, Icons.home_outlined, Icons.home_rounded, 'Home', page),
-                      _buildNavItemSmooth(1, Icons.person_outline_rounded, Icons.person_rounded, 'Profile', page),
+                      _buildNavItemSmooth(1, Icons.medical_services_outlined, Icons.medical_services_rounded, 'Leave', page),
+                      _buildNavItemSmooth(2, Icons.person_outline_rounded, Icons.person_rounded, 'Profile', page),
                     ],
                   ),
                 ),
@@ -1887,6 +1893,13 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMedicalLeaveContent() {
+    return MedicalLeaveScreen(
+      clientDetails: widget.clientDetails,
+      userData: widget.userData,
     );
   }
 

@@ -42,6 +42,11 @@ class ApiService {
     }
   }
 
+  /// Get cookies for manual HTTP requests
+  static String getCookies() {
+    return _headers['Cookie'] ?? '';
+  }
+
   /// Creates an HTTP client with SSL certificate validation
   /// In debug mode, it allows bad certificates for testing
   /// In release mode, it enforces strict SSL validation
@@ -612,6 +617,496 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Error connecting to server: $e');
+    }
+  }
+
+  Future<String> getLeaveHistory({
+    required String baseUrl,
+    required String clientAbbr,
+    required String userId,
+    required String sessionId,
+  }) async {
+    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/getLeaveDetailsApp');
+    
+    // Ensure cookies are loaded
+    if (!_headers.containsKey('Cookie')) {
+      await _loadCookies();
+    }
+
+    final headers = {
+      ..._headers,
+      'X-Requested-With': 'codebrigade.chalkpadpro.app',
+    };
+
+    try {
+      final response = await _httpClient.post(
+        url,
+        headers: headers,
+        body: {
+          'sessionId': sessionId,
+          'userId': userId,
+        },
+      );
+
+      await _saveCookies(response);
+
+      if (response.statusCode == 200) {
+        // Try to parse as JSON first
+        try {
+          final data = json.decode(response.body);
+          // If it's a JSON response with 'content' field
+          if (data is Map && data.containsKey('content')) {
+            return data['content'] as String? ?? '';
+          }
+          // If it's just a plain JSON, return as string
+          return response.body;
+        } catch (jsonError) {
+          // If JSON parsing fails, assume it's plain HTML
+          debugPrint('Response is not JSON, returning as plain HTML');
+          return response.body;
+        }
+      } else {
+        throw Exception('Failed to load leave history: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error fetching leave history: $e');
+    }
+  }
+
+  Future<String> getLeaveDetail({
+    required String baseUrl,
+    required String clientAbbr,
+    required String userId,
+    required String sessionId,
+    required String roleId,
+    required String leaveId,
+  }) async {
+    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/commonPage01');
+    
+    // Ensure cookies are loaded
+    if (!_headers.containsKey('Cookie')) {
+      await _loadCookies();
+    }
+
+    final headers = {
+      ..._headers,
+      'X-Requested-With': 'codebrigade.chalkpadpro.app',
+    };
+
+    final now = DateTime.now();
+    final formatter = DateFormat('yyMMddHHmmssSSSSSS');
+    final timeStamp = formatter.format(now);
+
+    try {
+      final response = await _httpClient.post(
+        url,
+        headers: headers,
+        body: {
+          'commonPageId': '27',
+          'userId': userId,
+          'sessionId': sessionId,
+          'roleId': roleId,
+          'timeStamp': timeStamp,
+          'device': '',
+          'commonObj[leaveId]': leaveId,
+        },
+      );
+
+      await _saveCookies(response);
+
+      if (response.statusCode == 200) {
+        try {
+          final data = json.decode(response.body);
+          return data['content'] as String? ?? '';
+        } catch (e) {
+          // If JSON parsing fails, return response as is
+          debugPrint('Response is not JSON, returning as plain text');
+          return response.body;
+        }
+      } else {
+        throw Exception('Failed to load leave detail: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error fetching leave detail: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getLeaveCategories({
+    required String baseUrl,
+    required String clientAbbr,
+    required String userId,
+    required String sessionId,
+  }) async {
+    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/getCategoryNameApp');
+    
+    // Ensure cookies are loaded
+    if (!_headers.containsKey('Cookie')) {
+      await _loadCookies();
+    }
+
+    final headers = {
+      ..._headers,
+      'X-Requested-With': 'codebrigade.chalkpadpro.app',
+    };
+
+    try {
+      final response = await _httpClient.post(
+        url,
+        headers: headers,
+        body: {
+          'sessionId': sessionId,
+          'userId': userId,
+        },
+      );
+
+      await _saveCookies(response);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as List;
+        return data.map((e) => e as Map<String, dynamic>).toList();
+      } else {
+        throw Exception('Failed to load categories: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error fetching categories: $e');
+      throw Exception('Error fetching categories: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadLeaveAttachment({
+    required String baseUrl,
+    required String clientAbbr,
+    required String userId,
+    required String sessionId,
+    required String filePath,
+  }) async {
+    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/dutyMedicalLeaveAttachmentUpload');
+    
+    debugPrint('🔄 Uploading leave attachment...');
+    debugPrint('📡 Upload URL: $url');
+    
+    // Ensure cookies are loaded
+    await ensureCookiesLoaded();
+
+    try {
+      // Get file info
+      final file = File(filePath);
+      final fileName = file.path.split('/').last;
+      final extension = fileName.split('.').last;
+      
+      debugPrint('📎 File path: $filePath');
+      debugPrint('📎 File name: $fileName, Extension: $extension');
+      debugPrint('🍪 Cookies loaded: ${_headers.containsKey('Cookie')}');
+      
+      var request = http.MultipartRequest('POST', url);
+      
+      // Add all standard headers
+      request.headers['User-Agent'] = _headers['User-Agent']!;
+      request.headers['Accept'] = _headers['Accept']!;
+      request.headers['Connection'] = _headers['Connection']!;
+      
+      // Add cookies from headers
+      if (_headers.containsKey('Cookie')) {
+        request.headers['Cookie'] = _headers['Cookie']!;
+        debugPrint('🍪 Cookie header added');
+      }
+      request.headers['X-Requested-With'] = 'codebrigade.chalkpadpro.app';
+      
+      // Add form fields as per expected format (no sessionId)
+      request.fields.addAll({
+        'value1': fileName,
+        'value2': extension,
+        'value3': userId,
+      });
+      
+      debugPrint('📋 Form fields: value1=$fileName, value2=$extension, value3=$userId');
+      
+      // Add file with explicit filename (not content URI)
+      var multipartFile = await http.MultipartFile.fromPath(
+        'file', 
+        filePath,
+        filename: fileName, // Explicitly set filename to avoid content URI
+      );
+      request.files.add(multipartFile);
+      
+      debugPrint('📎 Multipart file added with filename: $fileName');
+      
+      debugPrint('📤 Sending upload request...');
+      
+      // Send request
+      var streamedResponse = await _httpClient.send(request);
+      var response = await http.Response.fromStream(streamedResponse);
+      
+      await _saveCookies(response);
+
+      debugPrint('📥 Upload response: ${response.statusCode}');
+      debugPrint('📄 Upload body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        // Server returns plain text in format: "fullname.pdf|randomname.pdf|"
+        // Example: "Leave_20251205_file.pdf|1$3O8jZBU7.pdf|"
+        final responseText = response.body.trim();
+        
+        if (responseText.isEmpty) {
+          throw Exception('Server returned empty response');
+        }
+        
+        // Parse the pipe-separated response
+        final parts = responseText.split('|').where((s) => s.isNotEmpty).toList();
+        
+        // parts[0] = full server filename (for display)
+        // parts[1] = random short filename (for deletion API)
+        final uploadedFullName = parts.isNotEmpty ? parts[0] : fileName;
+        final uploadedShortName = parts.length > 1 ? parts[1] : uploadedFullName;
+        
+        debugPrint('✅ File uploaded successfully');
+        debugPrint('   Full name: $uploadedFullName');
+        debugPrint('   Short name (for deletion): $uploadedShortName');
+        
+        return {
+          'success': true,
+          'fileName': uploadedShortName, // Use short name for deletion!
+          'fullName': uploadedFullName,  // Keep full name for display if needed
+          'originalName': fileName,
+          'rawResponse': responseText,
+        };
+      } else {
+        throw Exception('Failed to upload file: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error uploading file: $e');
+      throw Exception('Error uploading file: $e');
+    }
+  }
+
+  Future<bool> removeLeaveAttachment({
+    required String baseUrl,
+    required String clientAbbr,
+    required String fileName,
+  }) async {
+    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/removeDutyMedicalLeaveAttachment');
+    
+    debugPrint('🗑️ Removing leave attachment...');
+    debugPrint('📡 Remove URL: $url');
+    debugPrint('📎 File to remove: $fileName');
+    
+    // Ensure cookies are loaded
+    await ensureCookiesLoaded();
+
+    try {
+      final response = await _httpClient.post(
+        url,
+        headers: {
+          'User-Agent': _headers['User-Agent']!,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': _headers['Accept']!,
+          'Connection': _headers['Connection']!,
+          'Cookie': _headers['Cookie'] ?? '',
+          'X-Requested-With': 'codebrigade.chalkpadpro.app',
+        },
+        body: {
+          'fileName': fileName,
+        },
+      );
+      
+      await _saveCookies(response);
+
+      debugPrint('📥 Remove response: ${response.statusCode}');
+      debugPrint('📄 Remove body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseText = response.body.trim();
+        // Server returns "1" for success
+        final success = responseText == '1';
+        
+        if (success) {
+          debugPrint('✅ File removed successfully: $fileName');
+        } else {
+          debugPrint('⚠️ File removal returned: $responseText');
+        }
+        
+        return success;
+      } else {
+        throw Exception('Failed to remove file: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error removing file: $e');
+      throw Exception('Error removing file: $e');
+    }
+  }
+
+  Future<bool> cancelLeave({
+    required String baseUrl,
+    required String clientAbbr,
+    required String leaveId,
+    required String userId,
+  }) async {
+    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/cancelDutyMedicalLeave');
+    
+    debugPrint('🚫 Cancelling leave...');
+    debugPrint('📡 Cancel URL: $url');
+    debugPrint('🆔 Leave ID: $leaveId');
+    debugPrint('👤 User ID: $userId');
+    
+    // Ensure cookies are loaded
+    await ensureCookiesLoaded();
+
+    try {
+      final response = await _httpClient.post(
+        url,
+        headers: {
+          'User-Agent': _headers['User-Agent']!,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': _headers['Accept']!,
+          'Connection': _headers['Connection']!,
+          'Cookie': _headers['Cookie'] ?? '',
+          'X-Requested-With': 'codebrigade.chalkpadpro.app',
+        },
+        body: {
+          'id': leaveId,
+          'userId': userId,
+        },
+      );
+      
+      await _saveCookies(response);
+
+      debugPrint('📥 Cancel response: ${response.statusCode}');
+      debugPrint('📄 Cancel body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseText = response.body.trim();
+        // Server returns "1" for success
+        final success = responseText == '1';
+        
+        if (success) {
+          debugPrint('✅ Leave cancelled successfully: $leaveId');
+        } else {
+          debugPrint('⚠️ Leave cancellation returned: $responseText');
+        }
+        
+        return success;
+      } else {
+        throw Exception('Failed to cancel leave: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error cancelling leave: $e');
+      throw Exception('Error cancelling leave: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> submitLeaveApplication({
+    required String baseUrl,
+    required String clientAbbr,
+    required String userId,
+    required String sessionId,
+    required String roleId,
+    required String leaveType,
+    required String category,
+    required String eventName,
+    required String startDate,
+    required String endDate,
+    required String timeSlot,
+    required String periods,
+    required String reason,
+    String? fileName,
+  }) async {
+    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/addLeaveApp');
+
+    // Ensure cookies are loaded
+    await ensureCookiesLoaded();
+
+    try {
+      debugPrint('📤 Submitting leave application...');
+      debugPrint('📋 Leave details:');
+      debugPrint('  Type: $leaveType, Category: $category');
+      debugPrint('  Event: $eventName');
+      debugPrint('  Dates: $startDate to $endDate');
+      debugPrint('  File: ${fileName ?? "none"}');
+      debugPrint('🍪 Cookies loaded: ${_headers.containsKey('Cookie')}');
+
+      // If no fileName is provided, server expects application/x-www-form-urlencoded body
+      if (fileName == null || fileName.isEmpty) {
+        final headers = {
+          'User-Agent': _headers['User-Agent']!,
+          'Accept': _headers['Accept']!,
+          'Connection': _headers['Connection']!,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Cookie': _headers['Cookie'] ?? '',
+          'X-Requested-With': 'codebrigade.chalkpadpro.app',
+        };
+
+        final body = {
+          'sessionId': sessionId,
+          'userId': userId,
+          'roleId': roleId,
+          'leaveType': leaveType,
+          'category': category,
+          'ename': eventName,
+          'leaveStartDate': startDate,
+          'leaveEndDate': endDate,
+          'timeSlot': timeSlot,
+          'periodwise': periods,
+          'reasonforOtherLeave': reason,
+          'fileName': '',
+        };
+
+        final response = await _httpClient.post(url, headers: headers, body: body);
+        await _saveCookies(response);
+
+        debugPrint('📥 Submit response: ${response.statusCode}');
+        debugPrint('📄 Submit body: ${response.body}');
+
+        if (response.statusCode == 200) {
+          final result = json.decode(response.body) as Map<String, dynamic>;
+          return result;
+        } else {
+          throw Exception('Failed to submit leave: ${response.statusCode}');
+        }
+      }
+
+      // Otherwise send multipart (for safety when fileName(s) provided)
+      var request = http.MultipartRequest('POST', url);
+      // Add standard headers
+      request.headers['User-Agent'] = _headers['User-Agent']!;
+      request.headers['Accept'] = _headers['Accept']!;
+      request.headers['Connection'] = _headers['Connection']!;
+      if (_headers.containsKey('Cookie')) {
+        request.headers['Cookie'] = _headers['Cookie']!;
+      }
+      request.headers['X-Requested-With'] = 'codebrigade.chalkpadpro.app';
+
+      request.fields.addAll({
+        'sessionId': sessionId,
+        'userId': userId,
+        'roleId': roleId,
+        'leaveType': leaveType,
+        'category': category,
+        'ename': eventName,
+        'leaveStartDate': startDate,
+        'leaveEndDate': endDate,
+        'timeSlot': timeSlot,
+        'periodwise': periods,
+        'reasonforOtherLeave': reason,
+        'fileName': fileName,
+      });
+
+      // Send request
+      var streamedResponse = await _httpClient.send(request);
+      var response = await http.Response.fromStream(streamedResponse);
+      await _saveCookies(response);
+
+      debugPrint('📥 Submit response: ${response.statusCode}');
+      debugPrint('📄 Submit body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final result = json.decode(response.body) as Map<String, dynamic>;
+        return result;
+      } else {
+        throw Exception('Failed to submit leave: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error submitting leave: $e');
+      throw Exception('Error submitting leave: $e');
     }
   }
 }
