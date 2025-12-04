@@ -149,19 +149,72 @@ class FeedCacheService {
         return typedNewItems;
       }
 
-      final existingIds =
-          existing.items.map((item) => item['itemId']?['N']?.toString()).toSet();
-      final uniqueNewItems = typedNewItems
-          .where((item) => !existingIds.contains(item['itemId']?['N']?.toString()))
-          .toList();
+      // Smart Merge Strategy:
+      // 1. Find the last item in newItems that exists in existing items (by ID)
+      // 2. Splice: Take all newItems up to that point + existing items after that point
+      // This ensures we update the "head" of the feed with the fresh state from server,
+      // removing any items that were deleted/moved in that range.
 
-      if (uniqueNewItems.isEmpty) return existing.items;
+      int? splitIndexInExisting;
+      int? splitIndexInNew;
 
-      final mergedItems = [...uniqueNewItems, ...existing.items];
+      // Iterate new items from end to start to find the deepest overlap
+      for (int i = typedNewItems.length - 1; i >= 0; i--) {
+        final newItemId = typedNewItems[i]['itemId']?['N']?.toString();
+        if (newItemId == null) continue;
+
+        final index = existing.items.indexWhere((item) => 
+            item['itemId']?['N']?.toString() == newItemId);
+        
+        if (index != -1) {
+          splitIndexInExisting = index;
+          splitIndexInNew = i;
+          break;
+        }
+      }
+
+      List<Map<String, dynamic>> mergedItems;
+
+      if (splitIndexInExisting != null && splitIndexInNew != null) {
+        // Found overlap - Splice
+        mergedItems = [
+          ...typedNewItems, // Take ALL new items (they are the source of truth for the head)
+          ...existing.items.sublist(splitIndexInExisting + 1) // Keep the tail
+        ];
+        // Note: We take all typedNewItems because even if the overlap was at index 5,
+        // items 6,7,8 in typedNewItems might be new insertions that push the tail down.
+        // Wait, if splitIndexInNew is 5 (item F), and splitIndexInExisting is 5 (item F).
+        // We take typedNewItems (0..end).
+        // We take existing (6..end).
+        // This assumes typedNewItems contains everything up to the split point AND potentially more?
+        // Actually, if typedNewItems has [A, B, C] and Existing has [A, B, C, D].
+        // C matches (index 2 in both).
+        // We take [A, B, C] + [D]. Correct.
+        
+        // If typedNewItems has [A, B, C] and Existing has [A, C, D] (B deleted).
+        // C matches (index 2 in New, index 1 in Existing).
+        // We take [A, B, C] + [D].
+        // Result: [A, B, C, D]. B is restored?
+        // Wait, if B was deleted from server, it shouldn't be in typedNewItems.
+        // If Server=[A, C]. Existing=[A, B, C, D].
+        // C matches (index 1 in New, index 2 in Existing).
+        // We take [A, C] + [D].
+        // Result: [A, C, D]. B is removed. Correct.
+      } else {
+        // No overlap found - Fallback to prepend unique
+        // This happens if the feed changed completely or there's a gap
+        final existingIds =
+            existing.items.map((item) => item['itemId']?['N']?.toString()).toSet();
+        final uniqueNewItems = typedNewItems
+            .where((item) => !existingIds.contains(item['itemId']?['N']?.toString()))
+            .toList();
+        mergedItems = [...uniqueNewItems, ...existing.items];
+      }
+
       String? newestTimestamp = existing.newestTimestamp;
-      if (uniqueNewItems.isNotEmpty) {
+      if (mergedItems.isNotEmpty) {
         newestTimestamp =
-            uniqueNewItems.first['timeStamp']?['N']?.toString() ?? existing.newestTimestamp;
+            mergedItems.first['timeStamp']?['N']?.toString() ?? existing.newestTimestamp;
       }
 
       await cacheFeed(

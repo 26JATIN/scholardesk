@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/feed_cache_service.dart';
 import '../theme/app_theme.dart';
 import 'feed_detail_screen.dart';
+import '../utils/string_extensions.dart';
 import '../main.dart' show themeService;
 
 class FeedScreen extends StatefulWidget {
@@ -454,18 +455,24 @@ class _FeedScreenState extends State<FeedScreen> {
       if (mounted) {
         final List<dynamic> newItems = response['feed'] ?? [];
         
-        // Filter out duplicates based on itemId and timestamp
-        final List<dynamic> uniqueNewItems = [];
+        final List<dynamic> processedNewItems = [];
+        final Set<String> currentBatchIds = {};
         
         for (var item in newItems) {
           final itemId = item['itemId']?['N']?.toString() ?? '';
           final timestamp = item['timeStamp']?['N']?.toString() ?? '';
           final uniqueKey = '$itemId-$timestamp';
           
-          if (itemId.isNotEmpty && !_loadedItemIds.contains(uniqueKey)) {
-            uniqueNewItems.add(item);
-            _loadedItemIds.add(uniqueKey);
-          }
+          if (itemId.isEmpty) continue;
+          if (currentBatchIds.contains(uniqueKey)) continue; // Skip duplicates within this batch
+          
+          currentBatchIds.add(uniqueKey);
+          
+          // For pagination (not refresh), skip items we already have
+          if (!isRefresh && _loadedItemIds.contains(uniqueKey)) continue;
+          
+          processedNewItems.add(item);
+          if (!isRefresh) _loadedItemIds.add(uniqueKey);
         }
         
         // Check if there's a next page
@@ -477,26 +484,38 @@ class _FeedScreenState extends State<FeedScreen> {
         
         if (isRefresh) {
           // Merge new items with existing cache
-          if (uniqueNewItems.isNotEmpty) {
+          // We pass processedNewItems (which includes overlap) so mergeNewItems can splice correctly
+          if (processedNewItems.isNotEmpty) {
             final mergedItems = await _cacheService.mergeNewItems(
               userId: userId,
               clientAbbr: clientAbbr,
               sessionId: sessionId,
-              newItems: uniqueNewItems,
+              newItems: processedNewItems,
               nextPage: actuallyHasMore ? nextPage : null,
               hasMore: actuallyHasMore,
             );
             
             setState(() {
               _feedItems = mergedItems;
-              _newItemsCount = uniqueNewItems.length;
+              _newItemsCount = processedNewItems.length; // This might be misleading if we just refreshed content
+              
+              // Rebuild loaded IDs from the merged list
+              _loadedItemIds.clear();
+              for (var item in _feedItems) {
+                final itemId = item['itemId']?['N']?.toString() ?? '';
+                final timestamp = item['timeStamp']?['N']?.toString() ?? '';
+                if (itemId.isNotEmpty) {
+                  _loadedItemIds.add('$itemId-$timestamp');
+                }
+              }
             });
             
-            // Show snackbar if new items found
-            if (uniqueNewItems.isNotEmpty && mounted) {
+            // Show snackbar if we actually got new content (simple check)
+            // Ideally we'd compare counts or something, but this is fine
+            if (processedNewItems.isNotEmpty && mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('${uniqueNewItems.length} new cicular${uniqueNewItems.length > 1 ? 's' : ''}'),
+                  content: Text('Feed updated'),
                   duration: const Duration(seconds: 2),
                   behavior: SnackBarBehavior.floating,
                   backgroundColor: AppTheme.successColor,
@@ -507,9 +526,9 @@ class _FeedScreenState extends State<FeedScreen> {
         } else {
           setState(() {
             if (start == 0) {
-              _feedItems = uniqueNewItems;
+              _feedItems = processedNewItems;
             } else {
-              _feedItems.addAll(uniqueNewItems);
+              _feedItems.addAll(processedNewItems);
             }
           });
         }
@@ -538,7 +557,7 @@ class _FeedScreenState extends State<FeedScreen> {
           _isOffline = false;
         });
         
-        debugPrint('📥 Feed: Loaded ${uniqueNewItems.length} unique items out of ${newItems.length} fetched. Total: ${_feedItems.length}');
+        debugPrint('📥 Feed: Loaded ${processedNewItems.length} unique items out of ${newItems.length} fetched. Total: ${_feedItems.length}');
         debugPrint('📍 Next page start: $_nextPageStart');
         debugPrint('✅ Has more data: $_hasMoreData');
       }
@@ -1239,11 +1258,18 @@ class _FeedScreenState extends State<FeedScreen> {
     
     // Safely extract values with null checks
     final title = (item['title'] != null && item['title']['S'] != null) 
-        ? item['title']['S'] as String 
+        ? (item['title']['S'] as String).decodeHtml 
         : 'No Title';
     final desc = (item['desc'] != null && item['desc']['S'] != null)
-        ? item['desc']['S'] as String
+        ? (item['desc']['S'] as String).decodeHtml
         : '';
+    final dateStr = (item['creDate'] != null && item['creDate']['S'] != null)
+        ? item['creDate']['S'] as String
+        : '';
+    final timeStr = (item['creTime'] != null && item['creTime']['S'] != null)
+        ? item['creTime']['S'] as String
+        : '';
+    final time = formatTime(timeStr);
 
     // Check if this item matches search query
     final bool isSearchMatch = _searchQuery.isNotEmpty && 
@@ -1370,9 +1396,21 @@ class _FeedScreenState extends State<FeedScreen> {
                             maxLines: 2,
                           ),
                         ),
+                        if (time.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            time,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(width: 8),
                         Icon(
                           Icons.arrow_forward_ios_rounded,
-                          size: 16,
+                          size: 14,
                           color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                         ),
                       ],

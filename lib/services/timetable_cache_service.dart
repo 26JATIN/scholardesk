@@ -46,7 +46,7 @@ class TimetableCacheService {
     required String clientAbbr,
     required String sessionId,
     required Map<String, List<Map<String, String>>> timetable,
-    required Map<String, String> subjectNames,
+    Map<String, String>? subjectNames, // Make optional
   }) async {
     await init();
     
@@ -60,11 +60,16 @@ class TimetableCacheService {
     );
     
     await _prefs!.setString(timetableCacheKey, jsonEncode(timetableJson));
-    await _prefs!.setString(subjectNamesCacheKey, jsonEncode(subjectNames));
+    
+    // Only update subject names if provided, otherwise preserve existing or set empty
+    if (subjectNames != null) {
+      await _prefs!.setString(subjectNamesCacheKey, jsonEncode(subjectNames));
+    }
+    
     await _prefs!.setInt(cacheTimeKey, DateTime.now().millisecondsSinceEpoch);
     
     int totalPeriods = timetable.values.fold(0, (sum, periods) => sum + periods.length);
-    debugPrint('📦 Cached timetable with $totalPeriods periods and ${subjectNames.length} subject names');
+    debugPrint('📦 Cached timetable with $totalPeriods periods and ${subjectNames?.length ?? "preserved"} subject names');
   }
 
   /// Get cached timetable

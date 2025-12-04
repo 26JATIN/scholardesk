@@ -9,6 +9,7 @@ import '../services/timetable_cache_service.dart';
 import '../services/attendance_cache_service.dart';
 import '../services/subjects_cache_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/string_extensions.dart';
 import '../main.dart' show themeService;
 import 'feed_screen.dart';
 import 'feed_detail_screen.dart';
@@ -343,15 +344,16 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Future<void> _fetchFeed() async {
-    
     final userId = widget.userData['userId'].toString();
     final clientAbbr = widget.clientDetails['client_abbr'];
     final sessionId = widget.userData['sessionId'].toString();
     
     // Try to load from cache first
     final cached = await _feedCacheService.getCachedFeed(userId, clientAbbr, sessionId);
+    bool hasCachedData = false;
     
     if (cached != null && cached.items.isNotEmpty) {
+      hasCachedData = true;
       if (mounted) {
         setState(() {
           _feedItems = cached.items;
@@ -360,11 +362,13 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         });
       }
       
-      // If cache is still valid, skip API call
-      if (cached.isValid) {
-        debugPrint('📦 Using valid feed cache');
+      // Check if we should refresh in background
+      final shouldCheck = await _feedCacheService.shouldCheckForNewItems(userId, clientAbbr, sessionId);
+      if (!shouldCheck) {
+        debugPrint('📦 Using valid feed cache (skipping background check)');
         return;
       }
+      debugPrint('🔍 Checking for new feed items in background...');
     }
     
     // Fetch from API
@@ -387,15 +391,17 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       // Cache the response
       final nextPage = response['next'];
       final hasNext = nextPage != null && nextPage is Map && nextPage.isNotEmpty;
+      
+      final newItems = response['feed'] ?? [];
 
-      if (cached != null && cached.items.isNotEmpty) {
+      if (hasCachedData) {
         // Cache exists, merge new items but PRESERVE existing pagination
         // passing nextPage: null will cause mergeNewItems to use existing.nextPage
         await _feedCacheService.mergeNewItems(
           userId: userId,
           clientAbbr: clientAbbr,
           sessionId: sessionId,
-          newItems: response['feed'] ?? [],
+          newItems: newItems,
           nextPage: null, 
         );
       } else {
@@ -404,15 +410,18 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           userId: userId,
           clientAbbr: clientAbbr,
           sessionId: sessionId,
-          items: response['feed'] ?? [],
+          items: newItems,
           nextPage: hasNext ? nextPage : null,
           hasMore: hasNext,
         );
       }
+      
+      // Reload from cache to get the merged/sorted list
+      final updatedCache = await _feedCacheService.getCachedFeed(userId, clientAbbr, sessionId);
 
-      if (mounted) {
+      if (mounted && updatedCache != null) {
         setState(() {
-          _feedItems = response['feed'] ?? [];
+          _feedItems = updatedCache.items;
           _isLoadingFeed = false;
           _feedCacheAge = 'Just now';
           _isOffline = false;
@@ -430,6 +439,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           _isOffline = isNetworkError;
         });
         
+        // Only show error if we have NO data
         if (_feedItems.isEmpty && isNetworkError) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -461,11 +471,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         });
       }
       
-      // If cache is still valid, skip API call
+      // If cache is valid, we can skip API call unless it's stale
       if (cached.isValid) {
         debugPrint('📦 Using valid timetable cache');
         return;
       }
+      debugPrint('🔍 Timetable cache is stale, refreshing in background...');
     }
     
     // Fetch from API
@@ -492,7 +503,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         clientAbbr: clientAbbr,
         sessionId: sessionId,
         timetable: _timetable,
-        subjectNames: {}, // Home screen doesn't need subject names mapping
+        subjectNames: null, // Preserve existing subject names
       );
 
       if (mounted) {
@@ -512,6 +523,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           _isLoadingTimetable = false;
         });
         
+        // Only show error if we have NO data
         if (_timetable.isEmpty && isNetworkError) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -596,18 +608,29 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           _subjects = cached.subjects.map((s) => AttendanceSubject()
             ..name = s.name
             ..code = s.code
+            ..teacher = s.teacher
+            ..duration = s.duration
+            ..fromDate = s.fromDate
+            ..toDate = s.toDate
             ..delivered = s.delivered
             ..attended = s.attended
-            ..percentage = s.percentage).toList();
+            ..absent = s.absent
+            ..leaves = s.leaves
+            ..percentage = s.percentage
+            ..totalApprovedDL = s.totalApprovedDL
+            ..totalApprovedML = s.totalApprovedML
+          ).toList();
+          _isLoadingSubjects = false;
           _attendanceCacheAge = _attendanceCacheService.getCacheAgeString(userId, clientAbbr, sessionId);
         });
       }
       
-      // If cache is still valid, skip API call
+      // If cache is valid, we can skip API call unless it's stale
       if (cached.isValid) {
         debugPrint('📦 Using valid attendance cache');
         return;
       }
+      debugPrint('🔍 Attendance cache is stale, refreshing in background...');
     }
     
     // Fetch from API
@@ -627,27 +650,33 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
       _parseAttendance(htmlContent);
       
-      // Cache the attendance data
-      await _attendanceCacheService.cacheAttendance(
-        userId: userId,
-        clientAbbr: clientAbbr,
-        sessionId: sessionId,
-        subjects: _subjects.map((s) => CachedAttendanceSubject(
-          name: s.name,
-          code: s.code,
-          delivered: s.delivered,
-          attended: s.attended,
-          percentage: s.percentage,
-          // Home screen's AttendanceSubject doesn't have these fields
-          teacher: null,
-          duration: null,
-          fromDate: null,
-          toDate: null,
-        )).toList(),
-      );
+      // Cache the attendance
+      if (_subjects.isNotEmpty) {
+        await _attendanceCacheService.cacheAttendance(
+          userId: userId,
+          clientAbbr: clientAbbr,
+          sessionId: sessionId,
+          subjects: _subjects.map((s) => CachedAttendanceSubject(
+            name: s.name,
+            code: s.code,
+            teacher: s.teacher,
+            duration: s.duration,
+            fromDate: s.fromDate,
+            toDate: s.toDate,
+            delivered: s.delivered,
+            attended: s.attended,
+            absent: s.absent,
+            leaves: s.leaves,
+            percentage: s.percentage,
+            totalApprovedDL: s.totalApprovedDL,
+            totalApprovedML: s.totalApprovedML,
+          )).toList(),
+        );
+      }
       
       if (mounted) {
         setState(() {
+          _isLoadingSubjects = false;
           _attendanceCacheAge = 'Just now';
         });
       }
@@ -658,6 +687,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                              e.toString().toLowerCase().contains('network');
 
       if (mounted) {
+        setState(() {
+          _isLoadingSubjects = false;
+        });
         if (_subjects.isEmpty && isNetworkError) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -677,6 +709,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     _subjects = subjectBoxes.map((box) {
       final subject = AttendanceSubject();
       
+      // Subject Name and Code
       final periodNumberDiv = box.querySelector('.tt-period-number');
       if (periodNumberDiv != null) {
         final spans = periodNumberDiv.querySelectorAll('span');
@@ -684,15 +717,75 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         if (spans.length > 1) subject.code = spans[1].text.trim();
       }
 
+      // Details
       final detailsDivs = box.querySelectorAll('.tt-period-name');
       for (var div in detailsDivs) {
-        final text = div.text.trim();
-        if (text.startsWith('Delivered :')) {
-          subject.delivered = text.replaceAll('Delivered :', '').trim();
-        } else if (text.startsWith('Attended :')) {
-          subject.attended = text.replaceAll('Attended :', '').trim();
-        } else if (text.startsWith('Total Percentage :')) {
-          subject.percentage = text.replaceAll('Total Percentage :', '').replaceAll('%', '').trim();
+        String text = div.text.trim();
+        // Normalize whitespace and special chars
+        text = text.replaceAll(RegExp(r'[\u00A0\s]+'), ' ').trim(); // Replace &nbsp and multiple spaces
+        
+        if (text.toLowerCase().contains('teacher')) {
+          // Extract teacher name - everything after "Teacher :" or "Teacher:"
+          final teacherMatch = RegExp(r'Teacher\s*:?\s*(.+)', caseSensitive: false).firstMatch(text);
+          if (teacherMatch != null) {
+            subject.teacher = teacherMatch.group(1)?.trim();
+          }
+        } else if (text.toLowerCase().contains('from') && text.toLowerCase().contains('to')) {
+          // Parse: "From : 01 Jul 2025    TO : 02 Dec 2025"
+          // More robust regex that handles various formats
+          
+          // Try multiple patterns
+          String normalizedText = text.replaceAll(RegExp(r'\s+'), ' ');
+          
+          // Pattern 1: "From : DATE TO : DATE" or "From: DATE TO: DATE"
+          final datePattern = RegExp(
+            r'From\s*:?\s*(\d{1,2}\s+\w+\s+\d{4})\s*(?:TO|To|to)\s*:?\s*(\d{1,2}\s+\w+\s+\d{4})',
+            caseSensitive: false
+          );
+          final match = datePattern.firstMatch(normalizedText);
+          
+          if (match != null) {
+            subject.fromDate = match.group(1)?.trim();
+            subject.toDate = match.group(2)?.trim();
+            subject.duration = '${subject.fromDate} - ${subject.toDate}';
+          } else {
+            // Fallback: try to extract any dates
+            final allDates = RegExp(r'(\d{1,2}\s+\w{3,9}\s+\d{4})').allMatches(normalizedText).toList();
+            if (allDates.length >= 2) {
+              subject.fromDate = allDates[0].group(1)?.trim();
+              subject.toDate = allDates[1].group(1)?.trim();
+              subject.duration = '${subject.fromDate} - ${subject.toDate}';
+            } else if (allDates.length == 1) {
+              subject.fromDate = allDates[0].group(1)?.trim();
+              subject.duration = subject.fromDate;
+            } else {
+              // Last fallback: store raw text
+              subject.duration = normalizedText
+                  .replaceAll(RegExp(r'From\s*:?\s*', caseSensitive: false), '')
+                  .replaceAll(RegExp(r'TO\s*:?\s*', caseSensitive: false), ' - ')
+                  .trim();
+            }
+          }
+        } else if (text.toLowerCase().contains('delivered')) {
+          final match = RegExp(r'Delivered\s*:?\s*(\d+)', caseSensitive: false).firstMatch(text);
+          subject.delivered = match?.group(1)?.trim() ?? text.replaceAll(RegExp(r'Delivered\s*:?\s*', caseSensitive: false), '').trim();
+        } else if (text.toLowerCase().contains('attended') && !text.toLowerCase().contains('percentage')) {
+          final match = RegExp(r'Attended\s*:?\s*(\d+)', caseSensitive: false).firstMatch(text);
+          subject.attended = match?.group(1)?.trim() ?? text.replaceAll(RegExp(r'Attended\s*:?\s*', caseSensitive: false), '').trim();
+        } else if (text.toLowerCase().contains('absent')) {
+          final match = RegExp(r'Absent\s*:?\s*(\d+)', caseSensitive: false).firstMatch(text);
+          subject.absent = match?.group(1)?.trim() ?? text.replaceAll(RegExp(r'Absent\s*:?\s*', caseSensitive: false), '').trim();
+        } else if (text.toLowerCase().contains('dl') && text.toLowerCase().contains('ml') && !text.toLowerCase().contains('approved')) {
+          subject.leaves = text.trim();
+        } else if (text.toLowerCase().contains('total percentage') || text.toLowerCase().contains('percentage')) {
+          final match = RegExp(r'(\d+\.?\d*)\s*%?', caseSensitive: false).firstMatch(text);
+          subject.percentage = match?.group(1)?.trim();
+        } else if (text.toLowerCase().contains('approved dl') || text.toLowerCase().contains('total approved dl')) {
+          final match = RegExp(r'(\d+)\s*$').firstMatch(text);
+          subject.totalApprovedDL = match?.group(1)?.trim() ?? text.replaceAll(RegExp(r'Total\s*Approved\s*DL\s*:?\s*', caseSensitive: false), '').trim();
+        } else if (text.toLowerCase().contains('approved ml') || text.toLowerCase().contains('total approved ml')) {
+          final match = RegExp(r'(\d+)\s*$').firstMatch(text);
+          subject.totalApprovedML = match?.group(1)?.trim() ?? text.replaceAll(RegExp(r'Total\s*Approved\s*ML\s*:?\s*', caseSensitive: false), '').trim();
         }
       }
       return subject;
@@ -1559,9 +1652,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildFeedCard(dynamic item, int index) {
-    final title = item['title']?['S'] ?? 'No Title';
-    final desc = item['desc']?['S'] ?? '';
+    final title = (item['title']?['S'] ?? 'No Title').toString().decodeHtml;
+    final desc = (item['desc']?['S'] ?? '').toString().decodeHtml;
     final date = item['creDate']?['S'] ?? '';
+    final timeStr = item['creTime']?['S'] ?? '';
+    final time = formatTime(timeStr);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     // Cycle through colors for visual variety - Professional palette
@@ -1659,7 +1754,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                               Icon(Icons.calendar_today_rounded, size: 12, color: accentColor),
                               const SizedBox(width: 6),
                               Text(
-                                date,
+                                time.isNotEmpty ? '$date • $time' : date,
                                 style: GoogleFonts.inter(
                                   fontSize: 11,
                                   color: accentColor,
@@ -1735,10 +1830,19 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 class AttendanceSubject {
   String? name;
   String? code;
+  String? teacher;
+  String? duration;
+  String? fromDate;
+  String? toDate;
   String? delivered;
   String? attended;
+  String? absent;
+  String? leaves;
   String? percentage;
+  String? totalApprovedDL;
+  String? totalApprovedML;
 }
+
 
 class Subject {
   final String? name;

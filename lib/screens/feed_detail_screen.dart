@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_theme.dart';
+import '../utils/string_extensions.dart';
 import '../main.dart' show themeService;
 
 class FeedDetailScreen extends StatefulWidget {
@@ -240,7 +242,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: Text(
-                              widget.title,
+                              widget.title.decodeHtml,
                               style: GoogleFonts.outfit(
                                 fontSize: 19,
                                 fontWeight: FontWeight.bold,
