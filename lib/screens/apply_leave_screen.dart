@@ -727,52 +727,6 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
     );
   }
 
-  Widget _buildReasonField(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Reason/Remarks *',
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white : Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _reasonController,
-          maxLines: 4,
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            color: isDark ? Colors.white : Colors.black87,
-          ),
-          decoration: InputDecoration(
-            hintText: 'Enter reason for leave',
-            hintStyle: GoogleFonts.inter(
-              fontSize: 14,
-              color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
-            ),
-            contentPadding: const EdgeInsets.all(16),
-            filled: true,
-            fillColor: isDark ? AppTheme.darkCardColor : Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: (isDark ? Colors.white : Colors.black).withOpacity(0.1),
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: (isDark ? Colors.white : Colors.black).withOpacity(0.1),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildDateFields(bool isDark) {
     return Row(
