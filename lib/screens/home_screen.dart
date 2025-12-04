@@ -4,6 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:html/parser.dart' as html_parser;
 import '../services/api_service.dart';
+import '../services/feed_cache_service.dart';
+import '../services/timetable_cache_service.dart';
+import '../services/attendance_cache_service.dart';
+import '../services/subjects_cache_service.dart';
 import '../theme/app_theme.dart';
 import '../main.dart' show themeService;
 import 'feed_screen.dart';
@@ -29,6 +33,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
   final ApiService _apiService = ApiService();
+  final FeedCacheService _feedCacheService = FeedCacheService();
+  final TimetableCacheService _timetableCacheService = TimetableCacheService();
+  final AttendanceCacheService _attendanceCacheService = AttendanceCacheService();
+  final SubjectsCacheService _subjectsCacheService = SubjectsCacheService();
   late PageController _pageController;
   late PageController _classPageController;
   
@@ -42,6 +50,13 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   bool _isLoadingFeed = true;
   bool _isLoadingTimetable = true;
   bool _isLoadingSubjects = true;
+  
+  // Cache state
+  String _feedCacheAge = '';
+  String _timetableCacheAge = '';
+  String _attendanceCacheAge = '';
+  String _subjectsCacheAge = '';
+  bool _isOffline = false;
   
   String? _userName;
   String? _currentSemester;
@@ -166,11 +181,42 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Future<void> _fetchSubjectDetails() async {
+    await _subjectsCacheService.init();
+    
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    final sessionId = widget.userData['sessionId'].toString();
+    
+    // Try to load from cache first
+    final cached = await _subjectsCacheService.getCachedSubjects(userId, clientAbbr, sessionId);
+    
+    if (cached != null && cached.subjects.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _subjectDetails = cached.subjects.map((s) => Subject(
+            name: s.name,
+            specialization: s.specialization,
+            code: s.code,
+            type: s.type,
+            group: s.group,
+            credits: s.credits,
+            isOptional: s.isOptional,
+          )).toList();
+          _isLoadingSubjects = false;
+          _subjectsCacheAge = _subjectsCacheService.getCacheAgeString(userId, clientAbbr, sessionId);
+        });
+      }
+      
+      // If cache is still valid, skip API call
+      if (cached.isValid) {
+        debugPrint('📦 Using valid subjects cache');
+        return;
+      }
+    }
+    
+    // Fetch from API
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
-      final clientAbbr = widget.clientDetails['client_abbr'];
-      final userId = widget.userData['userId'].toString();
-      final sessionId = widget.userData['sessionId'].toString();
       final roleId = widget.userData['roleId'].toString();
       final appKey = widget.userData['apiKey'].toString();
 
@@ -184,6 +230,29 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       );
 
       _parseSubjectDetails(htmlContent);
+      
+      // Cache the subjects
+      await _subjectsCacheService.cacheSubjects(
+        userId: userId,
+        clientAbbr: clientAbbr,
+        sessionId: sessionId,
+        semesterTitle: _currentSemester != null ? 'Sem $_currentSemester' : 'Subjects',
+        subjects: _subjectDetails.map((s) => CachedSubject(
+          name: s.name,
+          specialization: s.specialization,
+          code: s.code,
+          type: s.type,
+          group: s.group,
+          credits: s.credits,
+          isOptional: s.isOptional,
+        )).toList(),
+      );
+      
+      if (mounted) {
+        setState(() {
+          _subjectsCacheAge = 'Just now';
+        });
+      }
     } catch (e) {
       debugPrint('Error fetching subject details: $e');
       if (mounted) {
@@ -261,12 +330,34 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Future<void> _fetchFeed() async {
+    
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    final sessionId = widget.userData['sessionId'].toString();
+    
+    // Try to load from cache first
+    final cached = await _feedCacheService.getCachedFeed(userId, clientAbbr, sessionId);
+    
+    if (cached != null && cached.items.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _feedItems = cached.items;
+          _isLoadingFeed = false;
+          _feedCacheAge = cached.getCacheAgeString();
+        });
+      }
+      
+      // If cache is still valid, skip API call
+      if (cached.isValid) {
+        debugPrint('📦 Using valid feed cache');
+        return;
+      }
+    }
+    
+    // Fetch from API
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
-      final clientAbbr = widget.clientDetails['client_abbr'];
-      final userId = widget.userData['userId'].toString();
       final roleId = widget.userData['roleId'].toString();
-      final sessionId = widget.userData['sessionId'].toString();
       final appKey = widget.userData['apiKey'].toString();
 
       final response = await _apiService.getAppFeed(
@@ -277,30 +368,87 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         sessionId: sessionId,
         appKey: appKey,
         start: 0,
-        limit: 5,
+        limit: 20,
       );
+
+      // Cache the response
+      final nextPage = response['next'];
+      final hasNext = nextPage != null && nextPage is Map && nextPage.isNotEmpty;
+
+      if (cached != null && cached.items.isNotEmpty) {
+        // Cache exists, merge new items but PRESERVE existing pagination
+        // passing nextPage: null will cause mergeNewItems to use existing.nextPage
+        await _feedCacheService.mergeNewItems(
+          userId: userId,
+          clientAbbr: clientAbbr,
+          sessionId: sessionId,
+          newItems: response['feed'] ?? [],
+          nextPage: null, 
+        );
+      } else {
+        // No cache, save everything including nextPage
+        await _feedCacheService.cacheFeed(
+          userId: userId,
+          clientAbbr: clientAbbr,
+          sessionId: sessionId,
+          items: response['feed'] ?? [],
+          nextPage: hasNext ? nextPage : null,
+          hasMore: hasNext,
+        );
+      }
 
       if (mounted) {
         setState(() {
           _feedItems = response['feed'] ?? [];
           _isLoadingFeed = false;
+          _feedCacheAge = 'Just now';
+          _isOffline = false;
         });
       }
     } catch (e) {
+      debugPrint('Error fetching feed: $e');
+      final isNetworkError = e.toString().toLowerCase().contains('socket') ||
+                             e.toString().toLowerCase().contains('connection') ||
+                             e.toString().toLowerCase().contains('network');
+      
       if (mounted) {
         setState(() {
           _isLoadingFeed = false;
+          _isOffline = isNetworkError;
         });
       }
     }
   }
 
   Future<void> _fetchTimetable() async {
+    await _timetableCacheService.init();
+    
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    final sessionId = widget.userData['sessionId'].toString();
+    
+    // Try to load from cache first
+    final cached = await _timetableCacheService.getCachedTimetable(userId, clientAbbr, sessionId);
+    
+    if (cached != null && cached.timetable.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _timetable = cached.timetable;
+          _isLoadingTimetable = false;
+          _timetableCacheAge = _timetableCacheService.getCacheAgeString(userId, clientAbbr, sessionId);
+        });
+      }
+      
+      // If cache is still valid, skip API call
+      if (cached.isValid) {
+        debugPrint('📦 Using valid timetable cache');
+        return;
+      }
+    }
+    
+    // Fetch from API
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
-      final clientAbbr = widget.clientDetails['client_abbr'];
-      final userId = widget.userData['userId'].toString();
-      final sessionId = widget.userData['sessionId'].toString();
       final roleId = widget.userData['roleId'].toString();
       final appKey = widget.userData['apiKey'].toString();
 
@@ -315,13 +463,24 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       );
 
       _parseTimetable(htmlContent);
+      
+      // Cache the timetable
+      await _timetableCacheService.cacheTimetable(
+        userId: userId,
+        clientAbbr: clientAbbr,
+        sessionId: sessionId,
+        timetable: _timetable,
+        subjectNames: {}, // Home screen doesn't need subject names mapping
+      );
 
       if (mounted) {
         setState(() {
           _isLoadingTimetable = false;
+          _timetableCacheAge = 'Just now';
         });
       }
     } catch (e) {
+      debugPrint('Error fetching timetable: $e');
       if (mounted) {
         setState(() {
           _isLoadingTimetable = false;
@@ -387,12 +546,39 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Future<void> _fetchAttendance() async {
+    await _attendanceCacheService.init();
+    
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    final sessionId = widget.userData['sessionId'].toString();
+    
+    // Try to load from cache first
+    final cached = await _attendanceCacheService.getCachedAttendance(userId, clientAbbr, sessionId);
+    
+    if (cached != null && cached.subjects.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _subjects = cached.subjects.map((s) => AttendanceSubject()
+            ..name = s.name
+            ..code = s.code
+            ..delivered = s.delivered
+            ..attended = s.attended
+            ..percentage = s.percentage).toList();
+          _attendanceCacheAge = _attendanceCacheService.getCacheAgeString(userId, clientAbbr, sessionId);
+        });
+      }
+      
+      // If cache is still valid, skip API call
+      if (cached.isValid) {
+        debugPrint('📦 Using valid attendance cache');
+        return;
+      }
+    }
+    
+    // Fetch from API
     try {
       final baseUrl = widget.clientDetails['baseUrl'];
-      final clientAbbr = widget.clientDetails['client_abbr'];
-      final userId = widget.userData['userId'].toString();
       final roleId = widget.userData['roleId'].toString();
-      final sessionId = widget.userData['sessionId'].toString();
       final appKey = widget.userData['apiKey'].toString();
 
       final htmlContent = await _apiService.getCommonPage(
@@ -405,7 +591,33 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       );
 
       _parseAttendance(htmlContent);
+      
+      // Cache the attendance data
+      await _attendanceCacheService.cacheAttendance(
+        userId: userId,
+        clientAbbr: clientAbbr,
+        sessionId: sessionId,
+        subjects: _subjects.map((s) => CachedAttendanceSubject(
+          name: s.name,
+          code: s.code,
+          delivered: s.delivered,
+          attended: s.attended,
+          percentage: s.percentage,
+          // Home screen's AttendanceSubject doesn't have these fields
+          teacher: null,
+          duration: null,
+          fromDate: null,
+          toDate: null,
+        )).toList(),
+      );
+      
+      if (mounted) {
+        setState(() {
+          _attendanceCacheAge = 'Just now';
+        });
+      }
     } catch (e) {
+      debugPrint('Error fetching attendance: $e');
       // Handle error silently
     }
   }
@@ -674,13 +886,36 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
+  /// Handle pull-to-refresh
+  Future<void> _handleRefresh() async {
+    // Reset loading states
+    setState(() {
+      _isLoadingFeed = true;
+      _isLoadingTimetable = true;
+      _isLoadingSubjects = true;
+    });
+    
+    // Fetch all data fresh (cache will be updated)
+    await Future.wait([
+      _fetchFeed(),
+      _fetchTimetable(),
+      _fetchAttendance(),
+      _fetchSubjectsData(),
+      _fetchSubjectDetails(),
+    ]);
+  }
+
   Widget _buildHomeContent() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
     
-    return CustomScrollView(
-      key: const PageStorageKey('home_scroll'),
-      slivers: [
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      color: AppTheme.primaryColor,
+      backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
+      child: CustomScrollView(
+        key: const PageStorageKey('home_scroll'),
+        slivers: [
         SliverAppBar(
           expandedHeight: 120,
           floating: false,
@@ -816,7 +1051,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             ]),
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 

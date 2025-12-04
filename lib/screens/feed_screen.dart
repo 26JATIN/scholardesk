@@ -472,8 +472,8 @@ class _FeedScreenState extends State<FeedScreen> {
         final nextPage = response['next'];
         final hasNext = nextPage != null && nextPage is Map && nextPage.isNotEmpty;
         
-        // If we got no new unique items but API says there's more, we might be in a loop
-        final bool actuallyHasMore = hasNext && uniqueNewItems.isNotEmpty;
+        // Has more data if API says so - don't stop just because we got duplicates
+        final bool actuallyHasMore = hasNext;
         
         if (isRefresh) {
           // Merge new items with existing cache
