@@ -1024,58 +1024,17 @@ class ApiService {
       debugPrint('  File: ${fileName ?? "none"}');
       debugPrint('🍪 Cookies loaded: ${_headers.containsKey('Cookie')}');
 
-      // If no fileName is provided, server expects application/x-www-form-urlencoded body
-      if (fileName == null || fileName.isEmpty) {
-        final headers = {
-          'User-Agent': _headers['User-Agent']!,
-          'Accept': _headers['Accept']!,
-          'Connection': _headers['Connection']!,
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Cookie': _headers['Cookie'] ?? '',
-          'X-Requested-With': 'codebrigade.chalkpadpro.app',
-        };
+      // Server expects application/x-www-form-urlencoded format (not multipart)
+      final headers = {
+        'User-Agent': _headers['User-Agent']!,
+        'Accept': _headers['Accept']!,
+        'Connection': _headers['Connection']!,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Cookie': _headers['Cookie'] ?? '',
+        'X-Requested-With': 'codebrigade.chalkpadpro.app',
+      };
 
-        final body = {
-          'sessionId': sessionId,
-          'userId': userId,
-          'roleId': roleId,
-          'leaveType': leaveType,
-          'category': category,
-          'ename': eventName,
-          'leaveStartDate': startDate,
-          'leaveEndDate': endDate,
-          'timeSlot': timeSlot,
-          'periodwise': periods,
-          'reasonforOtherLeave': reason,
-          'fileName': '',
-        };
-
-        final response = await _httpClient.post(url, headers: headers, body: body);
-        await _saveCookies(response);
-
-        debugPrint('📥 Submit response: ${response.statusCode}');
-        debugPrint('📄 Submit body: ${response.body}');
-
-        if (response.statusCode == 200) {
-          final result = json.decode(response.body) as Map<String, dynamic>;
-          return result;
-        } else {
-          throw Exception('Failed to submit leave: ${response.statusCode}');
-        }
-      }
-
-      // Otherwise send multipart (for safety when fileName(s) provided)
-      var request = http.MultipartRequest('POST', url);
-      // Add standard headers
-      request.headers['User-Agent'] = _headers['User-Agent']!;
-      request.headers['Accept'] = _headers['Accept']!;
-      request.headers['Connection'] = _headers['Connection']!;
-      if (_headers.containsKey('Cookie')) {
-        request.headers['Cookie'] = _headers['Cookie']!;
-      }
-      request.headers['X-Requested-With'] = 'codebrigade.chalkpadpro.app';
-
-      request.fields.addAll({
+      final body = {
         'sessionId': sessionId,
         'userId': userId,
         'roleId': roleId,
@@ -1087,12 +1046,12 @@ class ApiService {
         'timeSlot': timeSlot,
         'periodwise': periods,
         'reasonforOtherLeave': reason,
-        'fileName': fileName,
-      });
+        'fileName': fileName ?? '',
+      };
 
-      // Send request
-      var streamedResponse = await _httpClient.send(request);
-      var response = await http.Response.fromStream(streamedResponse);
+      debugPrint('� Request body: $body');
+
+      final response = await _httpClient.post(url, headers: headers, body: body);
       await _saveCookies(response);
 
       debugPrint('📥 Submit response: ${response.statusCode}');

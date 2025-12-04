@@ -280,7 +280,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
               title: Text(
-                'Medical Leave',
+                'Leave History',
                 style: GoogleFonts.inter(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,

@@ -143,8 +143,8 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
       final userId = widget.userData['userId']?.toString() ?? '15260';
       final roleId = widget.userData['roleId']?.toString() ?? '4';
       
-      // Get all uploaded filenames separated by comma
-      final allFileNames = _attachedFiles.map((f) => f['uploadedName'] as String).join(',');
+      // Get all uploaded filenames in full server format (fullname|shortname) separated by comma
+      final allFileNames = _attachedFiles.map((f) => f['serverResponse'] as String).join(',');
       
       final result = await _apiService.submitLeaveApplication(
         baseUrl: baseUrl,
@@ -183,9 +183,9 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
           _showSuccess(successMessage ?? 'Leave application submitted successfully! ✓');
           _clearForm();
           
-          // Go back after 2 seconds
-          Future.delayed(const Duration(milliseconds: 2000), () {
-            if (mounted) Navigator.pop(context);
+          // Go back to leave history after 1.5 seconds
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            if (mounted) Navigator.pop(context, true); // Pass true to indicate success
           });
         } else {
           // Fallback for unexpected response format
@@ -328,15 +328,12 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                       const SizedBox(height: 20),
                     ],
                     
-                    if (_leaveType == '2') ...[
-                      _buildReasonField(isDark),
-                      const SizedBox(height: 20),
-                    ],
-                    
                     _buildDateFields(isDark),
                     const SizedBox(height: 20),
-                    _buildTimeSlotDropdown(isDark),
-                    const SizedBox(height: 20),
+                    if (_leaveType == '1') ...[
+                      _buildTimeSlotDropdown(isDark),
+                      const SizedBox(height: 20),
+                    ],
                     
                     if (_leaveType == '2') ...[
                       _buildAttachmentSection(isDark),
@@ -1181,12 +1178,15 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
       
       if (mounted) {
         final uploadedFileName = result['fileName'] ?? file.path.split('/').last;
+        final fullServerResponse = result['fullName'] ?? uploadedFileName;
+        final rawPipeSeparated = '${fullServerResponse}|${uploadedFileName}';
         
         setState(() {
           _isUploadingFile = false;
           _attachedFiles.add({
             'file': file,
-            'uploadedName': uploadedFileName,
+            'uploadedName': uploadedFileName, // Short name for deletion
+            'serverResponse': rawPipeSeparated, // Full format for leave submission
             'localName': file.path.split('/').last,
             'size': file.lengthSync(),
           });
