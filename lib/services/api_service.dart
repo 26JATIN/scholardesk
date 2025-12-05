@@ -244,6 +244,25 @@ class ApiService {
     }
   }
 
+  Future<void> forgotPassword(String username, String baseUrl, String clientAbbr) async {
+    final url = Uri.parse('https://$clientAbbr.$baseUrl/loginManager/forgotPassword');
+    try {
+      final response = await _httpClient.post(
+        url,
+        headers: _headers,
+        body: {
+          'txtForgotPassword': username,
+        },
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to send reset email');
+      }
+    } catch (e) {
+      throw Exception('Error connecting to server: $e');
+    }
+  }
+
   Future<Map<String, dynamic>> verifyOtp(String otp, String userId, String baseUrl, String clientAbbr) async {
     final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/verifyOtp');
     try {
