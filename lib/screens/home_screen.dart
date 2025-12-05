@@ -46,6 +46,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   final ShorebirdService _shorebirdService = ShorebirdService();
   late PageController _pageController;
   late PageController _classPageController;
+  int _lastClassPage = 0; // Track for haptic feedback
   
   // Data holders
   List<dynamic> _feedItems = [];
@@ -992,6 +993,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         body: PageView(
           controller: _pageController,
           physics: const ClampingScrollPhysics(),
+          onPageChanged: (index) {
+            HapticFeedback.selectionClick();
+          },
           children: [
             RepaintBoundary(
               key: const ValueKey('home_page'),
@@ -1363,6 +1367,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           child: PageView.builder(
             controller: _classPageController,
             itemCount: upcomingClasses.length,
+            onPageChanged: (index) {
+              if (index != _lastClassPage) {
+                HapticFeedback.selectionClick();
+                _lastClassPage = index;
+              }
+            },
             itemBuilder: (context, index) {
               return _buildClassCard(upcomingClasses[index], index);
             },

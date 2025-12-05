@@ -1095,6 +1095,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                   IconButton(
                     onPressed: classesToMiss > 1
                         ? () {
+                            HapticFeedback.lightImpact();
                             setState(() {
                               _classesToMissMap[index] = classesToMiss - 1;
                             });
@@ -1125,6 +1126,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                   IconButton(
                     onPressed: classesToMiss < 100
                         ? () {
+                            HapticFeedback.lightImpact();
                             setState(() {
                               _classesToMissMap[index] = classesToMiss + 1;
                             });
