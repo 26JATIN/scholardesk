@@ -229,6 +229,23 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                   ),
                 ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.3),
+
+                const SizedBox(height: 20),
+
+                // Forgot Password Button
+                TextButton(
+                  onPressed: () {
+                    // TODO: Implement forgot password
+                  },
+                  child: Text(
+                    'Forgot Password?',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    ),
+                  ),
+                ).animate().fadeIn(delay: 700.ms),
               ],
             ),
           ),
