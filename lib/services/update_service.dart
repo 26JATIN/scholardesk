@@ -97,8 +97,6 @@ class UpdateService {
   
   static const String _apiBaseUrl = 'https://api.github.com';
   static const String _prefKeySkippedVersion = 'skipped_update_version';
-  static const String _prefKeyLastCheckTime = 'last_update_check_time';
-  static const Duration _checkInterval = Duration(hours: 6);
 
   /// Get the current app version (cached for performance)
   static String get currentVersion => _cachedVersion ?? _fallbackVersion;
@@ -120,24 +118,9 @@ class UpdateService {
     }
   }
 
-  /// Check if enough time has passed since last update check
-  Future<bool> shouldCheckForUpdates() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastCheck = prefs.getInt(_prefKeyLastCheckTime) ?? 0;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    
-    return (now - lastCheck) > _checkInterval.inMilliseconds;
-  }
-
   /// Check for updates from GitHub releases
   Future<AppUpdate?> checkForUpdate({bool force = false}) async {
     try {
-      // Check if we should skip this check (unless forced)
-      if (!force && !await shouldCheckForUpdates()) {
-        debugPrint('📦 Skipping update check - too soon since last check');
-        return null;
-      }
-
       final url = Uri.parse('$_apiBaseUrl/repos/$_owner/$_repo/releases/latest');
       
       final response = await http.get(
@@ -151,12 +134,9 @@ class UpdateService {
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         final update = AppUpdate.fromJson(json);
-        
-        // Save check time
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt(_prefKeyLastCheckTime, DateTime.now().millisecondsSinceEpoch);
 
         // Check if this version was skipped
+        final prefs = await SharedPreferences.getInstance();
         final skippedVersion = prefs.getString(_prefKeySkippedVersion);
         if (!force && skippedVersion == update.version) {
           debugPrint('📦 Update ${update.version} was previously skipped');

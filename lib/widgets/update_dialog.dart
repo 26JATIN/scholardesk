@@ -5,7 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/update_service.dart';
 import '../theme/app_theme.dart';
 
-/// Beautiful update dialog with changelog and download progress
+/// Minimal update dialog with clean design
 class UpdateDialog extends StatefulWidget {
   final AppUpdate update;
   final VoidCallback? onSkip;
@@ -52,12 +52,12 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
       vsync: this,
     );
     _scaleAnimation = CurvedAnimation(
       parent: _animationController,
-      curve: Curves.easeOutBack,
+      curve: Curves.easeOut,
     );
     _animationController.forward();
   }
@@ -113,7 +113,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
           // Fallback to browser if installation fails
           setState(() {
             _isDownloading = false;
-            _downloadError = 'Could not open installer. Opening download page...';
+            _downloadError = 'Could not open installer';
           });
           await Future.delayed(const Duration(seconds: 2));
           await _openInBrowser();
@@ -121,7 +121,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
       } else {
         setState(() {
           _isDownloading = false;
-          _downloadError = 'Download failed. Please try again or download from browser.';
+          _downloadError = 'Download failed';
         });
       }
     } catch (e) {
@@ -129,7 +129,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
       if (mounted) {
         setState(() {
           _isDownloading = false;
-          _downloadError = 'An error occurred. Please try again.';
+          _downloadError = 'Something went wrong';
         });
       }
     }
@@ -161,53 +161,90 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final screenSize = MediaQuery.of(context).size;
 
     return ScaleTransition(
       scale: _scaleAnimation,
       child: Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: Container(
-          constraints: BoxConstraints(
-            maxWidth: 400,
-            maxHeight: screenSize.height * 0.8,
-          ),
+          constraints: const BoxConstraints(maxWidth: 340),
           decoration: BoxDecoration(
             color: isDark ? AppTheme.darkCardColor : Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header
-              _buildHeader(isDark),
+              // Minimal Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 16, 0),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.rocket_launch_rounded,
+                        color: AppTheme.primaryColor,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Update Available',
+                            style: GoogleFonts.outfit(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'v${UpdateService.currentVersion} → v${widget.update.version}',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!_isDownloading)
+                      IconButton(
+                        onPressed: _dismiss,
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+                          size: 20,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ],
+                ),
+              ),
               
               // Content
               Flexible(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Version info
-                      _buildVersionInfo(isDark),
-                      const SizedBox(height: 20),
-                      
-                      // What's New section
+                      // What's New section - compact
                       _buildWhatsNew(isDark),
                       
                       // Error message
                       if (_downloadError != null) ...[
-                        const SizedBox(height: 16),
-                        _buildErrorMessage(),
+                        const SizedBox(height: 12),
+                        _buildErrorMessage(isDark),
                       ],
                     ],
                   ),
@@ -225,192 +262,21 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildHeader(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 24, 16, 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppTheme.primaryColor,
-            AppTheme.accentColor,
-          ],
-        ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(28),
-          topRight: Radius.circular(28),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.system_update_rounded,
-              color: Colors.white,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Update Available',
-                  style: GoogleFonts.outfit(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'A new version is ready to install',
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: Colors.white.withOpacity(0.9),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: _isDownloading ? null : _dismiss,
-            icon: Icon(
-              Icons.close_rounded,
-              color: Colors.white.withOpacity(_isDownloading ? 0.3 : 0.8),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVersionInfo(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark 
-            ? Colors.white.withOpacity(0.05) 
-            : AppTheme.primaryColor.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark 
-              ? Colors.white.withOpacity(0.1) 
-              : AppTheme.primaryColor.withOpacity(0.1),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'v${widget.update.version}',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_back_rounded,
-                      size: 16,
-                      color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'v${UpdateService.currentVersion}',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today_rounded,
-                      size: 14,
-                      color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      widget.update.formattedDate,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Icon(
-                      Icons.download_rounded,
-                      size: 14,
-                      color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      widget.update.formattedSize,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildWhatsNew(bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(
-              Icons.auto_awesome_rounded,
-              size: 20,
-              color: AppTheme.accentColor,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              "What's New",
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-            ),
-          ],
+        Text(
+          "What's New",
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+          ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         Container(
-          constraints: const BoxConstraints(maxHeight: 200),
+          constraints: const BoxConstraints(maxHeight: 160),
           child: SingleChildScrollView(
             child: _buildReleaseNotes(isDark),
           ),
@@ -427,32 +293,32 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
       crossAxisAlignment: CrossAxisAlignment.start,
       children: lines.map((line) {
         final trimmedLine = line.trim();
-        if (trimmedLine.isEmpty) return const SizedBox(height: 8);
+        if (trimmedLine.isEmpty) return const SizedBox(height: 6);
         
         // Check if it's a bullet point
         if (trimmedLine.startsWith('-') || trimmedLine.startsWith('•') || trimmedLine.startsWith('*')) {
           final content = trimmedLine.substring(1).trim();
           return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: 6),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  margin: const EdgeInsets.only(top: 8),
-                  width: 6,
-                  height: 6,
+                  margin: const EdgeInsets.only(top: 7),
+                  width: 4,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: AppTheme.accentColor,
+                    color: AppTheme.primaryColor,
                     shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     content,
                     style: GoogleFonts.inter(
-                      fontSize: 14,
-                      height: 1.5,
+                      fontSize: 13,
+                      height: 1.4,
                       color: isDark ? Colors.grey.shade300 : Colors.black87,
                     ),
                   ),
@@ -466,11 +332,11 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
         if (trimmedLine.startsWith('#')) {
           final headerContent = trimmedLine.replaceAll('#', '').trim();
           return Padding(
-            padding: const EdgeInsets.only(bottom: 8, top: 4),
+            padding: const EdgeInsets.only(bottom: 6, top: 4),
             child: Text(
               headerContent,
-              style: GoogleFonts.outfit(
-                fontSize: 15,
+              style: GoogleFonts.inter(
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: isDark ? Colors.white : Colors.black87,
               ),
@@ -480,12 +346,12 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
         
         // Regular text
         return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.only(bottom: 6),
           child: Text(
             trimmedLine,
             style: GoogleFonts.inter(
-              fontSize: 14,
-              height: 1.5,
+              fontSize: 13,
+              height: 1.4,
               color: isDark ? Colors.grey.shade300 : Colors.black87,
             ),
           ),
@@ -494,27 +360,26 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildErrorMessage() {
+  Widget _buildErrorMessage(bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppTheme.errorColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.errorColor.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
           Icon(
             Icons.error_outline_rounded,
-            size: 20,
+            size: 16,
             color: AppTheme.errorColor,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               _downloadError!,
               style: GoogleFonts.inter(
-                fontSize: 13,
+                fontSize: 12,
                 color: AppTheme.errorColor,
               ),
             ),
@@ -528,57 +393,34 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
     final percentage = (_downloadProgress * 100).toInt();
     final isComplete = _downloadProgress >= 1.0;
     
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark 
-            ? Colors.white.withOpacity(0.03) 
-            : Colors.grey.shade50,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  if (isComplete)
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                  if (isComplete) const SizedBox(width: 8),
-                  Text(
-                    isComplete ? 'Installing...' : 'Downloading...',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ],
+              Text(
+                isComplete ? 'Installing...' : 'Downloading...',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                ),
               ),
               Text(
-                isComplete ? 'Complete' : '$percentage%',
+                isComplete ? '✓' : '$percentage%',
                 style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                   color: isComplete ? AppTheme.successColor : AppTheme.primaryColor,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: _downloadProgress,
               backgroundColor: isDark 
@@ -587,17 +429,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
               valueColor: AlwaysStoppedAnimation<Color>(
                 isComplete ? AppTheme.successColor : AppTheme.primaryColor,
               ),
-              minHeight: 8,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            isComplete 
-                ? 'Opening installer...' 
-                : 'Please wait while the update is being downloaded',
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+              minHeight: 4,
             ),
           ),
         ],
@@ -606,38 +438,28 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
   }
 
   Widget _buildButtons(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark 
-            ? Colors.white.withOpacity(0.03) 
-            : Colors.grey.shade50,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
       child: Column(
         children: [
           // Update Now button
           SizedBox(
             width: double.infinity,
-            child: FilledButton.icon(
+            child: FilledButton(
               onPressed: _downloadAndInstall,
-              icon: const Icon(Icons.download_rounded, size: 20),
-              label: Text(
-                'Download & Install',
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                'Update Now',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -645,35 +467,33 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
           const SizedBox(height: 12),
           // Secondary buttons
           Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Expanded(
-                child: TextButton(
-                  onPressed: _skipUpdate,
-                  child: Text(
-                    'Skip Version',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
-                    ),
+              TextButton(
+                onPressed: _skipUpdate,
+                child: Text(
+                  'Skip',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
                   ),
                 ),
               ),
-              Container(
-                width: 1,
-                height: 20,
-                color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey.shade300,
+              Text(
+                '•',
+                style: TextStyle(
+                  color: isDark ? Colors.grey.shade700 : Colors.grey.shade400,
+                ),
               ),
-              Expanded(
-                child: TextButton(
-                  onPressed: _dismiss,
-                  child: Text(
-                    'Later',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
-                    ),
+              TextButton(
+                onPressed: _dismiss,
+                child: Text(
+                  'Later',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
                   ),
                 ),
               ),

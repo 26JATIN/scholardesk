@@ -9,6 +9,7 @@ import '../services/timetable_cache_service.dart';
 import '../services/attendance_cache_service.dart';
 import '../services/subjects_cache_service.dart';
 import '../services/update_service.dart';
+import '../services/shorebird_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/string_extensions.dart';
 import '../widgets/update_dialog.dart';
@@ -42,6 +43,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   final AttendanceCacheService _attendanceCacheService = AttendanceCacheService();
   final SubjectsCacheService _subjectsCacheService = SubjectsCacheService();
   final UpdateService _updateService = UpdateService();
+  final ShorebirdService _shorebirdService = ShorebirdService();
   late PageController _pageController;
   late PageController _classPageController;
   
@@ -74,6 +76,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
     _classPageController = PageController(viewportFraction: 0.92);
     _fetchAllData();
+    
+    // Check for Shorebird code push updates (silent, in background)
+    _shorebirdService.checkAndDownloadInBackground();
     
     // Check for app updates after a short delay
     Future.delayed(const Duration(seconds: 2), () {

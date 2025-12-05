@@ -4,6 +4,7 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../services/profile_cache_service.dart';
 import '../services/update_service.dart';
@@ -816,74 +817,162 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: isDark ? AppTheme.darkCardColor : Colors.white,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // App icon
               Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(
-                  Icons.school_rounded,
-                  size: 48,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'ScholarDesk',
-                style: GoogleFonts.outfit(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Text(
-                  'Version ${UpdateService.currentVersion}+${UpdateService.buildNumber}',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.primaryColor,
-                  ),
+                child: Icon(
+                  Icons.school_rounded,
+                  size: 40,
+                  color: AppTheme.primaryColor,
                 ),
               ),
               const SizedBox(height: 16),
               Text(
-                'Your Academic Companion',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                'ScholarDesk',
+                style: GoogleFonts.outfit(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
-                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 6),
+              Text(
+                'v${UpdateService.currentVersion}',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Made with love by Jatin
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Made with ',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    ),
+                  ),
+                  const Icon(
+                    Icons.favorite,
+                    size: 16,
+                    color: Color(0xFFE53935),
+                  ),
+                  Text(
+                    ' by Jatin',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Full Stack Developer',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Privacy notice
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark 
+                      ? Colors.white.withOpacity(0.05) 
+                      : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.shield_outlined,
+                      size: 18,
+                      color: AppTheme.successColor,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'No data is collected. All data is sent/received to official Chitkara servers only.',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Portfolio link
+              InkWell(
+                onTap: () async {
+                  final uri = Uri.parse('https://jatingupta.me');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.language_rounded,
+                        size: 16,
+                        color: AppTheme.primaryColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'jatingupta.me',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Close button
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: () => Navigator.pop(context),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: Text(
                     'Close',
                     style: GoogleFonts.inter(
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
