@@ -1087,4 +1087,72 @@ class ApiService {
       throw Exception('Error submitting leave: $e');
     }
   }
+
+  /// Fetches fee receipt details for a student
+  Future<String> getReceiptDetails({
+    required String baseUrl,
+    required String clientAbbr,
+    required String userId,
+    required String sessionId,
+    required String roleId,
+  }) async {
+    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/getReceiptDetails');
+    
+    debugPrint('📡 Fetching receipt details...');
+    debugPrint('  URL: $url');
+    debugPrint('  UserID: $userId');
+    debugPrint('  SessionID: $sessionId');
+    debugPrint('  RoleID: $roleId');
+    
+    // Ensure cookies are loaded
+    await ensureCookiesLoaded();
+
+    final headers = {
+      ..._headers,
+      'X-Requested-With': 'codebrigade.chalkpadpro.app',
+    };
+
+    try {
+      final response = await _httpClient.post(
+        url,
+        headers: headers,
+        body: {
+          'userId': userId,
+          'sessionId': sessionId,
+          'roleId': roleId,
+        },
+      );
+
+      await _saveCookies(response);
+
+      debugPrint('📥 Receipt details response: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        // Try to parse as JSON first
+        try {
+          final data = json.decode(response.body);
+          // If it's a JSON response with 'content' field
+          if (data is Map && data.containsKey('content')) {
+            return data['content'] as String? ?? '';
+          }
+          // If it's just a string in JSON
+          if (data is String) {
+            return data;
+          }
+          // Return as is
+          return response.body;
+        } catch (jsonError) {
+          // If JSON parsing fails, assume it's plain HTML
+          debugPrint('Response is not JSON, returning as plain HTML');
+          return response.body;
+        }
+      } else {
+        debugPrint('❌ Response body on error: ${response.body}');
+        throw Exception('Failed to load receipt details: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error fetching receipt details: $e');
+      throw Exception('Error fetching receipt details: $e');
+    }
+  }
 }

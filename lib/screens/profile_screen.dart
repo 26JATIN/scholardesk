@@ -16,6 +16,7 @@ import 'session_screen.dart';
 import 'personal_info_screen.dart';
 import 'report_card.dart';
 import 'change_password_screen.dart';
+import 'fee_receipts_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -666,6 +667,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ));
     }
     
+    // Add Fee Receipts item after Report Card
+    if (!_menuItems.any((item) => item.name.toLowerCase() == 'fee receipts')) {
+      final reportCardIndex = _menuItems.indexWhere((item) => item.name.toLowerCase() == 'report card');
+      final insertIndex = reportCardIndex >= 0 ? reportCardIndex + 1 : 1;
+      
+      _menuItems.insert(insertIndex, ProfileMenuItem(
+        name: 'Fee Receipts',
+        action: () => _handleMenuAction('Fee Receipts', null, null),
+      ));
+    }
+    
     // Add Check for Updates item
     if (!_menuItems.any((item) => item.name.toLowerCase() == 'check for updates')) {
       // Find logout position and insert before it, or at end
@@ -719,6 +731,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         context,
         MaterialPageRoute(
           builder: (context) => ReportCardScreen(
+            clientDetails: widget.clientDetails,
+            userData: widget.userData,
+          ),
+        ),
+      );
+    } else if (name.toLowerCase() == 'fee receipts') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FeeReceiptsScreen(
             clientDetails: widget.clientDetails,
             userData: widget.userData,
           ),
