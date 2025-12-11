@@ -109,8 +109,55 @@ class ApiService {
     String? rawCookie = response.headers['set-cookie'];
     if (rawCookie != null) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyCookies, rawCookie);
-      _headers['Cookie'] = rawCookie;
+      
+      // Get existing cookies
+      String existingCookies = await prefs.getString(_keyCookies) ?? '';
+      
+      // Parse new cookies from set-cookie header
+      // Multiple cookies are separated by comma in the set-cookie header
+      final newCookies = <String>[];
+      final cookieParts = rawCookie.split(',');
+      
+      for (var part in cookieParts) {
+        // Extract just the key=value part before any semicolon
+        final cookieValue = part.trim().split(';').first;
+        if (cookieValue.isNotEmpty && cookieValue.contains('=')) {
+          newCookies.add(cookieValue);
+        }
+      }
+      
+      // Merge with existing cookies (avoid duplicates by key)
+      final Map<String, String> cookieMap = {};
+      
+      // Add existing cookies
+      if (existingCookies.isNotEmpty) {
+        for (var cookie in existingCookies.split(';')) {
+          final parts = cookie.trim().split('=');
+          if (parts.length == 2) {
+            cookieMap[parts[0].trim()] = parts[1].trim();
+          }
+        }
+      }
+      
+      // Update/add new cookies
+      for (var cookie in newCookies) {
+        final parts = cookie.split('=');
+        if (parts.length >= 2) {
+          final key = parts[0].trim();
+          final value = parts.sublist(1).join('=').trim();
+          cookieMap[key] = value;
+        }
+      }
+      
+      // Build final cookie string
+      final finalCookies = cookieMap.entries
+          .map((e) => '${e.key}=${e.value}')
+          .join('; ');
+      
+      debugPrint('🍪 Saving cookies: $finalCookies');
+      
+      await prefs.setString(_keyCookies, finalCookies);
+      _headers['Cookie'] = finalCookies;
       _cookiesLoaded = true;
     }
   }
@@ -1153,6 +1200,135 @@ class ApiService {
     } catch (e) {
       debugPrint('❌ Error fetching receipt details: $e');
       throw Exception('Error fetching receipt details: $e');
+    }
+  }
+
+  /// Calls showAttendance endpoint to initialize server session
+  /// This is required before calling getAttendanceRegister
+  /// Endpoint: /mobile/showAttendance
+  Future<Map<String, dynamic>> showAttendance({
+    required String baseUrl,
+    required String clientAbbr,
+    required String userId,
+    required String sessionId,
+    required String apiKey,
+    required String roleId,
+    String prevNext = '0',
+    String month = '',
+  }) async {
+    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/showAttendance');
+    
+    debugPrint('📡 Calling showAttendance to initialize session...');
+    
+    // Ensure cookies are loaded
+    await ensureCookiesLoaded();
+
+    final headers = {
+      ..._headers,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    };
+
+    try {
+      final response = await _httpClient.post(
+        url,
+        headers: headers,
+        body: {
+          'prevNext': prevNext,
+          'userId': userId,
+          'sessionId': sessionId,
+          'apiKey': apiKey,
+          'roleId': roleId,
+          'month': month,
+        },
+      );
+
+      await _saveCookies(response);
+
+      debugPrint('📥 showAttendance response: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data as Map<String, dynamic>;
+      } else {
+        throw Exception('Failed to initialize attendance session: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error calling showAttendance: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetches attendance register for a student
+  /// Endpoint: /chalkpadpro/studentDetails/getAttendanceRegister
+  /// This endpoint works with mobile API cookies (ci_session + PHPSESSID)
+  Future<String> getAttendanceRegister({
+    required String baseUrl,
+    required String clientAbbr,
+    required String studentId,
+    required String sessionId,
+  }) async {
+    final url = Uri.parse('https://$clientAbbr.$baseUrl/chalkpadpro/studentDetails/getAttendanceRegister');
+    
+    debugPrint('📡 Fetching attendance register...');
+    debugPrint('  URL: $url');
+    debugPrint('  studentId: $studentId');
+    debugPrint('  sessionId: $sessionId');
+    
+    // Ensure cookies are loaded
+    await ensureCookiesLoaded();
+    
+    final cookieValue = _headers['Cookie'] ?? 'NO COOKIES';
+    debugPrint('🍪 Cookies: ${cookieValue.substring(0, cookieValue.length > 100 ? 100 : cookieValue.length)}...');
+    
+    // Check if we have the required cookies
+    if (!cookieValue.contains('PHPSESSID')) {
+      throw Exception('No valid session cookies found. Please login again.');
+    }
+
+    // Use standard mobile API headers
+    final headers = {
+      ..._headers,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    };
+
+    debugPrint('📤 Request body: studentId=$studentId, sessionId=$sessionId');
+
+    try {
+      final response = await _httpClient.post(
+        url,
+        headers: headers,
+        body: {
+          'studentId': studentId,
+          'sessionId': sessionId,
+        },
+      );
+
+      await _saveCookies(response);
+
+      debugPrint('📥 Attendance register response: ${response.statusCode}');
+      debugPrint('📄 Response length: ${response.body.length} chars');
+      debugPrint('📄 Response body (first 200): ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}');
+      
+      if (response.statusCode == 200) {
+        if (response.body.isEmpty || response.body.length < 50) {
+          debugPrint('⚠️ Response is too short, might be empty');
+          throw Exception('Received empty response. Session might be invalid for web interface.');
+        }
+        debugPrint('✅ Successfully fetched attendance register');
+        return response.body;
+      } else if (response.statusCode == 302 || response.statusCode == 301) {
+        // Handle redirect
+        final location = response.headers['location'];
+        debugPrint('🔀 Redirect to: $location');
+        throw Exception('Session expired or unauthorized. Please login again.');
+      } else {
+        debugPrint('❌ Full response body: ${response.body}');
+        debugPrint('❌ Response headers: ${response.headers}');
+        throw Exception('Failed to load attendance register: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error fetching attendance register: $e');
+      rethrow;
     }
   }
 }
