@@ -1260,7 +1260,6 @@ class ApiService {
 
   /// Fetches attendance register for a student
   /// Endpoint: /chalkpadpro/studentDetails/getAttendanceRegister
-  /// This endpoint works with mobile API cookies (ci_session + PHPSESSID)
   Future<String> getAttendanceRegister({
     required String baseUrl,
     required String clientAbbr,
@@ -1270,28 +1269,14 @@ class ApiService {
     final url = Uri.parse('https://$clientAbbr.$baseUrl/chalkpadpro/studentDetails/getAttendanceRegister');
     
     debugPrint('📡 Fetching attendance register...');
-    debugPrint('  URL: $url');
-    debugPrint('  studentId: $studentId');
-    debugPrint('  sessionId: $sessionId');
     
     // Ensure cookies are loaded
     await ensureCookiesLoaded();
-    
-    final cookieValue = _headers['Cookie'] ?? 'NO COOKIES';
-    debugPrint('🍪 Cookies: ${cookieValue.substring(0, cookieValue.length > 100 ? 100 : cookieValue.length)}...');
-    
-    // Check if we have the required cookies
-    if (!cookieValue.contains('PHPSESSID')) {
-      throw Exception('No valid session cookies found. Please login again.');
-    }
 
-    // Use standard mobile API headers
     final headers = {
       ..._headers,
       'Content-Type': 'application/x-www-form-urlencoded',
     };
-
-    debugPrint('📤 Request body: studentId=$studentId, sessionId=$sessionId');
 
     try {
       final response = await _httpClient.post(
@@ -1306,25 +1291,15 @@ class ApiService {
       await _saveCookies(response);
 
       debugPrint('📥 Attendance register response: ${response.statusCode}');
-      debugPrint('📄 Response length: ${response.body.length} chars');
-      debugPrint('📄 Response body (first 200): ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}');
       
       if (response.statusCode == 200) {
         if (response.body.isEmpty || response.body.length < 50) {
-          debugPrint('⚠️ Response is too short, might be empty');
-          throw Exception('Received empty response. Session might be invalid for web interface.');
+          throw Exception('Received empty response. Please try again.');
         }
         debugPrint('✅ Successfully fetched attendance register');
         return response.body;
-      } else if (response.statusCode == 302 || response.statusCode == 301) {
-        // Handle redirect
-        final location = response.headers['location'];
-        debugPrint('🔀 Redirect to: $location');
-        throw Exception('Session expired or unauthorized. Please login again.');
       } else {
-        debugPrint('❌ Full response body: ${response.body}');
-        debugPrint('❌ Response headers: ${response.headers}');
-        throw Exception('Failed to load attendance register: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to load attendance register: ${response.statusCode}');
       }
     } catch (e) {
       debugPrint('❌ Error fetching attendance register: $e');
