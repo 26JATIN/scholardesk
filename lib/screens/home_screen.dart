@@ -10,9 +10,11 @@ import '../services/attendance_cache_service.dart';
 import '../services/subjects_cache_service.dart';
 import '../services/update_service.dart';
 import '../services/shorebird_service.dart';
+import '../services/whats_new_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/string_extensions.dart';
 import '../widgets/update_dialog.dart';
+import '../widgets/whats_new_dialog.dart';
 import '../main.dart' show themeService;
 import 'feed_screen.dart';
 import 'feed_detail_screen.dart';
@@ -44,6 +46,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   final SubjectsCacheService _subjectsCacheService = SubjectsCacheService();
   final UpdateService _updateService = UpdateService();
   final ShorebirdService _shorebirdService = ShorebirdService();
+  final WhatsNewService _whatsNewService = WhatsNewService();
   late PageController _pageController;
   late PageController _classPageController;
   int _lastClassPage = 0; // Track for haptic feedback
@@ -85,6 +88,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     Future.delayed(const Duration(seconds: 2), () {
       _checkForUpdates();
     });
+    
+    // Check for What's New dialog (show after patch updates)
+    Future.delayed(const Duration(seconds: 1), () {
+      _checkForWhatsNew();
+    });
   }
 
   @override
@@ -92,6 +100,22 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     _pageController.dispose();
     _classPageController.dispose();
     super.dispose();
+  }
+
+  /// Check if we should show What's New dialog
+  Future<void> _checkForWhatsNew() async {
+    if (!mounted) return;
+    
+    try {
+      final shouldShow = await _whatsNewService.shouldShowWhatsNew();
+      
+      if (shouldShow && mounted) {
+        debugPrint('📰 Showing What\'s New dialog');
+        await WhatsNewDialog.show(context);
+      }
+    } catch (e) {
+      debugPrint('❌ Error checking What\'s New: $e');
+    }
   }
 
   /// Check for app updates from GitHub releases

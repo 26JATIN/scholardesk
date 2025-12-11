@@ -12,6 +12,12 @@ class WhatsNewService {
   static const String _keyLastSeenPatch = 'whats_new_last_seen_patch';
   
   final _updater = ShorebirdUpdater();
+  
+  /// Cached patch number for display
+  int? _currentPatchNumber;
+  
+  /// Get the current patch number (for display)
+  int? get currentPatchNumber => _currentPatchNumber;
 
   /// Current patch version identifier
   /// Format: "patch_<number>" or "base_<version>"
@@ -19,17 +25,21 @@ class WhatsNewService {
     try {
       if (!_updater.isAvailable) {
         // In debug mode, use a test identifier
+        _currentPatchNumber = null;
         return 'debug_mode';
       }
       
       final patch = await _updater.readCurrentPatch();
       if (patch != null) {
+        _currentPatchNumber = patch.number;
         return 'patch_${patch.number}';
       }
       // Base release without patch
+      _currentPatchNumber = null;
       return 'base_release';
     } catch (e) {
       debugPrint('❌ Error getting patch ID: $e');
+      _currentPatchNumber = null;
       return 'unknown';
     }
   }
@@ -80,6 +90,14 @@ class WhatsNewService {
     await prefs.remove(_keyLastSeenPatch);
     debugPrint('📰 What\'s New: Reset seen status');
   }
+  
+  /// Get formatted patch subtitle
+  String getPatchSubtitle() {
+    if (_currentPatchNumber != null) {
+      return 'Patch $_currentPatchNumber';
+    }
+    return 'Latest Update';
+  }
 }
 
 /// Model for a What's New feature
@@ -101,9 +119,6 @@ class WhatsNewFeature {
 class WhatsNewContent {
   /// The current patch/update title
   static const String updateTitle = "What's New! 🎉";
-  
-  /// The version/patch description
-  static const String updateSubtitle = "Latest Update";
   
   /// List of new features in this patch
   static List<WhatsNewFeature> get features => [
