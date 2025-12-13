@@ -1,0 +1,8 @@
+{
+  "name": "scholardesk-cors-proxy",
+  "version": "1.0.0",
+  "description": "CORS proxy server for ScholarDesk",
+  "engines": {
+    "node": ">=18"
+  }
+}

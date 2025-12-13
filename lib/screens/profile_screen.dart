@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/parser.dart' as html_parser;
@@ -6,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
+import '../services/api_config.dart';
 import '../services/profile_cache_service.dart';
 import '../services/update_service.dart';
 import '../theme/app_theme.dart';
@@ -678,8 +680,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ));
     }
     
-    // Add Check for Updates item
-    if (!_menuItems.any((item) => item.name.toLowerCase() == 'check for updates')) {
+    // Add Check for Updates item - only on mobile (not web)
+    if (!kIsWeb && !_menuItems.any((item) => item.name.toLowerCase() == 'check for updates')) {
       // Find logout position and insert before it, or at end
       final logoutIndex = _menuItems.indexWhere((item) => item.name.toLowerCase() == 'logout');
       final insertIndex = logoutIndex >= 0 ? logoutIndex : _menuItems.length;
@@ -1166,7 +1168,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
                             child: ClipOval(
                               child: CachedNetworkImage(
-                                imageUrl: _profileImageUrl!,
+                                imageUrl: ApiConfig.proxyImageUrl(_profileImageUrl!),
                                 width: 100,
                                 height: 100,
                                 fit: BoxFit.cover,

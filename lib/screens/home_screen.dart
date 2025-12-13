@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -81,15 +82,19 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     _classPageController = PageController(viewportFraction: 0.92);
     _fetchAllData();
     
-    // Check for Shorebird code push updates (silent, in background)
-    _shorebirdService.checkAndDownloadInBackground();
+    // Check for Shorebird code push updates (silent, in background) - only on mobile
+    if (!kIsWeb) {
+      _shorebirdService.checkAndDownloadInBackground();
+    }
     
-    // Check for app updates after a short delay
-    Future.delayed(const Duration(seconds: 2), () {
-      _checkForUpdates();
-    });
+    // Check for app updates after a short delay - only on mobile (for APK updates)
+    if (!kIsWeb) {
+      Future.delayed(const Duration(seconds: 2), () {
+        _checkForUpdates();
+      });
+    }
     
-    // Check for What's New dialog (show after patch updates)
+    // Check for What's New dialog (show after patch updates) - works on both platforms
     Future.delayed(const Duration(seconds: 1), () {
       _checkForWhatsNew();
     });
@@ -1939,6 +1944,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     return MedicalLeaveScreen(
       clientDetails: widget.clientDetails,
       userData: widget.userData,
+      onBackPressed: () {
+        // Navigate back to home tab (index 0)
+        _pageController.animateToPage(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      },
     );
   }
 

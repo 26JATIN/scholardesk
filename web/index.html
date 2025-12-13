@@ -1,108 +1,376 @@
-<!DOCTYPE html><html><head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
+<!DOCTYPE html>
+<html>
+<head>
   <base href="$FLUTTER_BASE_HREF">
-
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="ScholarDesk - Your Academic Companion">
-
+  
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="ScholarDesk">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
+  
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png">
-
+  
   <title>ScholarDesk</title>
   <link rel="manifest" href="manifest.json">
-  <style id="splash-screen-style">
-    html {
-      height: 100%
+  
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
-
+    
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    
     body {
-      margin: 0;
-      min-height: 100%;
-      background-color: #FFFFFF;
-          background-size: 100% 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     }
-
-    .center {
-      margin: 0;
+    
+    /* Splash Screen Styles */
+    #splash-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      z-index: 9999;
+      transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+    }
+    
+    /* Animated background particles */
+    .splash-bg-particle {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      -ms-transform: translate(-50%, -50%);
-      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      animation: floatParticle 20s infinite linear;
     }
-
-    .contain {
-      display:block;
-      width:100%; height:100%;
+    
+    .splash-bg-particle:nth-child(1) {
+      width: 80px; height: 80px; left: 10%; top: 20%;
+      animation-delay: 0s; animation-duration: 25s;
+    }
+    .splash-bg-particle:nth-child(2) {
+      width: 60px; height: 60px; left: 80%; top: 10%;
+      animation-delay: -5s; animation-duration: 20s;
+    }
+    .splash-bg-particle:nth-child(3) {
+      width: 100px; height: 100px; left: 70%; top: 70%;
+      animation-delay: -10s; animation-duration: 30s;
+    }
+    .splash-bg-particle:nth-child(4) {
+      width: 40px; height: 40px; left: 20%; top: 80%;
+      animation-delay: -7s; animation-duration: 22s;
+    }
+    .splash-bg-particle:nth-child(5) {
+      width: 50px; height: 50px; left: 50%; top: 50%;
+      animation-delay: -3s; animation-duration: 18s;
+    }
+    
+    @keyframes floatParticle {
+      0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+        opacity: 0.1;
+      }
+      25% {
+        transform: translate(30px, -50px) rotate(90deg);
+        opacity: 0.15;
+      }
+      50% {
+        transform: translate(-20px, -100px) rotate(180deg);
+        opacity: 0.1;
+      }
+      75% {
+        transform: translate(40px, -50px) rotate(270deg);
+        opacity: 0.15;
+      }
+    }
+    
+    #splash-container.hidden {
+      opacity: 0;
+      transform: scale(1.1);
+      pointer-events: none;
+    }
+    
+    .splash-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 1;
+    }
+    
+    .splash-logo {
+      width: 130px;
+      height: 130px;
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: logoAppear 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.15),
+        inset 0 1px 1px rgba(255, 255, 255, 0.3),
+        0 0 0 1px rgba(255, 255, 255, 0.1);
+      position: relative;
+    }
+    
+    .splash-logo::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 35px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.4), transparent, rgba(255,255,255,0.1));
+      z-index: -1;
+      animation: shimmer 3s ease-in-out infinite;
+    }
+    
+    @keyframes shimmer {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+    
+    .splash-logo img {
+      width: 85px;
+      height: 85px;
       object-fit: contain;
     }
-
-    .stretch {
-      display:block;
-      width:100%; height:100%;
+    
+    .splash-logo svg {
+      width: 70px;
+      height: 70px;
+      fill: white;
+      filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.1));
+      animation: iconFloat 3s ease-in-out infinite;
     }
-
-    .cover {
-      display:block;
-      width:100%; height:100%;
-      object-fit: cover;
+    
+    @keyframes iconFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
     }
-
-    .bottom {
+    
+    @keyframes logoAppear {
+      0% {
+        opacity: 0;
+        transform: scale(0.5) rotate(-10deg);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) rotate(0deg);
+      }
+    }
+    
+    .splash-title {
+      margin-top: 28px;
+      font-size: 36px;
+      font-weight: 700;
+      color: white;
+      letter-spacing: -0.5px;
+      animation: fadeInUp 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+      text-shadow: 0 2px 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    .splash-subtitle {
+      margin-top: 10px;
+      font-size: 17px;
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 500;
+      animation: fadeInUp 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.35s both;
+    }
+    
+    /* Modern progress loader */
+    .splash-loader {
+      margin-top: 50px;
+      width: 200px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      overflow: hidden;
+      animation: fadeInUp 0.6s ease-out 0.5s both;
+    }
+    
+    .splash-loader-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(255,255,255,0.8), white, rgba(255,255,255,0.8));
+      border-radius: 4px;
+      animation: loadProgress 2.5s ease-in-out infinite;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+    }
+    
+    @keyframes loadProgress {
+      0% { width: 0%; margin-left: 0%; }
+      50% { width: 70%; margin-left: 15%; }
+      100% { width: 0%; margin-left: 100%; }
+    }
+    
+    .splash-status {
+      margin-top: 16px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.7);
+      animation: fadeInUp 0.6s ease-out 0.6s both;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .splash-status-dot {
+      width: 6px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 50%;
+      animation: statusPulse 1.5s ease-in-out infinite;
+    }
+    
+    @keyframes statusPulse {
+      0%, 100% { opacity: 0.4; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1); }
+    }
+    
+    .splash-version {
       position: absolute;
-      bottom: 0;
-      left: 50%;
-      -ms-transform: translate(-50%, 0);
-      transform: translate(-50%, 0);
+      bottom: 28px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      animation: fadeIn 0.8s ease-out 0.8s both;
+      letter-spacing: 0.5px;
     }
-
-    .bottomLeft {
-      position: absolute;
-      bottom: 0;
-      left: 0;
+    
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(25px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
-
-    .bottomRight {
-      position: absolute;
-      bottom: 0;
-      right: 0;
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+      #splash-container {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      }
+      
+      .splash-logo {
+        background: rgba(255, 255, 255, 0.1);
+        box-shadow: 
+          0 25px 50px rgba(0, 0, 0, 0.3),
+          inset 0 1px 1px rgba(255, 255, 255, 0.1),
+          0 0 0 1px rgba(255, 255, 255, 0.05);
+      }
+    }
+    
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
     }
   </style>
-  <script id="splash-screen-script">
-    function removeSplashFromWeb() {
-      document.getElementById("splash")?.remove();
-      document.getElementById("splash-branding")?.remove();
-      document.body.style.background = "transparent";
-    }
-  </script>
-  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 </head>
 <body>
-  <picture id="splash">
-      <source srcset="splash/img/light-1x.png 1x, splash/img/light-2x.png 2x, splash/img/light-3x.png 3x, splash/img/light-4x.png 4x" media="(prefers-color-scheme: light)">
-      <source srcset="splash/img/dark-1x.png 1x, splash/img/dark-2x.png 2x, splash/img/dark-3x.png 3x, splash/img/dark-4x.png 4x" media="(prefers-color-scheme: dark)">
-      <img class="center" aria-hidden="true" src="splash/img/light-1x.png" alt="">
-  </picture>
-  <script src="flutter_bootstrap.js" async=""></script>
-
-
-</body></html>
+  <!-- Beautiful Animated Splash Screen -->
+  <div id="splash-container">
+    <!-- Floating background particles -->
+    <div class="splash-bg-particle"></div>
+    <div class="splash-bg-particle"></div>
+    <div class="splash-bg-particle"></div>
+    <div class="splash-bg-particle"></div>
+    <div class="splash-bg-particle"></div>
+    
+    <div class="splash-content">
+      <div class="splash-logo">
+        <!-- ScholarDesk Icon -->
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/>
+        </svg>
+      </div>
+      <h1 class="splash-title">ScholarDesk</h1>
+      <p class="splash-subtitle">Your Academic Companion</p>
+      <div class="splash-loader">
+        <div class="splash-loader-bar"></div>
+      </div>
+      <div class="splash-status">
+        <div class="splash-status-dot"></div>
+        <span id="splash-status-text">Loading...</span>
+      </div>
+    </div>
+    <p class="splash-version">Web Edition</p>
+  </div>
+  
+  <script>
+    // Update loading status dynamically
+    const statusMessages = [
+      'Loading...',
+      'Initializing app...',
+      'Preparing experience...',
+      'Almost ready...'
+    ];
+    
+    let statusIndex = 0;
+    const statusText = document.getElementById('splash-status-text');
+    
+    const statusInterval = setInterval(() => {
+      statusIndex = (statusIndex + 1) % statusMessages.length;
+      if (statusText) {
+        statusText.style.opacity = '0';
+        setTimeout(() => {
+          statusText.textContent = statusMessages[statusIndex];
+          statusText.style.opacity = '1';
+        }, 200);
+      }
+    }, 1500);
+    
+    // Remove splash screen when Flutter is ready
+    window.addEventListener('flutter-first-frame', function() {
+      clearInterval(statusInterval);
+      const splash = document.getElementById('splash-container');
+      if (splash) {
+        splash.classList.add('hidden');
+        // Remove from DOM after animation
+        setTimeout(() => splash.remove(), 600);
+      }
+    });
+    
+    // Fallback: remove splash after max wait time
+    setTimeout(function() {
+      clearInterval(statusInterval);
+      const splash = document.getElementById('splash-container');
+      if (splash) {
+        splash.classList.add('hidden');
+        setTimeout(() => splash.remove(), 600);
+      }
+    }, 10000);
+  </script>
+  
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

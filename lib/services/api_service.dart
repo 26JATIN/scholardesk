@@ -1,37 +1,46 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:http/io_client.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
-
 import 'package:shared_preferences/shared_preferences.dart';
+import 'api_config.dart';
+
+// Conditional imports for platform-specific HTTP client
+import 'http_client_stub.dart'
+    if (dart.library.io) 'http_client_native.dart'
+    if (dart.library.html) 'http_client_web.dart';
 
 class ApiService {
-  static const String _baseUrl = 'https://gdemo.schoolpad.in/mobile/getClientDetails';
+  // Base URL for getClientDetails endpoint
+  static const String _clientDetailsUrl = 'https://gdemo.schoolpad.in/mobile/getClientDetails';
+
+  // Default User-Agent header
+  static const String _defaultUserAgent = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36';
 
   // Static headers to share cookies across all instances
+  // Note: User-Agent and Connection are forbidden in browser fetch, so stored separately
   static final Map<String, String> _headers = {
-    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36',
     'Content-Type': 'application/x-www-form-urlencoded',
     'Accept': 'application/json, text/javascript, */*; q=0.01',
-    'Connection': 'keep-alive',
   };
+
+  /// Get User-Agent header (returns empty string on web since it's forbidden)
+  static String get userAgent => kIsWeb ? '' : _defaultUserAgent;
+  
+  /// Get Connection header (returns empty string on web since it's forbidden)
+  static String get connectionHeader => kIsWeb ? '' : 'keep-alive';
+
+  // Session ID for web cookie management via proxy
+  static final String _webSessionId = DateTime.now().millisecondsSinceEpoch.toString();
 
   // Track if cookies have been loaded this session
   static bool _cookiesLoaded = false;
 
-  // Allowed hosts for SSL connections
-  static const List<String> _allowedHosts = [
-    'schoolpad.in',
-    'gdemo.schoolpad.in',
-  ];
-
-  // HTTP client with SSL configuration
+  // HTTP client
   late final http.Client _httpClient;
 
   ApiService() {
-    _httpClient = _createSecureClient();
+    _httpClient = HttpClientFactoryImpl().createClient();
   }
 
   /// Ensures cookies are loaded - call this before making authenticated API calls
@@ -47,49 +56,50 @@ class ApiService {
     return _headers['Cookie'] ?? '';
   }
 
-  /// Creates an HTTP client with SSL certificate validation
-  /// In debug mode, it allows bad certificates for testing
-  /// In release mode, it enforces strict SSL validation
-  http.Client _createSecureClient() {
-    final HttpClient httpClient = HttpClient();
+  /// Build headers for web requests (adds proxy-specific headers)
+  Map<String, String> _buildHeaders({Map<String, String>? extra, String? referer}) {
+    final headers = Map<String, String>.from(_headers);
+    if (extra != null) {
+      headers.addAll(extra);
+    }
     
-    // Set connection timeout
-    httpClient.connectionTimeout = const Duration(seconds: 30);
+    // Add platform-specific headers (only on native, forbidden on web)
+    if (!kIsWeb) {
+      headers['User-Agent'] = _defaultUserAgent;
+      headers['Connection'] = 'keep-alive';
+    }
     
-    // Configure SSL/TLS settings
-    httpClient.badCertificateCallback = (X509Certificate cert, String host, int port) {
-      // In debug mode, allow all certificates for testing
-      if (kDebugMode) {
-        debugPrint('SSL: Allowing certificate for $host in debug mode');
-        return true;
+    if (kIsWeb) {
+      headers['X-Session-Id'] = _webSessionId;
+      if (referer != null) {
+        headers['X-Target-Referer'] = referer;
       }
-      
-      // In release mode, only allow certificates for our trusted hosts
-      final isAllowedHost = _allowedHosts.any(
-        (allowedHost) => host.endsWith(allowedHost),
-      );
-      
-      if (!isAllowedHost) {
-        debugPrint('SSL: Rejecting certificate for untrusted host: $host');
-        return false;
-      }
-      
-      // Verify the certificate is valid and not expired
-      final now = DateTime.now();
-      if (cert.endValidity.isBefore(now)) {
-        debugPrint('SSL: Certificate expired for $host');
-        return false;
-      }
-      
-      if (cert.startValidity.isAfter(now)) {
-        debugPrint('SSL: Certificate not yet valid for $host');
-        return false;
-      }
-      
-      return true;
-    };
+    } else if (referer != null) {
+      headers['Referer'] = referer;
+    }
     
-    return IOClient(httpClient);
+    return headers;
+  }
+
+  /// Build the API URL, wrapping with proxy if on web
+  Uri _buildUrl(String url) {
+    if (kIsWeb) {
+      return Uri.parse('${ApiConfig.corsProxyUrl}?url=${Uri.encodeComponent(url)}');
+    }
+    return Uri.parse(url);
+  }
+
+  /// Handle response from proxy (extract cookies on web)
+  void _handleProxyResponse(http.Response response) {
+    if (kIsWeb) {
+      // On web, cookies come back via X-Set-Cookies header from proxy
+      final cookies = response.headers['x-set-cookies'];
+      if (cookies != null && cookies.isNotEmpty) {
+        _headers['Cookie'] = cookies;
+        _cookiesLoaded = true;
+        debugPrint('🍪 Web cookies received: $cookies');
+      }
+    }
   }
 
   /// Closes the HTTP client - call this when disposing the service
@@ -111,7 +121,7 @@ class ApiService {
       final prefs = await SharedPreferences.getInstance();
       
       // Get existing cookies
-      String existingCookies = await prefs.getString(_keyCookies) ?? '';
+      String existingCookies = prefs.getString(_keyCookies) ?? '';
       
       // Parse new cookies from set-cookie header
       // Multiple cookies are separated by comma in the set-cookie header
@@ -245,11 +255,15 @@ class ApiService {
 
   Future<Map<String, dynamic>> getClientDetails(String schoolCode) async {
     try {
+      final url = _buildUrl(_clientDetailsUrl);
       final response = await _httpClient.post(
-        Uri.parse(_baseUrl),
-        headers: _headers,
+        url,
+        headers: _buildHeaders(),
         body: {'schoolCode': schoolCode},
       );
+
+      // Handle cookies from proxy response
+      _handleProxyResponse(response);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -267,11 +281,11 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> login(String username, String password, String baseUrl, String clientAbbr) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/appLoginAuthV2');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/appLoginAuthV2');
     try {
       final response = await _httpClient.post(
         url,
-        headers: _headers,
+        headers: _buildHeaders(),
         body: {
           'txtUsername': username,
           'txtPassword': password,
@@ -279,6 +293,7 @@ class ApiService {
       );
 
       await _saveCookies(response);
+      _handleProxyResponse(response);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -292,15 +307,17 @@ class ApiService {
   }
 
   Future<void> forgotPassword(String username, String baseUrl, String clientAbbr) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/loginManager/forgotPassword');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/loginManager/forgotPassword');
     try {
       final response = await _httpClient.post(
         url,
-        headers: _headers,
+        headers: _buildHeaders(),
         body: {
           'txtForgotPassword': username,
         },
       );
+
+      _handleProxyResponse(response);
 
       if (response.statusCode != 200) {
         throw Exception('Failed to send reset email');
@@ -311,11 +328,11 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> verifyOtp(String otp, String userId, String baseUrl, String clientAbbr) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/verifyOtp');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/verifyOtp');
     try {
       final response = await _httpClient.post(
         url,
-        headers: _headers,
+        headers: _buildHeaders(),
         body: {
           'OTPText': otp,
           'authUserId': userId,
@@ -323,6 +340,7 @@ class ApiService {
       );
 
       await _saveCookies(response);
+      _handleProxyResponse(response);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -345,7 +363,7 @@ class ApiService {
     dynamic start = 0,
     int limit = 10,
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/getAppFeed');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/getAppFeed');
     
     // Ensure cookies are loaded if not already
     if (!_headers.containsKey('Cookie')) {
@@ -355,7 +373,7 @@ class ApiService {
     try {
       final response = await _httpClient.post(
         url,
-        headers: _headers,
+        headers: _buildHeaders(),
         body: {
           'userId': userId,
           'roleId': roleId,
@@ -365,6 +383,8 @@ class ApiService {
           'appKey': appKey,
         },
       );
+
+      _handleProxyResponse(response);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -391,7 +411,7 @@ class ApiService {
     required String itemId,
     required String itemType,
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/getAppItemDetail');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/getAppItemDetail');
     
     // Ensure cookies are loaded
     if (!_headers.containsKey('Cookie')) {
@@ -403,15 +423,10 @@ class ApiService {
     final formatter = DateFormat('yyMMddHHmmssSSSSSS');
     final timeStamp = formatter.format(now);
 
-    final headers = {
-      ..._headers,
-      'X-Requested-With': 'codebrigade.chalkpadpro.app',
-    };
-
     try {
       final response = await _httpClient.post(
         url,
-        headers: headers,
+        headers: _buildHeaders(extra: {'X-Requested-With': 'codebrigade.chalkpadpro.app'}),
         body: {
           'userId': userId,
           'roleId': roleId,
@@ -420,6 +435,8 @@ class ApiService {
           'timeStamp': timeStamp,
         },
       );
+
+      _handleProxyResponse(response);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -439,17 +456,14 @@ class ApiService {
     required String itemType,
     required String fileSystem,
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/getAppAttachmentDetails');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/getAppAttachmentDetails');
     
     // Ensure cookies are loaded
     if (!_headers.containsKey('Cookie')) {
       await _loadCookies();
     }
 
-    final headers = {
-      ..._headers,
-      'X-Requested-With': 'codebrigade.chalkpadpro.app',
-    };
+    final headers = _buildHeaders(extra: {'X-Requested-With': 'codebrigade.chalkpadpro.app'});
 
     try {
       final response = await _httpClient.post(
@@ -473,17 +487,14 @@ class ApiService {
     }
   }
   Future<Map<String, dynamic>> getProfileMenu(String baseUrl, String clientAbbr) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/getProfileMenu');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/getProfileMenu');
     
     // Ensure cookies are loaded
     if (!_headers.containsKey('Cookie')) {
       await _loadCookies();
     }
 
-    final headers = {
-      ..._headers,
-      'X-Requested-With': 'codebrigade.chalkpadpro.app',
-    };
+    final headers = _buildHeaders(extra: {'X-Requested-With': 'codebrigade.chalkpadpro.app'});
 
     final response = await _httpClient.post(
       url,
@@ -524,17 +535,14 @@ class ApiService {
     required String appKey,
     String commonPageId = '28',
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/commonPage');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/commonPage');
     
     // Ensure cookies are loaded
     if (!_headers.containsKey('Cookie')) {
       await _loadCookies();
     }
 
-    final headers = {
-      ..._headers,
-      'X-Requested-With': 'codebrigade.chalkpadpro.app',
-    };
+    final headers = _buildHeaders(extra: {'X-Requested-With': 'codebrigade.chalkpadpro.app'});
 
     final now = DateTime.now();
     final formatter = DateFormat('yyMMddHHmmssSSSSSS');
@@ -567,17 +575,14 @@ class ApiService {
     required String clientAbbr,
     required String userId,
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/getAllSession');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/getAllSession');
     
     // Ensure cookies are loaded
     if (!_headers.containsKey('Cookie')) {
       await _loadCookies();
     }
 
-    final headers = {
-      ..._headers,
-      'X-Requested-With': 'codebrigade.chalkpadpro.app',
-    };
+    final headers = _buildHeaders(extra: {'X-Requested-With': 'codebrigade.chalkpadpro.app'});
 
     final response = await _httpClient.post(
       url,
@@ -603,17 +608,14 @@ class ApiService {
     required String roleId,
     required String appKey,
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/commonPage');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/commonPage');
     
     // Ensure cookies are loaded
     if (!_headers.containsKey('Cookie')) {
       await _loadCookies();
     }
 
-    final headers = {
-      ..._headers,
-      'X-Requested-With': 'codebrigade.chalkpadpro.app',
-    };
+    final headers = _buildHeaders(extra: {'X-Requested-With': 'codebrigade.chalkpadpro.app'});
 
     final now = DateTime.now();
     final formatter = DateFormat('yyMMddHHmmssSSSSSS');
@@ -649,17 +651,14 @@ class ApiService {
     required String newPwd,
     required String conPwd,
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/changePassword');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/changePassword');
     
     // Ensure cookies are loaded
     if (!_headers.containsKey('Cookie')) {
       await _loadCookies();
     }
 
-    final headers = {
-      ..._headers,
-      'X-Requested-With': 'codebrigade.chalkpadpro.app',
-    };
+    final headers = _buildHeaders(extra: {'X-Requested-With': 'codebrigade.chalkpadpro.app'});
 
     try {
       final response = await _httpClient.post(
@@ -692,17 +691,14 @@ class ApiService {
     required String userId,
     required String sessionId,
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/getLeaveDetailsApp');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/getLeaveDetailsApp');
     
     // Ensure cookies are loaded
     if (!_headers.containsKey('Cookie')) {
       await _loadCookies();
     }
 
-    final headers = {
-      ..._headers,
-      'X-Requested-With': 'codebrigade.chalkpadpro.app',
-    };
+    final headers = _buildHeaders(extra: {'X-Requested-With': 'codebrigade.chalkpadpro.app'});
 
     try {
       final response = await _httpClient.post(
@@ -747,17 +743,14 @@ class ApiService {
     required String roleId,
     required String leaveId,
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/commonPage01');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/commonPage01');
     
     // Ensure cookies are loaded
     if (!_headers.containsKey('Cookie')) {
       await _loadCookies();
     }
 
-    final headers = {
-      ..._headers,
-      'X-Requested-With': 'codebrigade.chalkpadpro.app',
-    };
+    final headers = _buildHeaders(extra: {'X-Requested-With': 'codebrigade.chalkpadpro.app'});
 
     final now = DateTime.now();
     final formatter = DateFormat('yyMMddHHmmssSSSSSS');
@@ -803,17 +796,14 @@ class ApiService {
     required String userId,
     required String sessionId,
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/getCategoryNameApp');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/getCategoryNameApp');
     
     // Ensure cookies are loaded
     if (!_headers.containsKey('Cookie')) {
       await _loadCookies();
     }
 
-    final headers = {
-      ..._headers,
-      'X-Requested-With': 'codebrigade.chalkpadpro.app',
-    };
+    final headers = _buildHeaders(extra: {'X-Requested-With': 'codebrigade.chalkpadpro.app'});
 
     try {
       final response = await _httpClient.post(
@@ -845,8 +835,15 @@ class ApiService {
     required String userId,
     required String sessionId,
     required String filePath,
+    List<int>? fileBytes, // For web: pass file bytes directly
+    String? fileName, // For web: pass filename directly
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/dutyMedicalLeaveAttachmentUpload');
+    // File upload is not supported on web via this method
+    if (kIsWeb) {
+      throw UnsupportedError('File upload is not supported on web yet. Please use the mobile app.');
+    }
+    
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/dutyMedicalLeaveAttachmentUpload');
     
     debugPrint('🔄 Uploading leave attachment...');
     debugPrint('📡 Upload URL: $url');
@@ -855,21 +852,22 @@ class ApiService {
     await ensureCookiesLoaded();
 
     try {
-      // Get file info
-      final file = File(filePath);
-      final fileName = file.path.split('/').last;
-      final extension = fileName.split('.').last;
+      // Get file info - import dart:io conditionally handled by the native impl
+      final actualFileName = fileName ?? filePath.split('/').last;
+      final extension = actualFileName.split('.').last;
       
       debugPrint('📎 File path: $filePath');
-      debugPrint('📎 File name: $fileName, Extension: $extension');
+      debugPrint('📎 File name: $actualFileName, Extension: $extension');
       debugPrint('🍪 Cookies loaded: ${_headers.containsKey('Cookie')}');
       
       var request = http.MultipartRequest('POST', url);
       
-      // Add all standard headers
-      request.headers['User-Agent'] = _headers['User-Agent']!;
+      // Add all standard headers (User-Agent and Connection only on native)
+      if (!kIsWeb) {
+        request.headers['User-Agent'] = _defaultUserAgent;
+        request.headers['Connection'] = 'keep-alive';
+      }
       request.headers['Accept'] = _headers['Accept']!;
-      request.headers['Connection'] = _headers['Connection']!;
       
       // Add cookies from headers
       if (_headers.containsKey('Cookie')) {
@@ -878,24 +876,29 @@ class ApiService {
       }
       request.headers['X-Requested-With'] = 'codebrigade.chalkpadpro.app';
       
+      // Add web proxy session ID
+      if (kIsWeb) {
+        request.headers['X-Session-Id'] = _webSessionId;
+      }
+      
       // Add form fields as per expected format (no sessionId)
       request.fields.addAll({
-        'value1': fileName,
+        'value1': actualFileName,
         'value2': extension,
         'value3': userId,
       });
       
-      debugPrint('📋 Form fields: value1=$fileName, value2=$extension, value3=$userId');
+      debugPrint('📋 Form fields: value1=$actualFileName, value2=$extension, value3=$userId');
       
       // Add file with explicit filename (not content URI)
       var multipartFile = await http.MultipartFile.fromPath(
         'file', 
         filePath,
-        filename: fileName, // Explicitly set filename to avoid content URI
+        filename: actualFileName, // Explicitly set filename to avoid content URI
       );
       request.files.add(multipartFile);
       
-      debugPrint('📎 Multipart file added with filename: $fileName');
+      debugPrint('📎 Multipart file added with filename: $actualFileName');
       
       debugPrint('📤 Sending upload request...');
       
@@ -945,12 +948,121 @@ class ApiService {
     }
   }
 
+  /// Upload leave attachment using file bytes (works on all platforms including web)
+  Future<Map<String, dynamic>> uploadLeaveAttachmentBytes({
+    required String baseUrl,
+    required String clientAbbr,
+    required String userId,
+    required String sessionId,
+    required List<int> fileBytes,
+    required String fileName,
+  }) async {
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/dutyMedicalLeaveAttachmentUpload');
+    
+    debugPrint('🔄 Uploading leave attachment (bytes)...');
+    debugPrint('📡 Upload URL: $url');
+    
+    // Ensure cookies are loaded
+    await ensureCookiesLoaded();
+
+    try {
+      final extension = fileName.split('.').last;
+      
+      debugPrint('📎 File name: $fileName, Extension: $extension');
+      debugPrint('📎 File size: ${fileBytes.length} bytes');
+      debugPrint('🍪 Cookies loaded: ${_headers.containsKey('Cookie')}');
+      
+      var request = http.MultipartRequest('POST', url);
+      
+      // Add all standard headers (User-Agent and Connection only on native)
+      if (!kIsWeb) {
+        request.headers['User-Agent'] = _defaultUserAgent;
+        request.headers['Connection'] = 'keep-alive';
+      }
+      request.headers['Accept'] = _headers['Accept']!;
+      
+      // Add cookies from headers
+      if (_headers.containsKey('Cookie')) {
+        request.headers['Cookie'] = _headers['Cookie']!;
+        debugPrint('🍪 Cookie header added');
+      }
+      request.headers['X-Requested-With'] = 'codebrigade.chalkpadpro.app';
+      
+      // Add web session ID if on web
+      if (kIsWeb) {
+        request.headers['X-Session-Id'] = _webSessionId;
+      }
+      
+      // Add form fields as per expected format
+      request.fields.addAll({
+        'value1': fileName,
+        'value2': extension,
+        'value3': userId,
+      });
+      
+      debugPrint('📋 Form fields: value1=$fileName, value2=$extension, value3=$userId');
+      
+      // Add file from bytes
+      var multipartFile = http.MultipartFile.fromBytes(
+        'file', 
+        fileBytes,
+        filename: fileName,
+      );
+      request.files.add(multipartFile);
+      
+      debugPrint('📎 Multipart file added with filename: $fileName');
+      debugPrint('📤 Sending upload request...');
+      
+      // Send request
+      var streamedResponse = await _httpClient.send(request);
+      var response = await http.Response.fromStream(streamedResponse);
+      
+      await _saveCookies(response);
+      _handleProxyResponse(response);
+
+      debugPrint('📥 Upload response: ${response.statusCode}');
+      debugPrint('📄 Upload body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        // Server returns plain text in format: "fullname.pdf|randomname.pdf|"
+        final responseText = response.body.trim();
+        
+        if (responseText.isEmpty) {
+          throw Exception('Server returned empty response');
+        }
+        
+        // Parse the pipe-separated response
+        final parts = responseText.split('|').where((s) => s.isNotEmpty).toList();
+        
+        final uploadedFullName = parts.isNotEmpty ? parts[0] : fileName;
+        final uploadedShortName = parts.length > 1 ? parts[1] : uploadedFullName;
+        
+        debugPrint('✅ File uploaded successfully');
+        debugPrint('   Full name: $uploadedFullName');
+        debugPrint('   Short name (for deletion): $uploadedShortName');
+        
+        return {
+          'success': true,
+          'fileName': uploadedShortName,
+          'fullName': uploadedFullName,
+          'originalName': fileName,
+          'rawResponse': responseText,
+        };
+      } else {
+        throw Exception('Failed to upload file: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error uploading file: $e');
+      throw Exception('Error uploading file: $e');
+    }
+  }
+
   Future<bool> removeLeaveAttachment({
     required String baseUrl,
     required String clientAbbr,
     required String fileName,
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/removeDutyMedicalLeaveAttachment');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/removeDutyMedicalLeaveAttachment');
     
     debugPrint('🗑️ Removing leave attachment...');
     debugPrint('📡 Remove URL: $url');
@@ -962,14 +1074,9 @@ class ApiService {
     try {
       final response = await _httpClient.post(
         url,
-        headers: {
-          'User-Agent': _headers['User-Agent']!,
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': _headers['Accept']!,
-          'Connection': _headers['Connection']!,
-          'Cookie': _headers['Cookie'] ?? '',
+        headers: _buildHeaders(extra: {
           'X-Requested-With': 'codebrigade.chalkpadpro.app',
-        },
+        }),
         body: {
           'fileName': fileName,
         },
@@ -1007,7 +1114,7 @@ class ApiService {
     required String leaveId,
     required String userId,
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/cancelDutyMedicalLeave');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/cancelDutyMedicalLeave');
     
     debugPrint('🚫 Cancelling leave...');
     debugPrint('📡 Cancel URL: $url');
@@ -1020,14 +1127,9 @@ class ApiService {
     try {
       final response = await _httpClient.post(
         url,
-        headers: {
-          'User-Agent': _headers['User-Agent']!,
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': _headers['Accept']!,
-          'Connection': _headers['Connection']!,
-          'Cookie': _headers['Cookie'] ?? '',
+        headers: _buildHeaders(extra: {
           'X-Requested-With': 'codebrigade.chalkpadpro.app',
-        },
+        }),
         body: {
           'id': leaveId,
           'userId': userId,
@@ -1076,7 +1178,7 @@ class ApiService {
     required String reason,
     String? fileName,
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/addLeaveApp');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/addLeaveApp');
 
     // Ensure cookies are loaded
     await ensureCookiesLoaded();
@@ -1091,14 +1193,9 @@ class ApiService {
       debugPrint('🍪 Cookies loaded: ${_headers.containsKey('Cookie')}');
 
       // Server expects application/x-www-form-urlencoded format (not multipart)
-      final headers = {
-        'User-Agent': _headers['User-Agent']!,
-        'Accept': _headers['Accept']!,
-        'Connection': _headers['Connection']!,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Cookie': _headers['Cookie'] ?? '',
+      final headers = _buildHeaders(extra: {
         'X-Requested-With': 'codebrigade.chalkpadpro.app',
-      };
+      });
 
       final body = {
         'sessionId': sessionId,
@@ -1143,7 +1240,7 @@ class ApiService {
     required String sessionId,
     required String roleId,
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/getReceiptDetails');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/getReceiptDetails');
     
     debugPrint('📡 Fetching receipt details...');
     debugPrint('  URL: $url');
@@ -1154,10 +1251,7 @@ class ApiService {
     // Ensure cookies are loaded
     await ensureCookiesLoaded();
 
-    final headers = {
-      ..._headers,
-      'X-Requested-With': 'codebrigade.chalkpadpro.app',
-    };
+    final headers = _buildHeaders(extra: {'X-Requested-With': 'codebrigade.chalkpadpro.app'});
 
     try {
       final response = await _httpClient.post(
@@ -1216,17 +1310,14 @@ class ApiService {
     String prevNext = '0',
     String month = '',
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/mobile/showAttendance');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/showAttendance');
     
     debugPrint('📡 Calling showAttendance to initialize session...');
     
     // Ensure cookies are loaded
     await ensureCookiesLoaded();
 
-    final headers = {
-      ..._headers,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    };
+    final headers = _buildHeaders();
 
     try {
       final response = await _httpClient.post(
@@ -1266,17 +1357,14 @@ class ApiService {
     required String studentId,
     required String sessionId,
   }) async {
-    final url = Uri.parse('https://$clientAbbr.$baseUrl/chalkpadpro/studentDetails/getAttendanceRegister');
+    final url = _buildUrl('https://$clientAbbr.$baseUrl/chalkpadpro/studentDetails/getAttendanceRegister');
     
     debugPrint('📡 Fetching attendance register...');
     
     // Ensure cookies are loaded
     await ensureCookiesLoaded();
 
-    final headers = {
-      ..._headers,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    };
+    final headers = _buildHeaders();
 
     try {
       final response = await _httpClient.post(

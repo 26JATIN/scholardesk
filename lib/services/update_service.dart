@@ -95,6 +95,10 @@ class UpdateService {
   static String? _cachedVersion;
   static String? _cachedBuildNumber;
   
+  // Keys to track pending APK that should be deleted after install
+  static const String _prefPendingApkPath = 'pending_apk_path';
+  static const String _prefPendingApkVersion = 'pending_apk_version';
+  
   static const String _apiBaseUrl = 'https://api.github.com';
   static const String _prefKeySkippedVersion = 'skipped_update_version';
 
@@ -115,6 +119,12 @@ class UpdateService {
       debugPrint('⚠️ Could not get package info: $e');
       _cachedVersion = _fallbackVersion;
       _cachedBuildNumber = '1';
+    }
+    // Attempt to clean any APK left from a previous update once we know current version
+    try {
+      await cleanPendingApk();
+    } catch (e) {
+      debugPrint('⚠️ Error while cleaning pending APK: $e');
     }
   }
 
@@ -304,11 +314,103 @@ class UpdateService {
       );
       
       debugPrint('📦 Open result: ${result.type} - ${result.message}');
+      // Mark this APK for deletion after install. Installer runs outside the app
+      // so we can't reliably detect completion immediately. We store the pending
+      // APK path and associated version and attempt cleanup on next start/resume.
+      try {
+        await _markPendingApkForDeletion(filePath, currentVersion);
+      } catch (e) {
+        debugPrint('⚠️ Could not mark APK for deletion: $e');
+      }
       return result.type == ResultType.done;
     } catch (e) {
       debugPrint('❌ Error installing APK: $e');
       return false;
     }
+  }
+
+  /// Mark an APK file path to be deleted once the app has been updated to
+  /// [expectedVersion]. This is saved to SharedPreferences and cleaned up in
+  /// [cleanPendingApk].
+  Future<void> _markPendingApkForDeletion(String apkPath, String expectedVersion) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefPendingApkPath, apkPath);
+      await prefs.setString(_prefPendingApkVersion, expectedVersion);
+      debugPrint('📦 Marked pending APK for deletion: $apkPath (expecting v$expectedVersion)');
+    } catch (e) {
+      debugPrint('⚠️ Failed to persist pending APK info: $e');
+    }
+  }
+
+  /// Check for any pending APK that should be deleted. If the current installed
+  /// app version is greater than or equal to the expected version, delete the
+  /// APK file and clear the pending entries.
+  Future<void> cleanPendingApk() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final apkPath = prefs.getString(_prefPendingApkPath);
+      final expectedVersion = prefs.getString(_prefPendingApkVersion);
+
+      if (apkPath == null || expectedVersion == null) return;
+
+      // Ensure we have current version info
+      if (_cachedVersion == null) {
+        try {
+          final packageInfo = await PackageInfo.fromPlatform();
+          _cachedVersion = packageInfo.version;
+        } catch (e) {
+          debugPrint('⚠️ Could not refresh package info during cleanup: $e');
+        }
+      }
+
+      if (_cachedVersion == null) return;
+
+      // If current version >= expectedVersion, remove the APK
+      bool shouldDelete = false;
+      try {
+        shouldDelete = !_isNewerVersion(expectedVersion, _cachedVersion!);
+        // If expectedVersion <= currentVersion then app updated
+        if (_compareVersionStrings(_cachedVersion!, expectedVersion) >= 0) {
+          shouldDelete = true;
+        }
+      } catch (_) {
+        // Fallback: if versions can't be parsed, attempt deletion anyway
+        shouldDelete = true;
+      }
+
+      if (shouldDelete) {
+        final file = File(apkPath);
+        if (await file.exists()) {
+          try {
+            await file.delete();
+            debugPrint('🗑️ Deleted APK after successful install: $apkPath');
+          } catch (e) {
+            debugPrint('⚠️ Failed to delete APK file: $e');
+          }
+        }
+
+        // Clear stored prefs
+        await prefs.remove(_prefPendingApkPath);
+        await prefs.remove(_prefPendingApkVersion);
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error cleaning pending APK: $e');
+    }
+  }
+
+  /// Helper to compare two semantic version strings. Returns 1 if a>b, 0 if equal, -1 if a<b
+  int _compareVersionStrings(String a, String b) {
+    final aParts = a.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    final bParts = b.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    final maxLen = aParts.length > bParts.length ? aParts.length : bParts.length;
+    for (int i = 0; i < maxLen; i++) {
+      final ai = i < aParts.length ? aParts[i] : 0;
+      final bi = i < bParts.length ? bParts[i] : 0;
+      if (ai > bi) return 1;
+      if (ai < bi) return -1;
+    }
+    return 0;
   }
 
   /// Get the current app version string

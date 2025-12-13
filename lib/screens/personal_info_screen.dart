@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/api_service.dart';
+import '../services/api_config.dart';
 import '../services/profile_cache_service.dart';
 import '../theme/app_theme.dart';
 
@@ -887,7 +888,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
                     backgroundColor: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
                     child: ClipOval(
                       child: CachedNetworkImage(
-                        imageUrl: photoUrl,
+                        imageUrl: ApiConfig.proxyImageUrl(photoUrl),
                         width: 60,
                         height: 60,
                         fit: BoxFit.cover,

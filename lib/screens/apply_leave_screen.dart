@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
@@ -1064,13 +1063,20 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
         type: FileType.custom,
         allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
         allowMultiple: false,
+        withData: true, // Required for web - loads file bytes
       );
 
-      if (result != null && result.files.single.path != null) {
-        File file = File(result.files.single.path!);
+      if (result != null && result.files.isNotEmpty) {
+        final pickedFile = result.files.single;
+        final bytes = pickedFile.bytes;
+        final fileName = pickedFile.name;
+        
+        if (bytes == null) {
+          throw Exception('Could not read file data');
+        }
         
         // Check file size (5MB limit)
-        int fileSizeInBytes = file.lengthSync();
+        int fileSizeInBytes = bytes.length;
         double fileSizeInMB = fileSizeInBytes / (1024 * 1024);
         
         if (fileSizeInMB > 5) {
@@ -1093,7 +1099,11 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
         });
         
         // Upload immediately
-        await _uploadAttachment(file);
+        await _uploadAttachment(
+          bytes: bytes,
+          fileName: fileName,
+          fileSize: fileSizeInBytes,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -1111,7 +1121,11 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
     }
   }
 
-  Future<void> _uploadAttachment(File file) async {
+  Future<void> _uploadAttachment({
+    required List<int> bytes,
+    required String fileName,
+    required int fileSize,
+  }) async {
     try {
       debugPrint('🔄 Starting file upload...');
       
@@ -1122,27 +1136,28 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
       
       await _apiService.ensureCookiesLoaded();
       
-      final result = await _apiService.uploadLeaveAttachment(
+      final result = await _apiService.uploadLeaveAttachmentBytes(
         baseUrl: baseUrl,
         clientAbbr: clientAbbr,
         userId: userId,
         sessionId: sessionId,
-        filePath: file.path,
+        fileBytes: bytes,
+        fileName: fileName,
       );
       
       if (mounted) {
-        final uploadedFileName = result['fileName'] ?? file.path.split('/').last;
+        final uploadedFileName = result['fileName'] ?? fileName;
         final fullServerResponse = result['fullName'] ?? uploadedFileName;
         final rawPipeSeparated = '${fullServerResponse}|${uploadedFileName}';
         
         setState(() {
           _isUploadingFile = false;
           _attachedFiles.add({
-            'file': file,
+            'bytes': bytes,
             'uploadedName': uploadedFileName, // Short name for deletion
             'serverResponse': rawPipeSeparated, // Full format for leave submission
-            'localName': file.path.split('/').last,
-            'size': file.lengthSync(),
+            'localName': fileName,
+            'size': fileSize,
           });
         });
         

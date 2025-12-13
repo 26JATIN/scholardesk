@@ -4,9 +4,14 @@ import 'package:flutter/foundation.dart';
 import 'screens/school_code_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/api_service.dart';
+import 'services/update_service.dart';
 import 'services/theme_service.dart';
 import 'theme/app_theme.dart';
-import 'dart:io';
+
+// Conditional import for HTTP overrides (only on native platforms)
+import 'services/http_client_stub.dart'
+    if (dart.library.io) 'services/http_client_native.dart'
+    if (dart.library.html) 'services/http_client_web.dart';
 
 // Global theme service instance
 final themeService = ThemeService();
@@ -27,17 +32,10 @@ void main() {
   // Enable edge-to-edge mode
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   
-  HttpOverrides.global = MyHttpOverrides();
+  // Setup HTTP overrides (only does something on native platforms)
+  setupHttpOverrides();
+  
   runApp(const MyApp());
-}
-
-class MyHttpOverrides extends HttpOverrides {
-  @override
-  HttpClient createHttpClient(SecurityContext? context) {
-    return super.createHttpClient(context)
-      ..badCertificateCallback =
-          (X509Certificate cert, String host, int port) => true;
-  }
 }
 
 class MyApp extends StatefulWidget {
@@ -47,7 +45,7 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   // Cache the session future to prevent re-fetching on theme change
   late Future<Map<String, dynamic>?> _sessionFuture;
 
@@ -55,13 +53,31 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _sessionFuture = ApiService().getSession();
+    WidgetsBinding.instance.addObserver(this);
     themeService.addListener(_onThemeChanged);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     themeService.removeListener(_onThemeChanged);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      // Attempt to clean any pending APK after returning to the app
+      try {
+        // Only run on native platforms (no-op on web)
+        if (!kIsWeb) {
+          UpdateService().cleanPendingApk();
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error during lifecycle cleanup: $e');
+      }
+    }
   }
 
   void _onThemeChanged() {

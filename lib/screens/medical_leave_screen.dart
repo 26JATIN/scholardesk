@@ -7,11 +7,13 @@ import 'apply_leave_screen.dart';
 class MedicalLeaveScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
   final Map<String, dynamic> userData;
+  final VoidCallback? onBackPressed;
 
   const MedicalLeaveScreen({
     super.key,
     required this.clientDetails,
     required this.userData,
+    this.onBackPressed,
   });
 
   @override
@@ -275,7 +277,13 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
                 color: isDark ? Colors.white : Colors.black87,
                 size: 20,
               ),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                if (widget.onBackPressed != null) {
+                  widget.onBackPressed!();
+                } else {
+                  Navigator.pop(context);
+                }
+              },
             ),
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: const EdgeInsets.only(left: 56, bottom: 16),

@@ -4,12 +4,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
 
 /// Service to track and show "What's New" dialogs after Shorebird patch updates
+/// Also works on web using a version-based approach
 class WhatsNewService {
   static final WhatsNewService _instance = WhatsNewService._internal();
   factory WhatsNewService() => _instance;
   WhatsNewService._internal();
 
   static const String _keyLastSeenPatch = 'whats_new_last_seen_patch';
+  
+  /// Current changelog version - increment this whenever you update WhatsNewContent
+  /// This is used for web and as a fallback for mobile
+  static const int changelogVersion = 2;
   
   final _updater = ShorebirdUpdater();
   
@@ -20,13 +25,19 @@ class WhatsNewService {
   int? get currentPatchNumber => _currentPatchNumber;
 
   /// Current patch version identifier
-  /// Format: "patch_<number>" or "base_<version>"
+  /// Format: "patch_<number>" or "base_<version>" or "web_<changelog_version>"
   Future<String> getCurrentPatchId() async {
     try {
+      // On web, use changelog version
+      if (kIsWeb) {
+        _currentPatchNumber = changelogVersion;
+        return 'web_$changelogVersion';
+      }
+      
       if (!_updater.isAvailable) {
-        // In debug mode, use a test identifier
-        _currentPatchNumber = null;
-        return 'debug_mode';
+        // In debug mode, use changelog version for testing
+        _currentPatchNumber = changelogVersion;
+        return 'debug_$changelogVersion';
       }
       
       final patch = await _updater.readCurrentPatch();
@@ -34,13 +45,13 @@ class WhatsNewService {
         _currentPatchNumber = patch.number;
         return 'patch_${patch.number}';
       }
-      // Base release without patch
-      _currentPatchNumber = null;
-      return 'base_release';
+      // Base release without patch - use changelog version
+      _currentPatchNumber = changelogVersion;
+      return 'base_$changelogVersion';
     } catch (e) {
       debugPrint('❌ Error getting patch ID: $e');
-      _currentPatchNumber = null;
-      return 'unknown';
+      _currentPatchNumber = changelogVersion;
+      return 'error_$changelogVersion';
     }
   }
 
@@ -49,18 +60,12 @@ class WhatsNewService {
     try {
       final currentPatchId = await getCurrentPatchId();
       
-      // Don't show in debug mode
-      if (currentPatchId == 'debug_mode') {
-        debugPrint('📰 What\'s New: Skipping in debug mode');
-        return false;
-      }
-      
       final prefs = await SharedPreferences.getInstance();
       final lastSeenPatch = prefs.getString(_keyLastSeenPatch);
       
       debugPrint('📰 What\'s New: Current=$currentPatchId, LastSeen=$lastSeenPatch');
       
-      // Show if this is a new patch we haven't seen
+      // Show if this is a new version we haven't seen
       if (lastSeenPatch != currentPatchId) {
         return true;
       }
