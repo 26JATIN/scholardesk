@@ -45,6 +45,7 @@
       /* Enable hardware acceleration */
       -webkit-transform: translateZ(0);
       transform: translateZ(0);
+      scroll-behavior: smooth;
     }
     
     body {
@@ -403,6 +404,10 @@
     }, 10000);
   </script>
   
+  <script>
+    // Force CanvasKit renderer for better performance (high refresh rate)
+    window.flutterWebRenderer = "canvaskit";
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
