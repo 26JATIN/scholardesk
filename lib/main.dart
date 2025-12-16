@@ -7,6 +7,7 @@ import 'services/api_service.dart';
 import 'services/update_service.dart';
 import 'services/theme_service.dart';
 import 'theme/app_theme.dart';
+import 'widgets/web_phone_mockup.dart';
 
 // Conditional import for HTTP overrides (only on native platforms)
 import 'services/http_client_stub.dart'
@@ -102,11 +103,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeService.themeMode,
+      // Use clamping scroll physics on web (better iOS Safari performance)
+      // and bouncing physics on native mobile for natural feel
       scrollBehavior: const MaterialScrollBehavior().copyWith(
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
+        physics: kIsWeb 
+            ? const ClampingScrollPhysics(parent: AlwaysScrollableScrollPhysics())
+            : const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       ),
+      builder: (context, child) {
+        // Wrap in phone mockup for web
+        return WebPhoneMockup(
+          child: child ?? const SizedBox(),
+        );
+      },
       home: FutureBuilder<Map<String, dynamic>?>(
         future: _sessionFuture,
         builder: (context, snapshot) {

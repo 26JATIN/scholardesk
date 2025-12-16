@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/responsive_helper.dart';
 import 'otp_screen.dart';
 import '../main.dart' show themeService;
 
@@ -232,9 +233,11 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       body: SafeArea(
         child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 450),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -367,6 +370,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ).animate().fadeIn(delay: 700.ms),
               ],
+              ),
             ),
           ),
         ),

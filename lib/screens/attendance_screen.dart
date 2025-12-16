@@ -1822,6 +1822,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
         
         const SizedBox(height: 20),
         
+        // Classes Needed to Reach 75% Card (only show when below 75%)
+        if (percentage < 75) _buildClassesNeededCard(subject, isDark),
+        
+        if (percentage < 75) const SizedBox(height: 20),
+        
         // Details Card
         Container(
           padding: const EdgeInsets.all(20),
@@ -1966,6 +1971,112 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
         ),
       ],
     );
+  }
+
+  /// Calculates and displays how many consecutive classes need to be attended
+  /// to reach 75% attendance
+  Widget _buildClassesNeededCard(AttendanceSubject subject, bool isDark) {
+    final delivered = int.tryParse(subject.delivered ?? '0') ?? 0;
+    final attended = int.tryParse(subject.attended ?? '0') ?? 0;
+    final dl = subject.dl;
+    final ml = subject.ml;
+    
+    if (delivered == 0) return const SizedBox.shrink();
+    
+    // Total effective attended (including DL and ML which count as attendance)
+    final effectiveAttended = attended + dl + ml;
+    final currentPercentage = effectiveAttended / delivered * 100;
+    
+    // Already at or above 75%
+    if (currentPercentage >= 75) return const SizedBox.shrink();
+    
+    // Calculate classes needed to reach 75%
+    // Formula: x >= (0.75 * delivered - effectiveAttended) / 0.25
+    final classesNeeded = ((0.75 * delivered - effectiveAttended) / 0.25).ceil();
+    
+    // Cap for display
+    final displayClasses = classesNeeded.clamp(0, 999);
+    
+    // Calculate resulting percentage
+    final newDelivered = delivered + classesNeeded;
+    final newAttended = effectiveAttended + classesNeeded;
+    final resultingPercentage = newAttended / newDelivered * 100;
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF10B981).withOpacity(0.1) : const Color(0xFF10B981).withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF10B981).withOpacity(0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Number badge
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '$displayClasses',
+                  style: GoogleFonts.outfit(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    height: 1,
+                  ),
+                ),
+                Text(
+                  displayClasses == 1 ? 'class' : 'classes',
+                  style: GoogleFonts.inter(
+                    fontSize: 9,
+                    color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          // Text content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Attend $displayClasses more to reach 75%',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'You\'ll be at ${resultingPercentage.toStringAsFixed(1)}%${classesNeeded > 10 ? ' • Stay consistent!' : ''}',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.trending_up_rounded,
+            color: const Color(0xFF10B981),
+            size: 20,
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 50.ms);
   }
 
   Widget _buildDetailRow(IconData icon, String label, String? value, bool isDark) {

@@ -11,6 +11,7 @@ import '../services/api_config.dart';
 import '../services/profile_cache_service.dart';
 import '../services/update_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/responsive_helper.dart';
 import '../widgets/update_dialog.dart';
 import '../main.dart' show themeService;
 import 'school_code_screen.dart';
@@ -1034,8 +1035,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onRefresh: _handleRefresh,
                   color: AppTheme.primaryColor,
                   backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
-                  child: CustomScrollView(
-                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: context.responsive.maxContentWidth),
+                      child: CustomScrollView(
+                        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                   slivers: [
                     SliverAppBar(
                       expandedHeight: 100,
@@ -1121,6 +1125,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                   ],
+                      ),
+                    ),
                   ),
                 ),
     );

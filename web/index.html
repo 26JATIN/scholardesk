@@ -26,18 +26,32 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      /* Smooth font rendering for all platforms */
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      /* Prevent tap highlight on iOS */
+      -webkit-tap-highlight-color: transparent;
     }
     
     html, body {
       width: 100%;
       height: 100%;
       overflow: hidden;
+      /* iOS Safari smooth scrolling */
+      -webkit-overflow-scrolling: touch;
+      /* Prevent text size adjustment on orientation change */
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+      /* Enable hardware acceleration */
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
     }
     
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     }
     
+
     /* Splash Screen Styles */
     #splash-container {
       position: fixed;
@@ -55,13 +69,21 @@
       overflow: hidden;
     }
     
-    /* Animated background particles */
+    /* Animated background particles - GPU accelerated for iOS */
     .splash-bg-particle {
       position: absolute;
       border-radius: 50%;
       background: rgba(255, 255, 255, 0.1);
       animation: floatParticle 20s infinite linear;
+      /* GPU acceleration for smooth iOS Safari animations */
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      will-change: transform, opacity;
+      contain: layout style;
     }
+
     
     .splash-bg-particle:nth-child(1) {
       width: 80px; height: 80px; left: 10%; top: 20%;
@@ -114,6 +136,10 @@
       flex-direction: column;
       align-items: center;
       z-index: 1;
+      /* GPU acceleration for iOS Safari */
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+      will-change: transform, opacity;
     }
     
     .splash-logo {
@@ -132,6 +158,12 @@
         inset 0 1px 1px rgba(255, 255, 255, 0.3),
         0 0 0 1px rgba(255, 255, 255, 0.1);
       position: relative;
+      /* GPU acceleration for iOS Safari */
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      will-change: transform, opacity;
     }
     
     .splash-logo::before {

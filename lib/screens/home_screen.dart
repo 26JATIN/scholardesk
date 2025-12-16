@@ -14,6 +14,7 @@ import '../services/shorebird_service.dart';
 import '../services/whats_new_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/string_extensions.dart';
+import '../utils/responsive_helper.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/whats_new_dialog.dart';
 import '../main.dart' show themeService;
@@ -1164,14 +1165,18 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Widget _buildHomeContent() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
+    final responsive = context.responsive;
     
     return RefreshIndicator(
       onRefresh: _handleRefresh,
       color: AppTheme.primaryColor,
       backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
-      child: CustomScrollView(
-        key: const PageStorageKey('home_scroll'),
-        slivers: [
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
+          child: CustomScrollView(
+            key: const PageStorageKey('home_scroll'),
+            slivers: [
         SliverAppBar(
           expandedHeight: 120,
           floating: false,
@@ -1308,6 +1313,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           ),
         ),
         ],
+          ),
+        ),
       ),
     );
   }
