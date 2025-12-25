@@ -2192,7 +2192,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
       final maxFromFloor = ((baseAttended - 0.65 * delivered) / 0.65).floor();
       final maxFromML = ((approvedML + baseAttended - 0.75 * delivered) / 0.75).floor();
       final maxTotalWithML = maxFromFloor < maxFromML ? maxFromFloor : maxFromML;
-      additionalWithML = (maxTotalWithML - safeSkippable).clamp(0, approvedML);
+      additionalWithML = (maxTotalWithML - safeSkippable).clamp(0, 999);
     }
     
     final totalSkippable = safeSkippable + additionalWithML;
