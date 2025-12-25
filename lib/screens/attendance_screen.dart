@@ -1078,6 +1078,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
   Map<String, Map<int, List<_DayLecture>>> _organizeByMonths(
       Map<String, List<_DayLecture>> dateAttendanceMap) {
     final Map<String, Map<int, List<_DayLecture>>> monthsData = {};
+    final Map<String, int> monthYearOrder = {}; // For sorting: year * 100 + month
     final currentYear = DateTime.now().year;
     
     for (final entry in dateAttendanceMap.entries) {
@@ -1097,13 +1098,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
         
         if (!monthsData.containsKey(monthKey)) {
           monthsData[monthKey] = {};
+          monthYearOrder[monthKey] = year * 100 + month; // e.g., 202412 for Dec 2024
         }
         
         monthsData[monthKey]![day] = lectures;
       }
     }
     
-    return monthsData;
+    // Sort by year*100+month in descending order (latest first)
+    final sortedKeys = monthsData.keys.toList()
+      ..sort((a, b) => (monthYearOrder[b] ?? 0).compareTo(monthYearOrder[a] ?? 0));
+    
+    // Create new sorted map
+    final Map<String, Map<int, List<_DayLecture>>> sortedMonthsData = {};
+    for (final key in sortedKeys) {
+      sortedMonthsData[key] = monthsData[key]!;
+    }
+    
+    return sortedMonthsData;
   }
 
   String _getMonthName(int month, int year) {
