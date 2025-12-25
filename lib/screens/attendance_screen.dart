@@ -1827,6 +1827,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
         
         if (percentage < 75) const SizedBox(height: 20),
         
+        // Classes Can Skip Card (only show when at or above 75%)
+        if (percentage >= 75) _buildClassesCanSkipCard(subject, isDark),
+        
+        if (percentage >= 75) const SizedBox(height: 20),
+        
         // Details Card
         Container(
           padding: const EdgeInsets.all(20),
@@ -2078,6 +2083,199 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
       ),
     ).animate().fadeIn(delay: 50.ms);
   }
+
+  /// Calculates and displays how many classes can be safely skipped
+  /// while maintaining at least 75% attendance (including ML coverage)
+  Widget _buildClassesCanSkipCard(AttendanceSubject subject, bool isDark) {
+    final delivered = int.tryParse(subject.delivered ?? '0') ?? 0;
+    final attended = int.tryParse(subject.attended ?? '0') ?? 0;
+    final dl = subject.dl;
+    final ml = subject.ml;
+    final approvedML = int.tryParse(subject.totalApprovedML ?? '0') ?? 0;
+    
+    if (delivered == 0) return const SizedBox.shrink();
+    
+    // Base attended (excluding leave-section ML for ML calculation)
+    final baseAttended = attended + dl;
+    
+    // Total effective attended (including DL and ML which count as attendance)
+    final effectiveAttended = attended + dl + ml;
+    final currentPercentage = effectiveAttended / delivered * 100;
+    
+    // Below 75% - shouldn't skip any
+    if (currentPercentage < 75) return const SizedBox.shrink();
+    
+    // Calculate maximum classes that can be skipped while staying >= 75%
+    // Formula: effectiveAttended / (delivered + x) >= 0.75
+    // Solving: x <= (effectiveAttended - 0.75 * delivered) / 0.75
+    final safeSkippable = ((effectiveAttended - 0.75 * delivered) / 0.75).floor();
+    
+    // Calculate additional classes that can be skipped with ML covering (65-75% range)
+    // Two constraints: base >= 65% AND ML needed <= approved ML
+    int additionalWithML = 0;
+    if (approvedML > 0) {
+      final maxFromFloor = ((baseAttended - 0.65 * delivered) / 0.65).floor();
+      final maxFromML = ((approvedML + baseAttended - 0.75 * delivered) / 0.75).floor();
+      final maxTotalWithML = maxFromFloor < maxFromML ? maxFromFloor : maxFromML;
+      additionalWithML = (maxTotalWithML - safeSkippable).clamp(0, approvedML);
+    }
+    
+    final totalSkippable = safeSkippable + additionalWithML;
+    
+    // Nothing to skip at all
+    if (totalSkippable <= 0) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.warningColor.withOpacity(0.1) : AppTheme.warningColor.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppTheme.warningColor.withOpacity(0.25),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppTheme.warningColor,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.warning_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'At the edge of 75%',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Don\'t miss any more classes!',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.do_not_disturb_alt_rounded,
+              color: AppTheme.warningColor,
+              size: 20,
+            ),
+          ],
+        ),
+      ).animate().fadeIn(delay: 50.ms);
+    }
+    
+    // Cap for display
+    final displayClasses = totalSkippable.clamp(0, 999);
+    
+    // Calculate resulting percentage after skipping all classes
+    // If ML is used, calculate with ML coverage
+    final newDelivered = delivered + totalSkippable;
+    final double resultingPercentage;
+    if (additionalWithML > 0) {
+      // With ML: base attendance + ML counted
+      final mlNeeded = (0.75 * newDelivered - baseAttended).ceil().clamp(0, approvedML);
+      resultingPercentage = (baseAttended + mlNeeded) / newDelivered * 100;
+    } else {
+      // Without ML: just effective attended
+      resultingPercentage = effectiveAttended / newDelivered * 100;
+    }
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF3B82F6).withOpacity(0.1) : const Color(0xFF3B82F6).withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF3B82F6).withOpacity(0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Number badge
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: const Color(0xFF3B82F6),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '$displayClasses',
+                  style: GoogleFonts.outfit(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    height: 1,
+                  ),
+                ),
+                Text(
+                  displayClasses == 1 ? 'class' : 'classes',
+                  style: GoogleFonts.inter(
+                    fontSize: 9,
+                    color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          // Text content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'You can skip $displayClasses ${displayClasses == 1 ? 'class' : 'classes'}',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'You\'ll still be at ${resultingPercentage.toStringAsFixed(1)}%${additionalWithML > 0 ? ' (with ML)' : ''}${totalSkippable <= 3 ? ' • Be careful!' : ''}',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.beach_access_rounded,
+            color: const Color(0xFF3B82F6),
+            size: 20,
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 50.ms);
+  }
+
+
 
   Widget _buildDetailRow(IconData icon, String label, String? value, bool isDark) {
     if (value == null || value.isEmpty) return const SizedBox.shrink();
