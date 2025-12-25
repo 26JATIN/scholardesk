@@ -1555,6 +1555,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 ],
               ),
             ],
+
           ],
         ),
       ),
@@ -1652,7 +1653,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       children: [
         Expanded(
           child: _buildStatCard(
-            currentClassName.length > 15 ? 'Attendance' : currentClassName,
+            'Attendance',
             currentClassAttendance > 0 ? '${currentClassAttendance.toStringAsFixed(1)}%' : '--',
             Icons.pie_chart_rounded,
             currentClassAttendance >= 75 ? AppTheme.successColor : (currentClassAttendance > 0 ? AppTheme.errorColor : AppTheme.primaryColor),
@@ -1715,13 +1716,30 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(isDark ? 0.2 : 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(isDark ? 0.2 : 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: color, size: 24),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(isDark ? 0.15 : 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: color.withOpacity(0.7),
+                      size: 14,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               Text(
@@ -1733,13 +1751,27 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: isDark ? Colors.grey.shade400 : Colors.black54,
-                  fontWeight: FontWeight.w500,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: isDark ? Colors.grey.shade400 : Colors.black54,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'View',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: color.withOpacity(0.8),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

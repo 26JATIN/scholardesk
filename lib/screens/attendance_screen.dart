@@ -674,19 +674,82 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
   void _showAttendanceRegisterSheet(AttendanceSubject subject) {
     HapticFeedback.mediumImpact();
     
-    // Show sheet immediately (with loading state if needed)
-    _displayRegisterSheet(subject);
-    
-    // Fetch register if not loaded
-    if (!_registerLoaded) {
-      _fetchAttendanceRegister().then((_) {
-        if (mounted) {
-          // Close and reopen with data
-          Navigator.pop(context);
-          _displayRegisterSheet(subject);
-        }
-      });
+    // If already loaded, show sheet immediately
+    if (_registerLoaded) {
+      _displayRegisterSheet(subject);
+      return;
     }
+    
+    // Show a loading dialog while fetching
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Material(
+          type: MaterialType.transparency,
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.all(24),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+              constraints: const BoxConstraints(maxWidth: 200),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkCardColor : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Loading Register',
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Please wait...',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    
+    // Fetch data then show sheet
+    _fetchAttendanceRegister().then((_) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        _displayRegisterSheet(subject);
+      }
+    });
   }
 
   void _displayRegisterSheet(AttendanceSubject subject) {
@@ -2185,16 +2248,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
     // Cap for display
     final displayClasses = totalSkippable.clamp(0, 999);
     
-    // Calculate resulting percentage after skipping all classes
-    // If ML is used, calculate with ML coverage
+    // Calculate resulting percentage
     final newDelivered = delivered + totalSkippable;
     final double resultingPercentage;
+    int mlNeeded = 0;
     if (additionalWithML > 0) {
-      // With ML: base attendance + ML counted
-      final mlNeeded = (0.75 * newDelivered - baseAttended).ceil().clamp(0, approvedML);
+      mlNeeded = (0.75 * newDelivered - baseAttended).ceil().clamp(0, approvedML);
       resultingPercentage = (baseAttended + mlNeeded) / newDelivered * 100;
     } else {
-      // Without ML: just effective attended
       resultingPercentage = effectiveAttended / newDelivered * 100;
     }
     
@@ -2256,7 +2317,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'You\'ll still be at ${resultingPercentage.toStringAsFixed(1)}%${additionalWithML > 0 ? ' (with ML)' : ''}${totalSkippable <= 3 ? ' • Be careful!' : ''}',
+                  'You\'ll still be at ${resultingPercentage.toStringAsFixed(1)}%${mlNeeded > 0 ? ' (uses $mlNeeded ML)' : ''}',
                   style: GoogleFonts.inter(
                     fontSize: 11,
                     color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -2268,12 +2329,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
           Icon(
             Icons.beach_access_rounded,
             color: const Color(0xFF3B82F6),
-            size: 20,
+            size: 22,
           ),
         ],
       ),
     ).animate().fadeIn(delay: 50.ms);
   }
+
 
 
 
