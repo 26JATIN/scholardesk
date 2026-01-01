@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../services/feed_cache_service.dart';
@@ -40,6 +41,7 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _isOffline = false;
   String _cacheAge = '';
   int _newItemsCount = 0; // Track new items fetched during refresh
+  bool _isLoadingForSearch = false; // Track if we're loading all items for search
 
   @override
   void initState() {
@@ -210,10 +212,135 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   void _filterFeed() {
+    final newQuery = _searchController.text.toLowerCase();
+    
+    // If starting a search and there's more data, auto-load all
+    if (newQuery.isNotEmpty && _hasMoreData && !_isLoadingForSearch && !_isLoadingMore) {
+      _loadAllForSearch(newQuery);
+    }
+    
     setState(() {
-      _searchQuery = _searchController.text.toLowerCase();
+      _searchQuery = newQuery;
       _applySearchFilter();
     });
+  }
+  
+  /// Load all remaining feed items for comprehensive search
+  Future<void> _loadAllForSearch(String query) async {
+    if (_isLoadingForSearch || !_hasMoreData || _nextPageStart == null) return;
+    
+    setState(() {
+      _isLoadingForSearch = true;
+    });
+    
+    try {
+      int loadedCount = 0;
+      const maxLoads = 50; // Increased to 50 pages (1000 items) for deep search
+      
+      while (_hasMoreData && _nextPageStart != null && loadedCount < maxLoads && mounted) {
+        await _loadMoreFeedSilent();
+        loadedCount++;
+        
+        // Re-apply filter after each load
+        if (mounted) {
+          setState(() {
+            _applySearchFilter();
+          });
+        }
+      }
+      
+      debugPrint('🔍 Search: Loaded $loadedCount additional pages for search');
+      
+    } catch (e) {
+      debugPrint('Search load all error: $e');
+      // Don't show error - just stop loading
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingForSearch = false;
+        });
+      }
+    }
+  }
+  
+  /// Silent version of loadMoreFeed (no snackbars, for search)
+  Future<void> _loadMoreFeedSilent() async {
+    if (!_hasMoreData || _nextPageStart == null) return;
+    
+    try {
+      final baseUrl = widget.clientDetails['baseUrl'];
+      final clientAbbr = widget.clientDetails['client_abbr'];
+      final userId = widget.userData['userId'].toString();
+      final roleId = widget.userData['roleId'].toString();
+      final sessionId = widget.userData['sessionId'].toString();
+      final appKey = widget.userData['apiKey'].toString();
+      
+      final startParam = _nextPageStart is Map 
+          ? jsonEncode(_nextPageStart) 
+          : _nextPageStart;
+      
+      final response = await _apiService.getAppFeed(
+        baseUrl: baseUrl,
+        clientAbbr: clientAbbr,
+        userId: userId,
+        roleId: roleId,
+        sessionId: sessionId,
+        appKey: appKey,
+        start: startParam,
+        limit: 20,
+      );
+      
+      if (mounted) {
+        final List<dynamic> newItems = response['feed'] ?? [];
+        
+        if (newItems.isEmpty) {
+          _hasMoreData = false;
+          _nextPageStart = null;
+          return;
+        }
+        
+        // Filter out duplicates
+        final List<dynamic> uniqueNewItems = [];
+        for (var item in newItems) {
+          final itemId = item['itemId']?['N']?.toString() ?? '';
+          final timestamp = item['timeStamp']?['N']?.toString() ?? '';
+          final uniqueKey = '$itemId-$timestamp';
+          
+          if (itemId.isNotEmpty && !_loadedItemIds.contains(uniqueKey)) {
+            uniqueNewItems.add(item);
+            _loadedItemIds.add(uniqueKey);
+          }
+        }
+        
+        if (uniqueNewItems.isEmpty) {
+          _hasMoreData = false;
+          _nextPageStart = null;
+          return;
+        }
+        
+        final nextPage = response['next'];
+        final hasNext = nextPage != null && nextPage is Map && nextPage.isNotEmpty;
+        
+        _feedItems.addAll(uniqueNewItems);
+        _sortFeedByDate(_feedItems);
+        _nextPageStart = hasNext ? nextPage : null;
+        _hasMoreData = hasNext;
+        
+        // Cache in background
+        _cacheService.appendToCache(
+          userId: userId,
+          clientAbbr: clientAbbr,
+          sessionId: sessionId,
+          newItems: uniqueNewItems,
+          nextPage: hasNext ? nextPage : null,
+          hasMore: hasNext,
+        );
+      }
+    } catch (e) {
+      debugPrint('Silent load more error: $e');
+      // Stop loading on error (likely offline)
+      _hasMoreData = false;
+    }
   }
 
   // Apply search filter to feed items
@@ -777,10 +904,30 @@ class _FeedScreenState extends State<FeedScreen> {
     } catch (e) {
       debugPrint('Feed Screen - Load more error: $e');
       if (mounted) {
+        // Check if it's a network error
+        final isNetworkError = e.toString().toLowerCase().contains('socket') ||
+                               e.toString().toLowerCase().contains('connection') ||
+                               e.toString().toLowerCase().contains('network');
+        
         setState(() {
           _isLoadingMore = false;
-          // Don't set hasMoreData to false on error - allow retry
+          if (isNetworkError) {
+            _isOffline = true;
+            // Stop trying to load more when offline
+            _hasMoreData = false;
+          }
         });
+        
+        if (isNetworkError && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('You\'re offline', style: TextStyle(color: Colors.white)),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: AppTheme.warningColor,
+            ),
+          );
+        }
       }
     }
   }
@@ -1052,20 +1199,25 @@ class _FeedScreenState extends State<FeedScreen> {
                                       ),
                                       textAlign: TextAlign.center,
                                     ),
-                                    if (_searchQuery.isNotEmpty && _hasMoreData) ...[
+                                    if (_searchQuery.isNotEmpty && _isLoadingForSearch) ...[
+                                      const SizedBox(height: 20),
+                                      const CircularProgressIndicator(),
                                       const SizedBox(height: 12),
                                       Text(
-                                        'Searched ${_feedItems.length} ciculars',
+                                        'Searching all circulars...',
+                                        style: GoogleFonts.inter(
+                                          color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ] else if (_searchQuery.isNotEmpty && !_hasMoreData) ...[
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'Searched all ${_feedItems.length} circulars',
                                         style: GoogleFonts.inter(
                                           color: isDark ? Colors.grey.shade600 : Colors.grey.shade500,
                                           fontSize: 13,
                                         ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      FilledButton.icon(
-                                        onPressed: _loadMoreFeed,
-                                        icon: const Icon(Icons.search_rounded, size: 18),
-                                        label: const Text('Load More & Search'),
                                       ),
                                     ],
                                   ],
@@ -1098,8 +1250,8 @@ class _FeedScreenState extends State<FeedScreen> {
                           ),
                         ),
           
-          // Loading indicator at bottom when loading more
-          if (_isLoadingMore)
+          // Loading indicator at bottom
+          if (_isLoadingMore || (_searchQuery.isNotEmpty && _isLoadingForSearch))
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
@@ -1112,15 +1264,16 @@ class _FeedScreenState extends State<FeedScreen> {
                           const CircularProgressIndicator(),
                           const SizedBox(height: 12),
                           Text(
-                            _searchQuery.isNotEmpty 
-                                ? 'Loading more feeds to search...'
+                            (_searchQuery.isNotEmpty && _isLoadingForSearch)
+                                ? 'Searching older circulars...'
                                 : 'Loading more...',
                             style: GoogleFonts.inter(
                               color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
                               fontSize: 13,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          if (_searchQuery.isNotEmpty) ...[
+                          if (_searchQuery.isNotEmpty && !_isLoadingForSearch) ...[
                             const SizedBox(height: 4),
                             Text(
                               'Found ${_filteredFeedItems.length} matches so far',
@@ -1317,6 +1470,7 @@ class _FeedScreenState extends State<FeedScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
           onTap: () {
+            HapticFeedback.lightImpact();
             final itemId = (item['itemId'] != null && item['itemId']['N'] != null)
                 ? item['itemId']['N'] as String
                 : '';

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1020,6 +1021,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         }
       },
       child: Scaffold(
+        extendBody: true,
         body: PageView(
           controller: _pageController,
           physics: const ClampingScrollPhysics(),
@@ -1048,27 +1050,99 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             if (_pageController.hasClients && _pageController.position.hasContentDimensions) {
               page = _pageController.page ?? 0;
             }
-            return Container(
-              decoration: BoxDecoration(
-                color: isDark ? AppTheme.darkCardColor : Colors.white,
-                border: Border(
-                  top: BorderSide(
-                    color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
-                    width: 1,
-                  ),
-                ),
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                bottom: MediaQuery.of(context).padding.bottom + 8,
               ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildNavItemSmooth(0, Icons.home_outlined, Icons.home_rounded, 'Home', page),
-                      _buildNavItemSmooth(1, Icons.medical_services_outlined, Icons.medical_services_rounded, 'Leave', page),
-                      _buildNavItemSmooth(2, Icons.person_outline_rounded, Icons.person_rounded, 'Profile', page),
-                    ],
-                  ),
+              child: SizedBox(
+                height: 72,
+                child: Stack(
+                  children: [
+                    // Main dock container
+                    // Main dock container - Glass Effect
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.transparent, // Transparent for shadow only
+                        borderRadius: BorderRadius.circular(40),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(isDark ? 0.4 : 0.15),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                            spreadRadius: -2,
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(40),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isDark 
+                                  ? const Color(0xFF1A1A1A).withOpacity(0.15)
+                                  : Colors.white.withOpacity(0.75),
+                              borderRadius: BorderRadius.circular(40),
+                              border: Border.all(
+                                color: isDark 
+                                    ? Colors.white.withOpacity(0.12)
+                                    : Colors.white.withOpacity(0.4),
+                                width: 1.0,
+                              ),
+                            ),
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final itemWidth = constraints.maxWidth / 3;
+                                return Stack(
+                                  children: [
+                                    // Animated sliding pill indicator
+                                    AnimatedPositioned(
+                                      duration: const Duration(milliseconds: 350),
+                                      curve: Curves.fastLinearToSlowEaseIn, // Smoother "liquid" curve
+                                      left: (page * itemWidth) + 8,
+                                      top: 8,
+                                      bottom: 8,
+                                      width: itemWidth - 16,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              AppTheme.primaryColor.withOpacity(0.9),
+                                              AppTheme.primaryColor,
+                                            ],
+                                          ),
+                                          borderRadius: BorderRadius.circular(32),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: AppTheme.primaryColor.withOpacity(0.3),
+                                              blurRadius: 12,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    // Nav items row
+                                    Row(
+                                      children: [
+                                        _buildDockNavItem(0, Icons.home_rounded, 'Home', page),
+                                        _buildDockNavItem(1, Icons.event_note_rounded, 'Leave', page),
+                                        _buildDockNavItem(2, Icons.person_rounded, 'Profile', page),
+                                      ],
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -1078,66 +1152,75 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildNavItemSmooth(int index, IconData icon, IconData selectedIcon, String label, double currentPage) {
+  Widget _buildDockNavItem(int index, IconData icon, String label, double currentPage) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     // Calculate smooth interpolation based on page position
     final distance = (currentPage - index).abs();
     final scale = (1 - distance.clamp(0.0, 1.0));
-    final isSelected = scale > 0.5; // Use selected icon when more than halfway
+    final isSelected = scale > 0.5;
     
-    // Interpolate values
-    final horizontalPadding = 16 + (4 * scale); // 16 to 20
-    final bgOpacity = scale * (isDark ? 0.2 : 0.1);
+    // Color transition from grey to white when selected (icon sits on blue pill)
     final iconColor = Color.lerp(
       isDark ? Colors.grey.shade500 : Colors.grey.shade600,
-      AppTheme.primaryColor,
+      Colors.white,
       scale,
     )!;
     
-    return GestureDetector(
-      onTap: () {
-        if (index != currentPage.round() && mounted) {
-          HapticFeedback.lightImpact();
-          _pageController.animateToPage(
-            index,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOutCubic,
-          );
-        }
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: horizontalPadding,
-          vertical: 10,
-        ),
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor.withOpacity(bgOpacity),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected ? selectedIcon : icon,
-              size: 24,
-              color: iconColor,
-            ),
-            if (scale > 0.5) ...[
-              SizedBox(width: 8 * scale),
-              Opacity(
-                opacity: ((scale - 0.5) * 2).clamp(0.0, 1.0), // Fade in text from 0.5 to 1.0
-                child: Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.primaryColor,
-                  ),
+    final labelColor = Color.lerp(
+      isDark ? Colors.grey.shade600 : Colors.grey.shade500,
+      Colors.white,
+      scale,
+    )!;
+    
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          if (index != currentPage.round() && mounted) {
+            HapticFeedback.lightImpact();
+            _pageController.animateToPage(
+              index,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+            );
+          }
+        },
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: double.infinity,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Animated icon with scale
+              TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 200),
+                tween: Tween(begin: 1.0, end: isSelected ? 1.1 : 1.0),
+                curve: Curves.easeOutCubic,
+                builder: (context, iconScale, child) {
+                  return Transform.scale(
+                    scale: iconScale,
+                    child: Icon(
+                      icon,
+                      size: 26,
+                      color: iconColor,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 4),
+              // Label with fade animation
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 200),
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: labelColor,
+                  letterSpacing: 0.1,
                 ),
+                child: Text(label),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -1329,6 +1412,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     if (upcomingClasses.isEmpty) {
       return GestureDetector(
         onTap: () {
+          HapticFeedback.lightImpact();
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -1462,6 +1546,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     
     return GestureDetector(
       onTap: () {
+        HapticFeedback.lightImpact();
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -1702,7 +1787,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       color: isDark ? AppTheme.darkCardColor : Colors.white,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
         borderRadius: BorderRadius.circular(20),
         child: Container(
           padding: const EdgeInsets.all(20),
@@ -1798,7 +1886,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         ),
         if (onViewAll != null)
           TextButton.icon(
-            onPressed: onViewAll,
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              onViewAll();
+            },
             icon: const Icon(Icons.arrow_forward_rounded, size: 18),
             label: Text(
               'View All',
@@ -1841,6 +1932,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () {
+            HapticFeedback.lightImpact();
             Navigator.push(
               context,
               MaterialPageRoute(

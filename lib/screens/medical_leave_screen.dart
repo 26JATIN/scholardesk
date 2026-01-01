@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -234,28 +235,37 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ApplyLeaveScreen(
-                clientDetails: widget.clientDetails,
-                userData: widget.userData,
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom,
+        ),
+        child: FloatingActionButton.extended(
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ApplyLeaveScreen(
+                  clientDetails: widget.clientDetails,
+                  userData: widget.userData,
+                ),
               ),
+            ).then((_) => _fetchLeaveHistory()); // Refresh when returning
+          },
+          backgroundColor: AppTheme.primaryColor,
+          elevation: 8,
+          icon: const Icon(Icons.add_rounded, color: Colors.white),
+          label: Text(
+            'Apply Leave',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
             ),
-          ).then((_) => _fetchLeaveHistory()); // Refresh when returning
-        },
-        backgroundColor: AppTheme.primaryColor,
-        icon: const Icon(Icons.add_rounded),
-        label: Text(
-          'Apply Leave',
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
           ),
         ),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: RefreshIndicator(
         onRefresh: () async {
           await _fetchLeaveHistory();
@@ -268,7 +278,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
           SliverAppBar(
             pinned: true,
             expandedHeight: 120,
-            backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
+            backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
             surfaceTintColor: Colors.transparent,
             elevation: 0,
             leading: IconButton(
@@ -515,6 +525,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
+            HapticFeedback.lightImpact();
             // Navigate to leave detail page
             _showLeaveDetails(leave);
           },

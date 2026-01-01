@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -123,7 +124,10 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                     isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
                     color: isDark ? Colors.white : Colors.black87,
                   ),
-                  onPressed: () => themeService.toggleTheme(),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    themeService.toggleTheme();
+                  },
                 ),
               ],
             flexibleSpace: FlexibleSpaceBar(
@@ -374,7 +378,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
               const SizedBox(width: 16),
               Text(
                 'Preparing download...',
-                style: GoogleFonts.inter(),
+                style: GoogleFonts.inter(color: Colors.white),
               ),
             ],
           ),
@@ -415,7 +419,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                     Expanded(
                       child: Text(
                         'Opening file...',
-                        style: GoogleFonts.inter(),
+                        style: GoogleFonts.inter(color: Colors.white),
                       ),
                     ),
                   ],
@@ -441,7 +445,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                       Expanded(
                         child: Text(
                           'Could not open file',
-                          style: GoogleFonts.inter(),
+                          style: GoogleFonts.inter(color: Colors.white),
                         ),
                       ),
                     ],
@@ -463,7 +467,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                   Expanded(
                     child: Text(
                       'Download URL not available',
-                      style: GoogleFonts.inter(),
+                      style: GoogleFonts.inter(color: Colors.white),
                     ),
                   ),
                 ],
@@ -484,7 +488,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                 Expanded(
                   child: Text(
                     'Error: ${e.toString().replaceAll('Exception: ', '')}',
-                    style: GoogleFonts.inter(),
+                    style: GoogleFonts.inter(color: Colors.white),
                   ),
                 ),
               ],
@@ -602,7 +606,10 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                   color: Colors.transparent,
                   borderRadius: BorderRadius.circular(20),
                   child: InkWell(
-                    onTap: storedAs != null ? () => _downloadAttachment(storedAs) : null,
+                    onTap: storedAs != null ? () {
+                      HapticFeedback.lightImpact();
+                      _downloadAttachment(storedAs);
+                    } : null,
                     borderRadius: BorderRadius.circular(20),
                     child: Padding(
                       padding: const EdgeInsets.all(16),

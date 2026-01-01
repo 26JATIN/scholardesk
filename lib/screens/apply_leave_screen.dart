@@ -288,7 +288,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
       appBar: AppBar(
-        backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
+        backgroundColor: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
         elevation: 0,
         leading: IconButton(
           icon: Icon(
@@ -504,7 +504,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
             }
 
             return Container(
-              height: MediaQuery.of(context).size.height * 0.75,
+              height: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top,
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.darkCardColor : Colors.white,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -560,7 +560,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                         // Search bar
                         TextField(
                           controller: searchController,
-                          autofocus: true,
+                          autofocus: false,
                           onChanged: filterCategories,
                           style: GoogleFonts.inter(
                             fontSize: 14,

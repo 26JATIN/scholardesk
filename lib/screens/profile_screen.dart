@@ -1150,6 +1150,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Profile Picture with error handling - make it clickable
             GestureDetector(
               onTap: () {
+                HapticFeedback.lightImpact();
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -1320,7 +1321,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
-          onTap: item.action,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            item.action();
+          },
           borderRadius: BorderRadius.circular(20),
           child: Padding(
             padding: const EdgeInsets.all(16),
