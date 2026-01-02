@@ -128,8 +128,8 @@ class WhatsNewContent {
   /// List of new features in this patch
   static List<WhatsNewFeature> get features => [
     const WhatsNewFeature(
-      title: 'Attendance Register',
-      description: 'View your detailed attendance register with a beautiful calendar view. See lecture-wise attendance for each subject!',
+      title: 'Ui refinements',
+      description: 'Ui refinements',
       icon: Icons.calendar_month_rounded,
     ),
   ];

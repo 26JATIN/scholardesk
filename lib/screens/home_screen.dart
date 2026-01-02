@@ -68,8 +68,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   // Cache state
   
   String? _userName;
-  String? _currentSemester;
-  String? _currentGroup;
+  String? _sessionPeriod; // e.g. "Jan - Jun" or "Jul - Dec"
 
   @override
   bool get wantKeepAlive => true; // Keep state alive for smooth transitions
@@ -167,18 +166,42 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       _fetchFeed(),
       _fetchTimetable(),
       _fetchAttendance(),
-      _fetchSubjectsData(), // Fetch subjects to get semester & group
+      _fetchSubjectsData(), // Fetch subjects to get group
       _fetchSubjectDetails(), // Fetch detailed subject info
     ]);
+    
+    // Load session period (e.g. "Jan - Jun")
+    _loadSessionPeriod();
   }
 
   Future<void> _loadSemesterInfo() async {
-    final semesterInfo = await _apiService.getSemesterInfo();
-    if (mounted) {
-      setState(() {
-        _currentSemester = semesterInfo['semester'];
-        _currentGroup = semesterInfo['group'];
-      });
+    // No longer needed - we only use session period now
+  }
+  
+  void _loadSessionPeriod() {
+    // Extract session period from session name (e.g. "Jul - Dec 2024" -> "Jul - Dec")
+    String? sessionName = widget.userData['sessionName'];
+    
+    if (sessionName != null && sessionName.isNotEmpty) {
+      // Try to extract month range (e.g. "Jan - Jun" or "Jul - Dec")
+      // Common formats: "Jul - Dec 2024", "Jan 2024 - Jun 2024", "2024-25"
+      final parts = sessionName.split(' ');
+      
+      if (parts.length >= 3 && parts[1] == '-') {
+        // Format: "Jul - Dec 2024" or "Jan - Jun 2025"
+        _sessionPeriod = '${parts[0]} - ${parts[2]}';
+      } else if (sessionName.contains('-')) {
+        // Format: "2024-25" or other
+        _sessionPeriod = sessionName;
+      } else {
+        _sessionPeriod = sessionName;
+      }
+      
+      debugPrint('📅 Session Period: $_sessionPeriod');
+      
+      if (mounted) {
+        setState(() {});
+      }
     }
   }
 
@@ -200,12 +223,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         appKey: appKey,
       );
 
-      // Parse semester and group from subjects
+      // Parse group from subjects (semester is now from session period)
       _parseSubjectsForInfo(htmlContent);
     } catch (e) {
       debugPrint('Error fetching subjects: $e');
     }
   }
+
+
 
   void _parseSubjectsForInfo(String htmlContent) {
     // Clean the HTML
@@ -216,38 +241,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
     final document = html_parser.parse(cleanHtml);
 
-    // Get semester from heading - e.g., "Subject(s) Details (5 SEM)"
-    final heading = document.querySelector('.heading');
-    String? semester;
-    if (heading != null) {
-      semester = ApiService.parseSemesterFromText(heading.text.trim());
-    }
-
-    // Get group from first subject
-    String? group;
-    final subjectWraps = document.querySelectorAll('.ui-subject-wrap');
-    for (var wrap in subjectWraps) {
-      final details = wrap.querySelectorAll('.ui-subject-detail');
-      for (var detail in details) {
-        final text = detail.text.trim();
-        if (text.contains('Group:')) {
-          group = text.replaceFirst('Group:', '').trim();
-          break;
-        }
-      }
-      if (group != null) break;
-    }
-
-    // Save and update state
-    if (semester != null || group != null) {
-      _apiService.saveSemesterInfo(semester: semester, group: group);
-      if (mounted) {
-        setState(() {
-          if (semester != null) _currentSemester = semester;
-          if (group != null) _currentGroup = group;
-        });
-      }
-    }
+    // We no longer parse semester or group from subjects
   }
 
   Future<void> _fetchSubjectDetails({bool forceRefresh = false}) async {
@@ -306,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         userId: userId,
         clientAbbr: clientAbbr,
         sessionId: sessionId,
-        semesterTitle: _currentSemester != null ? 'Sem $_currentSemester' : 'Subjects',
+        semesterTitle: 'Subjects',
         subjects: _subjectDetails.map((s) => CachedSubject(
           name: s.name,
           specialization: s.specialization,
@@ -1307,47 +1301,21 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     color: textColor,
                   ),
                 ),
-                if (_currentSemester != null || _currentGroup != null)
+                if (_sessionPeriod != null)
                   Container(
                     margin: const EdgeInsets.only(top: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_currentSemester != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'Sem $_currentSemester',
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        if (_currentSemester != null && _currentGroup != null)
-                          const SizedBox(width: 6),
-                        if (_currentGroup != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppTheme.accentColor,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              _currentGroup!,
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                      ],
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      _sessionPeriod!,
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
               ],

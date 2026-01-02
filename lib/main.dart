@@ -106,9 +106,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // Use clamping scroll physics on web (better iOS Safari performance)
       // and bouncing physics on native mobile for natural feel
       scrollBehavior: const MaterialScrollBehavior().copyWith(
-        physics: kIsWeb 
-            ? const ClampingScrollPhysics(parent: AlwaysScrollableScrollPhysics())
-            : const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       ),
       builder: (context, child) {
         // Wrap in phone mockup for web
