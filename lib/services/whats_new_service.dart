@@ -128,9 +128,9 @@ class WhatsNewContent {
   /// List of new features in this patch
   static List<WhatsNewFeature> get features => [
     const WhatsNewFeature(
-      title: 'Ui refinements',
-      description: 'Ui refinements',
-      icon: Icons.calendar_month_rounded,
+      title: 'Smart Filter Section',
+      description: 'Quickly filter circulars with dedicated tabs for Timetable, CHO (Course Handouts), and Seating Plan - find what you need instantly!',
+      icon: Icons.filter_list_rounded,
     ),
   ];
 }

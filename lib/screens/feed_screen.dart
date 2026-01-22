@@ -42,6 +42,20 @@ class _FeedScreenState extends State<FeedScreen> {
   String _cacheAge = '';
   int _newItemsCount = 0; // Track new items fetched during refresh
   bool _isLoadingForSearch = false; // Track if we're loading all items for search
+  
+  // Filter state
+  String _selectedFilter = 'All'; // 'All', 'Timetable', 'CHO', 'Seating Plan'
+  
+  // Filter keywords
+  static const List<String> _timetableKeywords = [
+    'timetable', 'time_table', 'time table', 'schedule', 'time-table'
+  ];
+  
+  static const List<String> _seatingPlanKeywords = [
+    'seating plan', 'seatingplan', 'seating_plan', 'seating-plan'
+  ];
+  // Note: CHO is handled separately with word boundary regex
+  // This list is for other course handout related terms
 
   @override
   void initState() {
@@ -103,8 +117,15 @@ class _FeedScreenState extends State<FeedScreen> {
     final isNearBottom = _scrollController.position.pixels >= 
         _scrollController.position.maxScrollExtent - 300;
     
-    if (isNearBottom && !_isLoadingMore && _hasMoreData) {
-      debugPrint('🔄 Triggering load more...');
+    // For filters: load more aggressively to ensure we have enough filtered items
+    // For search: handled separately by _loadAllForSearch
+    final shouldLoadMore = isNearBottom && 
+                          !_isLoadingMore && 
+                          _hasMoreData && 
+                          !_isLoadingForSearch;
+    
+    if (shouldLoadMore) {
+      debugPrint('🔄 Triggering load more... (Filter: $_selectedFilter, Filtered: ${_filteredFeedItems.length}/${_feedItems.length})');
       _loadMoreFeed();
     }
   }
@@ -345,15 +366,93 @@ class _FeedScreenState extends State<FeedScreen> {
 
   // Apply search filter to feed items
   void _applySearchFilter() {
-    if (_searchQuery.isEmpty) {
-      _filteredFeedItems = List.from(_feedItems);
-    } else {
-      _filteredFeedItems = _feedItems.where((item) {
+    List<dynamic> filtered = List.from(_feedItems);
+    
+    // Apply category filter first
+    if (_selectedFilter != 'All') {
+      filtered = filtered.where((item) {
+        final title = (item['title']?['S'] ?? '').toLowerCase();
+        final desc = (item['desc']?['S'] ?? '').toLowerCase();
+        final combinedText = '$title $desc';
+        
+        if (_selectedFilter == 'Timetable') {
+          // Normalize spaces and special characters for timetable
+          final normalizedText = combinedText
+              .replaceAll(RegExp(r'\s+'), ' ')
+              .replaceAll('_', ' ')
+              .replaceAll('-', ' ');
+          final matches = _timetableKeywords.any((keyword) => 
+            normalizedText.contains(keyword.toLowerCase()));
+          return matches;
+        } else if (_selectedFilter == 'CHO') {
+          // Special handling for CHO - must be word boundary or with _ or -
+          if (RegExp(r'(?:^|[\s_-])cho(?:[\s_-]|$)', caseSensitive: false).hasMatch(combinedText)) {
+            return true;
+          }
+          
+          // Check other course handout keywords
+          final normalizedText = combinedText
+              .replaceAll(RegExp(r'\s+'), ' ')
+              .replaceAll('_', ' ')
+              .replaceAll('-', ' ');
+          
+          final otherKeywords = ['course handouts', 'course handout', 'handout', 'handouts'];
+          final matches = otherKeywords.any((keyword) => 
+            normalizedText.contains(keyword.toLowerCase()));
+          return matches;
+        } else if (_selectedFilter == 'Seating Plan') {
+          // Normalize spaces and special characters for seating plan
+          final normalizedText = combinedText
+              .replaceAll(RegExp(r'\s+'), ' ')
+              .replaceAll('_', ' ')
+              .replaceAll('-', ' ');
+          final matches = _seatingPlanKeywords.any((keyword) => 
+            normalizedText.contains(keyword.toLowerCase()));
+          return matches;
+        }
+        return false;
+      }).toList();
+      
+      debugPrint('🔍 Filter: ${_selectedFilter} - Found ${filtered.length} items');
+    }
+    
+    // Then apply search query
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((item) {
         final title = (item['title']?['S'] ?? '').toLowerCase();
         final desc = (item['desc']?['S'] ?? '').toLowerCase();
         return title.contains(_searchQuery) || desc.contains(_searchQuery);
       }).toList();
     }
+    
+    _filteredFeedItems = filtered;
+    
+    // Auto-load more items if filter results are too few
+    // This ensures users don't see empty screens when filtering
+    if (_selectedFilter != 'All' && 
+        filtered.length < 5 && 
+        _hasMoreData && 
+        !_isLoadingMore &&
+        !_isLoadingForSearch) {
+      debugPrint('🔄 Auto-loading more items for filter (only ${filtered.length} items found)');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _hasMoreData && !_isLoadingMore) {
+          _loadMoreFeed();
+        }
+      });
+    }
+  }
+  
+  // Change filter category
+  void _changeFilter(String filter) {
+    if (_selectedFilter == filter) return;
+    
+    setState(() {
+      _selectedFilter = filter;
+      _applySearchFilter();
+    });
+    
+    HapticFeedback.selectionClick();
   }
 
   // Build text with highlighted search matches
@@ -478,7 +577,7 @@ class _FeedScreenState extends State<FeedScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('${trulyNewItems.length} new cicular${trulyNewItems.length > 1 ? 's' : ''}'),
+                content: Text('${trulyNewItems.length} new circular${trulyNewItems.length > 1 ? 's' : ''}'),
                 duration: const Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
                 backgroundColor: AppTheme.successColor,
@@ -962,8 +1061,7 @@ class _FeedScreenState extends State<FeedScreen> {
             cacheExtent: 500, // Cache items 500px outside viewport
             slivers: [
               // Modern App Bar
-              SliverAppBar.large(
-                expandedHeight: 140,
+              SliverAppBar(
                 floating: false,
                 pinned: true,
                 backgroundColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
@@ -972,35 +1070,31 @@ class _FeedScreenState extends State<FeedScreen> {
                     color: isDark ? Colors.white : Colors.black87),
                   onPressed: () => Navigator.pop(context),
                 ),
-            flexibleSpace: FlexibleSpaceBar(
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Ciculars',
-                    style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                  if (_isRefreshingInBackground) ...[
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: isDark ? Colors.white70 : Colors.black54,
+                title: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Circulars',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        color: isDark ? Colors.white : Colors.black87,
                       ),
                     ),
+                    if (_isRefreshingInBackground) ...[
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: isDark ? Colors.white70 : Colors.black54,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
-              ),
-              background: Container(
-                color: isDark ? AppTheme.darkSurfaceColor : AppTheme.secondaryColor.withOpacity(0.1),
-              ),
-            ),
-            actions: [
+                ),
+                actions: [
               // New items indicator
               if (_newItemsCount > 0)
                 Padding(
@@ -1070,13 +1164,14 @@ class _FeedScreenState extends State<FeedScreen> {
 
           // Search Bar
           SliverPersistentHeader(
+            key: ValueKey('search-$isDark'),
             pinned: true,
             delegate: _SearchBarDelegate(
               child: Builder(
                 builder: (context) {
                   final isDark = Theme.of(context).brightness == Brightness.dark;
                   return Container(
-                    color: isDark ? AppTheme.darkSurfaceColor : Theme.of(context).scaffoldBackgroundColor,
+                    color: isDark ? AppTheme.darkSurfaceColor : Colors.white,
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                     child: Container(
                       decoration: BoxDecoration(
@@ -1093,7 +1188,7 @@ class _FeedScreenState extends State<FeedScreen> {
                       child: TextField(
                         controller: _searchController,
                         decoration: InputDecoration(
-                          hintText: 'Search ciculars...',
+                          hintText: 'Search circulars...',
                           hintStyle: GoogleFonts.inter(
                             color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                           ),
@@ -1125,6 +1220,16 @@ class _FeedScreenState extends State<FeedScreen> {
                   );
                 },
               ),
+            ),
+          ),
+
+          // Filter Tabs
+          SliverPersistentHeader(
+            key: ValueKey('filter-$isDark'),
+            pinned: true,
+            delegate: _FilterTabDelegate(
+              selectedFilter: _selectedFilter,
+              onFilterChanged: _changeFilter,
             ),
           ),
 
@@ -1191,7 +1296,7 @@ class _FeedScreenState extends State<FeedScreen> {
                                     const SizedBox(height: 16),
                                     Text(
                                       _searchQuery.isEmpty
-                                          ? 'No ciculars yet'
+                                          ? 'No circulars yet'
                                           : 'No results found for "$_searchQuery"',
                                       style: GoogleFonts.inter(
                                         color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
@@ -1251,7 +1356,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         ),
           
           // Loading indicator at bottom
-          if (_isLoadingMore || (_searchQuery.isNotEmpty && _isLoadingForSearch))
+          if (_isLoadingMore)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
@@ -1264,8 +1369,8 @@ class _FeedScreenState extends State<FeedScreen> {
                           const CircularProgressIndicator(),
                           const SizedBox(height: 12),
                           Text(
-                            (_searchQuery.isNotEmpty && _isLoadingForSearch)
-                                ? 'Searching older circulars...'
+                            _selectedFilter != 'All'
+                                ? 'Loading more ${_selectedFilter == 'CHO' ? 'CHO' : _selectedFilter.toLowerCase()}...'
                                 : 'Loading more...',
                             style: GoogleFonts.inter(
                               color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
@@ -1273,62 +1378,45 @@ class _FeedScreenState extends State<FeedScreen> {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          if (_searchQuery.isNotEmpty && !_isLoadingForSearch) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              'Found ${_filteredFeedItems.length} matches so far',
-                              style: GoogleFonts.inter(
-                                color: AppTheme.successColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
                         ],
                       );
                     },
                   ),
                 ),
               ),
-            ),
-          
-          // Load More button when there's more data
-          if (!_isLoadingMore && _hasMoreData && _feedItems.isNotEmpty)
+            )
+          else if (_searchQuery.isNotEmpty && _isLoadingForSearch)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Center(
-                  child: Column(
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: _loadMoreFeed,
-                        icon: const Icon(Icons.expand_more_rounded),
-                        label: Text(_searchQuery.isNotEmpty 
-                            ? 'Load More (Searching...)' 
-                            : 'Load More'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                  child: Builder(
+                    builder: (context) {
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
+                      return Column(
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Searching older circulars...',
+                            style: GoogleFonts.inter(
+                              color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                      ),
-                      if (_searchQuery.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Builder(
-                          builder: (context) {
-                            final isDark = Theme.of(context).brightness == Brightness.dark;
-                            return Text(
-                              'Showing ${_filteredFeedItems.length} of ${_feedItems.length} loaded',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ],
+                          const SizedBox(height: 4),
+                          Text(
+                            'Found ${_filteredFeedItems.length} matches so far',
+                            style: GoogleFonts.inter(
+                              color: AppTheme.successColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -1553,28 +1641,23 @@ class _FeedScreenState extends State<FeedScreen> {
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: _buildHighlightedText(
-                            title,
-                            _searchQuery,
-                            GoogleFonts.outfit(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black87,
-                            ),
-                            maxLines: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildHighlightedText(
+                                title,
+                                _searchQuery,
+                                GoogleFonts.outfit(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                  height: 1.3,
+                                ),
+                                maxLines: 10, // Show complete heading
+                              ),
+                            ],
                           ),
                         ),
-                        if (time.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            time,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
                         const SizedBox(width: 8),
                         Icon(
                           Icons.arrow_forward_ios_rounded,
@@ -1601,6 +1684,29 @@ class _FeedScreenState extends State<FeedScreen> {
                           ),
                           maxLines: 3,
                         ),
+                      ),
+                    ],
+                    // Time at bottom right
+                    if (time.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Icon(
+                            Icons.access_time_rounded,
+                            size: 14,
+                            color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            time,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ],
@@ -1638,5 +1744,127 @@ class _SearchBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(_SearchBarDelegate oldDelegate) {
     return false;
+  }
+}
+
+// Filter Tab Delegate for Sticky Header
+class _FilterTabDelegate extends SliverPersistentHeaderDelegate {
+  final String selectedFilter;
+  final Function(String) onFilterChanged;
+
+  _FilterTabDelegate({
+    required this.selectedFilter,
+    required this.onFilterChanged,
+  });
+
+  @override
+  double get minExtent => 60;
+
+  @override
+  double get maxExtent => 60;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Container(
+      height: 60,
+      color: isDark ? AppTheme.darkSurfaceColor : Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildFilterChipStatic('All', selectedFilter, onFilterChanged, isDark),
+            const SizedBox(width: 8),
+            _buildFilterChipStatic('Timetable', selectedFilter, onFilterChanged, isDark),
+            const SizedBox(width: 8),
+            _buildFilterChipStatic('CHO', selectedFilter, onFilterChanged, isDark),
+            const SizedBox(width: 8),
+            _buildFilterChipStatic('Seating Plan', selectedFilter, onFilterChanged, isDark),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChipStatic(String label, String selectedFilter, Function(String) onTap, bool isDark) {
+    final isSelected = selectedFilter == label;
+    
+    // Determine icon based on label
+    IconData icon;
+    if (label == 'All') {
+      icon = Icons.grid_view_rounded;
+    } else if (label == 'Timetable') {
+      icon = Icons.calendar_month_rounded;
+    } else if (label == 'CHO') {
+      icon = Icons.menu_book_rounded;
+    } else if (label == 'Seating Plan') {
+      icon = Icons.event_seat_rounded;
+    } else {
+      icon = Icons.label_rounded;
+    }
+    
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap(label);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? AppTheme.primaryColor 
+              : (isDark ? AppTheme.darkCardColor : Colors.white),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected 
+                ? AppTheme.primaryColor 
+                : (isDark ? Colors.white.withOpacity(0.1) : Colors.grey.shade300),
+            width: 1.5,
+          ),
+          boxShadow: isSelected ? [
+            BoxShadow(
+              color: AppTheme.primaryColor.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ] : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isSelected 
+                  ? Colors.white 
+                  : (isDark ? Colors.white70 : Colors.black87),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: isSelected 
+                    ? Colors.white 
+                    : (isDark ? Colors.white70 : Colors.black87),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_FilterTabDelegate oldDelegate) {
+    // Always rebuild to ensure theme changes are reflected
+    return true;
   }
 }

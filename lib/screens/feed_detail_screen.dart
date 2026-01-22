@@ -108,8 +108,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
         body: CustomScrollView(
           slivers: [
             // Modern App Bar
-            SliverAppBar.large(
-              expandedHeight: 200,
+            SliverAppBar(
               floating: false,
               pinned: true,
               backgroundColor: isDark ? AppTheme.darkSurfaceColor : Colors.white,
@@ -117,6 +116,14 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                 icon: Icon(Icons.arrow_back_ios_rounded, 
                   color: isDark ? Colors.white : Colors.black87),
                 onPressed: () => Navigator.pop(context),
+              ),
+              title: Text(
+                'Circular',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
               ),
               actions: [
                 IconButton(
@@ -130,27 +137,6 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                   },
                 ),
               ],
-            flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                'Cicular',
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
-              ),
-              background: Container(
-                color: isDark ? AppTheme.darkSurfaceColor : AppTheme.primaryColor.withOpacity(0.1),
-                child: Center(
-                  child: Icon(
-                    Icons.campaign_rounded,
-                    size: 80,
-                    color: isDark 
-                        ? AppTheme.primaryColor.withOpacity(0.3) 
-                        : AppTheme.primaryColor.withOpacity(0.2),
-                  ),
-                ),
-              ),
-            ),
           ),
 
           // Content

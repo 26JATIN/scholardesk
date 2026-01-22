@@ -21,16 +21,32 @@ class MedicalLeaveScreen extends StatefulWidget {
   State<MedicalLeaveScreen> createState() => _MedicalLeaveScreenState();
 }
 
-class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
+class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   List<Map<String, dynamic>> _leaveHistory = [];
   bool _isLoading = true;
   String? _errorMessage;
+  late TabController _tabController;
+  int _selectedTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {
+          _selectedTabIndex = _tabController.index;
+        });
+      }
+    });
     _fetchLeaveHistory();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchLeaveHistory() async {
@@ -205,7 +221,19 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
   Map<String, List<Map<String, dynamic>>> _groupLeavesByMonth() {
     final Map<String, List<Map<String, dynamic>>> grouped = {};
     
-    for (var leave in _leaveHistory) {
+    // Filter leaves based on selected tab
+    final filteredLeaves = _leaveHistory.where((leave) {
+      final leaveType = (leave['type'] ?? '').toLowerCase();
+      if (_selectedTabIndex == 0) {
+        // Medical Leave tab - check if type contains 'medical'
+        return leaveType.contains('medical');
+      } else {
+        // Duty Leave tab - check if type contains 'duty'
+        return leaveType.contains('duty');
+      }
+    }).toList();
+    
+    for (var leave in filteredLeaves) {
       final month = leave['month'] ?? 'Unknown';
       if (!grouped.containsKey(month)) {
         grouped[month] = [];
@@ -244,19 +272,44 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
             HapticFeedback.lightImpact();
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => ApplyLeaveScreen(
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => ApplyLeaveScreen(
                   clientDetails: widget.clientDetails,
                   userData: widget.userData,
+                  initialLeaveType: _selectedTabIndex == 0 ? '2' : '1', // 2 = Medical, 1 = Duty
                 ),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  const begin = Offset(0.0, 1.0);
+                  const end = Offset.zero;
+                  const curve = Curves.easeInOutCubic;
+
+                  var tween = Tween(begin: begin, end: end).chain(
+                    CurveTween(curve: curve),
+                  );
+
+                  return SlideTransition(
+                    position: animation.drive(tween),
+                    child: child,
+                  );
+                },
+                transitionDuration: const Duration(milliseconds: 400),
               ),
             ).then((_) => _fetchLeaveHistory()); // Refresh when returning
           },
           backgroundColor: AppTheme.primaryColor,
           elevation: 8,
-          icon: const Icon(Icons.add_rounded, color: Colors.white),
+          icon: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              _selectedTabIndex == 0 
+                ? Icons.medical_services_rounded 
+                : Icons.work_outline_rounded,
+              key: ValueKey<int>(_selectedTabIndex),
+              color: Colors.white,
+            ),
+          ),
           label: Text(
-            'Apply Leave',
+            _selectedTabIndex == 0 ? 'Apply Medical Leave' : 'Apply Duty Leave',
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -306,13 +359,64 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
                 ),
               ),
             ),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(48),
+              child: Container(
+                color: isDark ? AppTheme.darkSurfaceColor : AppTheme.surfaceColor,
+                child: TabBar(
+                  controller: _tabController,
+                  labelColor: AppTheme.primaryColor,
+                  unselectedLabelColor: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                  indicatorColor: AppTheme.primaryColor,
+                  indicatorWeight: 3,
+                  labelStyle: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  unselectedLabelStyle: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  tabs: const [
+                    Tab(
+                      icon: Icon(Icons.medical_services_rounded, size: 20),
+                      text: 'Medical Leave',
+                    ),
+                    Tab(
+                      icon: Icon(Icons.work_outline_rounded, size: 20),
+                      text: 'Duty Leave',
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
           SliverToBoxAdapter(
-            child: _isLoading
-                ? _buildLoadingState()
-                : _errorMessage != null
-                    ? _buildErrorState()
-                    : _buildLeaveHistory(isDark),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              switchInCurve: Curves.easeInOut,
+              switchOutCurve: Curves.easeInOut,
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.0, 0.05),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                );
+              },
+              child: Container(
+                key: ValueKey<int>(_selectedTabIndex),
+                child: _isLoading
+                    ? _buildLoadingState()
+                    : _errorMessage != null
+                        ? _buildErrorState()
+                        : _buildLeaveHistory(isDark),
+              ),
+            ),
           ),
         ],
         ),
@@ -375,12 +479,12 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
   }
 
   Widget _buildLeaveHistory(bool isDark) {
-    if (_leaveHistory.isEmpty) {
+    final groupedLeaves = _groupLeavesByMonth();
+    
+    if (groupedLeaves.isEmpty) {
       return _buildEmptyState(isDark);
     }
 
-    final groupedLeaves = _groupLeavesByMonth();
-    
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -392,19 +496,20 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
   }
 
   Widget _buildEmptyState(bool isDark) {
+    final isMedialTab = _selectedTabIndex == 0;
     return Padding(
       padding: const EdgeInsets.all(32.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.medical_services_outlined,
+            isMedialTab ? Icons.medical_services_outlined : Icons.work_outline_rounded,
             size: 64,
             color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
           ),
           const SizedBox(height: 16),
           Text(
-            'No Leave History',
+            isMedialTab ? 'No Medical Leave History' : 'No Duty Leave History',
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -413,7 +518,9 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'You haven\'t applied for any leaves yet',
+            isMedialTab 
+              ? 'You haven\'t applied for any medical leaves yet' 
+              : 'You haven\'t applied for any duty leaves yet',
             style: GoogleFonts.inter(
               fontSize: 14,
               color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
@@ -758,6 +865,23 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
         debugPrint('🧹 Removed approval/cancellation fields for pending status');
       }
       
+      // If status is rejected, rename "Approved by" to "Rejected by" and "Approved on" to "Rejected on"
+      if (status.contains('reject')) {
+        final Map<String, String> renamedFields = {};
+        for (var entry in details.entries) {
+          String newKey = entry.key;
+          if (entry.key.toLowerCase().contains('approved by')) {
+            newKey = entry.key.replaceAll(RegExp(r'Approved by', caseSensitive: false), 'Rejected by');
+          } else if (entry.key.toLowerCase().contains('approved on')) {
+            newKey = entry.key.replaceAll(RegExp(r'Approved on', caseSensitive: false), 'Rejected on');
+          }
+          renamedFields[newKey] = entry.value;
+        }
+        details.clear();
+        details.addAll(renamedFields);
+        debugPrint('🔄 Renamed approval fields to rejection fields for rejected status');
+      }
+      
       debugPrint('✅ Parsed ${details.length} detail fields');
     } catch (e) {
       debugPrint('❌ Error parsing leave details: $e');
@@ -790,43 +914,42 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       enableDrag: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.3,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: isDark ? AppTheme.darkCardColor : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag handle - tappable area for dismiss
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+      builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkCardColor : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle - tappable area for dismiss
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
               ),
-              // Content
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            ),
+            // Content - scrollable only when needed
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Title
                     Text(
@@ -898,8 +1021,8 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> {
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

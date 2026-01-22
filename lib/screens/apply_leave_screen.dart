@@ -8,11 +8,13 @@ import '../theme/app_theme.dart';
 class ApplyLeaveScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
   final Map<String, dynamic> userData;
+  final String? initialLeaveType; // '1' = Duty Leave, '2' = Medical Leave
 
   const ApplyLeaveScreen({
     super.key,
     required this.clientDetails,
     required this.userData,
+    this.initialLeaveType,
   });
 
   @override
@@ -47,6 +49,10 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
   @override
   void initState() {
     super.initState();
+    // Set initial leave type if provided
+    if (widget.initialLeaveType != null) {
+      _leaveType = widget.initialLeaveType!;
+    }
     _fetchCategories();
   }
 
