@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
 
 /// Service to handle Shorebird code push updates
@@ -6,6 +7,8 @@ class ShorebirdService {
   static final ShorebirdService _instance = ShorebirdService._internal();
   factory ShorebirdService() => _instance;
   ShorebirdService._internal();
+
+  static const String _keyLastKnownPatch = 'shorebird_last_known_patch';
 
   final _updater = ShorebirdUpdater();
   
@@ -28,6 +31,48 @@ class ShorebirdService {
     } catch (e) {
       debugPrint('❌ Error getting patch number: $e');
       return null;
+    }
+  }
+
+  /// Check if the patch version has changed since last launch.
+  /// Returns true if caches should be invalidated (new patch detected).
+  /// Updates the stored patch number after checking.
+  Future<bool> hasPatchChanged() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastKnownPatch = prefs.getInt(_keyLastKnownPatch);
+      
+      int currentPatch;
+      if (isShorebirdAvailable) {
+        final patch = await _updater.readCurrentPatch();
+        currentPatch = patch?.number ?? 0;
+      } else {
+        // Debug/web builds - use 0 as base
+        currentPatch = 0;
+      }
+      
+      debugPrint('📦 Patch check: current=$currentPatch, lastKnown=$lastKnownPatch');
+      
+      // Store the current patch number
+      await prefs.setInt(_keyLastKnownPatch, currentPatch);
+      
+      // First launch (no stored value) - don't invalidate
+      if (lastKnownPatch == null) {
+        debugPrint('📦 First launch, storing patch number: $currentPatch');
+        return false;
+      }
+      
+      // Patch changed!
+      if (currentPatch != lastKnownPatch) {
+        debugPrint('🔄 Patch changed from $lastKnownPatch to $currentPatch - invalidating caches!');
+        return true;
+      }
+      
+      debugPrint('📦 Same patch ($currentPatch), caches are fine');
+      return false;
+    } catch (e) {
+      debugPrint('❌ Error checking patch change: $e');
+      return false;
     }
   }
 

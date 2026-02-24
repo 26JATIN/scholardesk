@@ -128,8 +128,8 @@ class WhatsNewContent {
   /// List of new features in this patch
   static List<WhatsNewFeature> get features => [
     const WhatsNewFeature(
-      title: 'Smart Filter Section',
-      description: 'Quickly filter circulars with dedicated tabs for Timetable, CHO (Course Handouts), and Seating Plan - find what you need instantly!',
+      title: 'Regular Update',
+      description: 'TimeTable, subjects and reportcards are now available',
       icon: Icons.filter_list_rounded,
     ),
   ];

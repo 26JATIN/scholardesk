@@ -144,7 +144,7 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
         sessionId: sessionId,
         roleId: roleId,
         appKey: appKey,
-        commonPageId: '84', // ID for Timetable
+        commonPageId: '85', // ID for Timetable
       );
 
       _parseTimetable(htmlContent);

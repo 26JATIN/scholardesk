@@ -161,17 +161,46 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     // First load cached semester info for instant display
     _loadSemesterInfo();
     
+    // Check if Shorebird patch changed - invalidate all caches if so
+    bool shouldForceRefresh = false;
+    if (!kIsWeb) {
+      shouldForceRefresh = await _shorebirdService.hasPatchChanged();
+      if (shouldForceRefresh) {
+        debugPrint('🔄 Patch update detected! Invalidating all caches...');
+        await _invalidateAllCaches();
+      }
+    }
+    
     // Fetch all data in parallel for faster loading
     await Future.wait([
-      _fetchFeed(),
-      _fetchTimetable(),
-      _fetchAttendance(),
+      _fetchFeed(forceRefresh: shouldForceRefresh),
+      _fetchTimetable(forceRefresh: shouldForceRefresh),
+      _fetchAttendance(forceRefresh: shouldForceRefresh),
       _fetchSubjectsData(), // Fetch subjects to get group
-      _fetchSubjectDetails(), // Fetch detailed subject info
+      _fetchSubjectDetails(forceRefresh: shouldForceRefresh),
     ]);
     
     // Load session period (e.g. "Jan - Jun")
     _loadSessionPeriod();
+  }
+
+  /// Invalidate all caches for the current user (after patch update)
+  Future<void> _invalidateAllCaches() async {
+    final userId = widget.userData['userId'].toString();
+    final clientAbbr = widget.clientDetails['client_abbr'];
+    final sessionId = widget.userData['sessionId'].toString();
+    
+    await Future.wait([
+      _timetableCacheService.init().then((_) =>
+        _timetableCacheService.clearCache(userId, clientAbbr, sessionId)),
+      _attendanceCacheService.init().then((_) =>
+        _attendanceCacheService.clearCache(userId, clientAbbr, sessionId)),
+      _subjectsCacheService.init().then((_) =>
+        _subjectsCacheService.clearCache(userId, clientAbbr, sessionId)),
+      _feedCacheService.clearCache(userId, clientAbbr, sessionId),
+    ]);
+    
+    debugPrint('🗑️ All caches invalidated for user $userId');
   }
 
   Future<void> _loadSemesterInfo() async {
@@ -559,7 +588,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         sessionId: sessionId,
         roleId: roleId,
         appKey: appKey,
-        commonPageId: '84',
+        commonPageId: '85',
       );
 
       _parseTimetable(htmlContent);
