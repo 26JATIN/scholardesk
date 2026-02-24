@@ -26,6 +26,8 @@ import 'timetable_screen.dart';
 import 'profile_screen.dart';
 import 'subjects_screen.dart';
 import 'medical_leave_screen.dart';
+import 'session_screen.dart';
+import 'personal_info_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -262,15 +264,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
 
   void _parseSubjectsForInfo(String htmlContent) {
-    // Clean the HTML
-    String cleanHtml = htmlContent.replaceAll(r'\"', '"').replaceAll(r'\/', '/');
-    if (cleanHtml.startsWith('"') && cleanHtml.endsWith('"')) {
-      cleanHtml = cleanHtml.substring(1, cleanHtml.length - 1);
-    }
-
-    final document = html_parser.parse(cleanHtml);
-
-    // We no longer parse semester or group from subjects
+    // No longer needed - we only use session period now
   }
 
   Future<void> _fetchSubjectDetails({bool forceRefresh = false}) async {
@@ -1322,28 +1316,56 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               mainAxisAlignment: MainAxisAlignment.end,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Hello, ${_userName?.split(' ').first ?? 'Student'}! 👋',
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 22,
-                    color: textColor,
+                GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PersonalInfoScreen(
+                          clientDetails: widget.clientDetails,
+                          userData: widget.userData,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Text(
+                    'Hello, ${_userName?.split(' ').first ?? 'Student'}! 👋',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                      color: textColor,
+                    ),
                   ),
                 ),
                 if (_sessionPeriod != null)
-                  Container(
-                    margin: const EdgeInsets.only(top: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _sessionPeriod!,
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SessionScreen(
+                            clientDetails: widget.clientDetails,
+                            userData: widget.userData,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _sessionPeriod!,
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -1389,6 +1411,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                             return _buildFeedCard(entry.value, entry.key);
                           }).toList(),
                         ),
+              // Extra space so last card isn't hidden behind floating nav bar
+              SizedBox(height: MediaQuery.of(context).padding.bottom + 100),
             ]),
           ),
         ),

@@ -30,8 +30,12 @@ void main() {
     ),
   );
   
-  // Enable edge-to-edge mode
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  // Enable edge-to-edge immersive sticky mode - hides status bar & nav pill
+  // They reappear on swipe and auto-hide again
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.immersiveSticky,
+    overlays: [], // Hide both status bar and navigation bar
+  );
   
   // Setup HTTP overrides (only does something on native platforms)
   setupHttpOverrides();
