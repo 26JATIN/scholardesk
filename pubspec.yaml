@@ -53,6 +53,9 @@ dependencies:
   animations: ^2.0.11
   flutter_native_splash: ^2.3.0
   shorebird_code_push: ^2.0.5
+  
+  # WebView for website login with captcha support
+  flutter_inappwebview: ^6.1.5
 
 dev_dependencies:
   flutter_test:

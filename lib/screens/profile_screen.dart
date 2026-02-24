@@ -20,6 +20,7 @@ import 'personal_info_screen.dart';
 import 'report_card.dart';
 import 'change_password_screen.dart';
 import 'fee_receipts_screen.dart';
+import 'web_login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final Map<String, dynamic> clientDetails;
@@ -704,6 +705,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         action: () => _handleMenuAction('About', null, null),
       ));
     }
+
+    // Add Website (Testing) item
+    if (!kIsWeb && !_menuItems.any((item) => item.name.toLowerCase() == 'website (testing)')) {
+      final logoutIndex = _menuItems.indexWhere((item) => item.name.toLowerCase() == 'logout');
+      final insertIndex = logoutIndex >= 0 ? logoutIndex : _menuItems.length;
+      
+      _menuItems.insert(insertIndex, ProfileMenuItem(
+        name: 'Website (Testing)',
+        action: () => _handleMenuAction('Website (Testing)', null, null),
+      ));
+    }
   }
 
   Future<void> _handleMenuAction(String name, String? href, String? onclick) async {
@@ -763,6 +775,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await _checkForUpdatesManually();
     } else if (name.toLowerCase() == 'about') {
       _showAboutDialog();
+    } else if (name.toLowerCase() == 'website (testing)') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => WebLoginScreen(
+            clientDetails: widget.clientDetails,
+            userData: widget.userData,
+          ),
+        ),
+      );
     } else {
       // Default handling
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1299,6 +1321,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       case 'about':
         iconData = Icons.info_rounded;
         accentColor = AppTheme.tertiaryColor;
+        break;
+      case 'website (testing)':
+        iconData = Icons.language_rounded;
+        accentColor = AppTheme.accentColor;
         break;
       case 'logout':
         iconData = Icons.logout_rounded;
