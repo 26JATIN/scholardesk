@@ -65,7 +65,7 @@ class FeeReceiptsCacheService {
       final receipts = receiptsJson.map((r) => CachedFeeReceipt.fromJson(r)).toList();
       final totalPaid = (data['totalPaid'] as num?)?.toDouble() ?? 0.0;
       
-      debugPrint('📦 Fee Receipts Cache: Loaded ${receipts.length} receipts from cache');
+
       
       return FeeReceiptsCacheResult(
         receipts: receipts,
@@ -74,7 +74,7 @@ class FeeReceiptsCacheService {
         isValid: isCacheValid(userId, clientAbbr),
       );
     } catch (e) {
-      debugPrint('Error reading fee receipts cache: $e');
+
       return null;
     }
   }
@@ -100,9 +100,9 @@ class FeeReceiptsCacheService {
       await _prefs!.setString(cacheKey, jsonEncode(data));
       await _prefs!.setInt(timestampKey, DateTime.now().millisecondsSinceEpoch);
       
-      debugPrint('💾 Fee Receipts Cache: Saved ${receipts.length} receipts to cache');
+
     } catch (e) {
-      debugPrint('Error saving fee receipts cache: $e');
+
     }
   }
   
@@ -116,7 +116,7 @@ class FeeReceiptsCacheService {
     await _prefs!.remove(cacheKey);
     await _prefs!.remove(timestampKey);
     
-    debugPrint('🗑️ Fee Receipts Cache: Cleared cache');
+
   }
   
   /// Get cache age as human-readable string

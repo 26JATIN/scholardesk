@@ -39,12 +39,12 @@ class WebPhoneMockup extends StatelessWidget {
     // Clamp scale
     scale = scale.clamp(0.5, 1.0);
     
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(
-            maxWidth: 600, // Limit width to be comfortable (like a wide phone/small tablet)
+            maxWidth: 430, // Mobile phone width - prevents tablet breakpoints
           ),
           child: Container(
             // Add a subtle shadow to separate app from black background

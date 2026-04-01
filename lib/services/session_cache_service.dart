@@ -83,7 +83,7 @@ class SessionCacheService {
     await _prefs!.setString(cacheKey, jsonEncode(cachedSessions));
     await _prefs!.setInt(cacheTimeKey, DateTime.now().millisecondsSinceEpoch);
     
-    debugPrint('📦 Cached ${sessions.length} sessions for user $userId');
+
   }
 
   /// Get cached sessions
@@ -115,7 +115,7 @@ class SessionCacheService {
         isValid: isValid,
       );
     } catch (e) {
-      debugPrint('❌ Error parsing sessions cache: $e');
+
       return null;
     }
   }
@@ -143,6 +143,6 @@ class SessionCacheService {
     await _prefs!.remove(_getCacheKey(userId, clientAbbr));
     await _prefs!.remove(_getCacheTimeKey(userId, clientAbbr));
     
-    debugPrint('🗑️ Cleared sessions cache for user $userId');
+
   }
 }

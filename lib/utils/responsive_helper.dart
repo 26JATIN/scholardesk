@@ -18,17 +18,17 @@ class ResponsiveHelper {
   
   // ============ BREAKPOINTS ============
   
-  /// Mobile: < 600px
-  bool get isMobile => screenWidth < 600;
+  /// Mobile: < 600px (or always on web)
+  bool get isMobile => kIsWeb || screenWidth < 600;
   
-  /// Tablet: 600-1024px
-  bool get isTablet => screenWidth >= 600 && screenWidth < 1024;
+  /// Tablet: 600-1024px (never on web)
+  bool get isTablet => !kIsWeb && screenWidth >= 600 && screenWidth < 1024;
   
-  /// Desktop: >= 1024px
-  bool get isDesktop => screenWidth >= 1024;
+  /// Desktop: >= 1024px (never on web)
+  bool get isDesktop => !kIsWeb && screenWidth >= 1024;
   
-  /// Large desktop: >= 1440px
-  bool get isLargeDesktop => screenWidth >= 1440;
+  /// Large desktop: >= 1440px (never on web)
+  bool get isLargeDesktop => !kIsWeb && screenWidth >= 1440;
   
   /// Is running in web browser
   static bool get isWebBrowser => kIsWeb;

@@ -478,7 +478,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
                   ],
                 ],
               ),
-              titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+              titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
             ),
             actions: [
               // Cache age indicator
@@ -639,7 +639,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
                   color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
-              titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+              titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
             ),
           ),
           SliverFillRemaining(

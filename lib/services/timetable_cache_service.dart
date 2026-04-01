@@ -69,7 +69,7 @@ class TimetableCacheService {
     await _prefs!.setInt(cacheTimeKey, DateTime.now().millisecondsSinceEpoch);
     
     int totalPeriods = timetable.values.fold(0, (sum, periods) => sum + periods.length);
-    debugPrint('📦 Cached timetable with $totalPeriods periods and ${subjectNames?.length ?? "preserved"} subject names');
+
   }
 
   /// Get cached timetable
@@ -112,7 +112,7 @@ class TimetableCacheService {
         isValid: isValid,
       );
     } catch (e) {
-      debugPrint('❌ Error parsing timetable cache: $e');
+
       return null;
     }
   }
@@ -145,6 +145,6 @@ class TimetableCacheService {
     await _prefs!.remove(subjectNamesCacheKey);
     await _prefs!.remove(cacheTimeKey);
     
-    debugPrint('🗑️ Cleared timetable cache for user $userId');
+
   }
 }

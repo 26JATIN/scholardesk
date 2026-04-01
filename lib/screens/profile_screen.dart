@@ -80,19 +80,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final clientAbbr = widget.clientDetails['client_abbr'];
     widget.userData['sessionId'].toString();
     
-    debugPrint('🔍 Loading profile for userId=$userId, clientAbbr=$clientAbbr');
+
     
     // Try to load from cache first
     // Try to load from cache first
     final cached = await _cacheService.getCachedBasicProfile(userId, clientAbbr);
     
-    debugPrint('📦 Cache result: ${cached != null ? "FOUND" : "NOT FOUND"}');
-    if (cached != null) {
-      debugPrint('📦 Cached name: ${cached.profile.name}');
-      debugPrint('📦 Cached photo: ${cached.profile.profileImageUrl}');
-      debugPrint('📦 Cached details: ${cached.profile.details}');
-      debugPrint('📦 Cached menu items: ${cached.profile.menuItems.length}');
-    }
+
     
     if (cached != null && mounted) {
       // Load cached data immediately - must set all state variables inside setState
@@ -117,16 +111,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _isOffline = false;
       });
       
-      debugPrint('✅ Loaded profile from cache: name=$_name, photo=$_profileImageUrl');
+
       
       // Check for updates in background if cache is old
       if (!cached.isValid) {
-        debugPrint('🔍 Cache is stale, refreshing in background...');
+
         _fetchProfileMenu(isBackgroundRefresh: true);
       }
     } else {
       // No cache, fetch from API
-      debugPrint('📭 No cache found, fetching from API');
+
       _fetchProfileMenu();
     }
   }
@@ -164,6 +158,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       String? jsonName = data['name'];
       String? jsonPhoto = data['photo'];
       
+      if (kIsWeb) {
+        debugPrint('🌐 Profile API keys: ${data.keys.toList()}');
+        debugPrint('🌐 jsonName: $jsonName, jsonPhoto: ${jsonPhoto != null ? "present" : "null"}');
+      }
+      
       // 2. Parse HTML content for detailed info
       String? htmlContent = data['content'];
       if (htmlContent == null) {
@@ -175,8 +174,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
 
+      if (kIsWeb) {
+        debugPrint('🌐 HTML content found: ${htmlContent != null ? "yes (${htmlContent!.length} chars)" : "no"}');
+      }
+
       if (htmlContent != null) {
         _parseHtml(htmlContent);
+      }
+      
+      if (kIsWeb) {
+        debugPrint('🌐 After parse: name=$_name, photo=${_profileImageUrl != null ? "present" : "null"}, roll=$_parsedRollNo, batch=$_parsedBatch');
       }
       
       // 3. Update state with parsed data or JSON fallback
@@ -200,7 +207,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
       
-      debugPrint('📦 Cached profile: name=$_name, photo=$_profileImageUrl, details=$_details');
+
       
       if (mounted) {
         setState(() {
@@ -230,19 +237,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           batch: _parsedBatch,
           group: _parsedGroup,
         );
-        debugPrint('Saved semester info: Sem=$_parsedSemester, Batch=$_parsedBatch, Group=$_parsedGroup');
+
       }
       
       // Only fetch from detailed API if we are missing critical info
       if (_name == null || _name!.isEmpty || _profileImageUrl == null || _details == null) {
-         debugPrint('Missing info, fetching from detailed API...');
+
          _fetchProfileDetails();
       } else {
-        debugPrint('Profile info parsed successfully from Menu API.');
+
       }
       
     } catch (e) {
-      debugPrint('Profile Screen - Error: $e');
+
       if (mounted) {
         // Check if it's a network error
         final errorStr = e.toString().toLowerCase();
@@ -364,7 +371,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final photoUrl = urlMatch.group(1)?.replaceAll(r'\/', '/');
           setState(() {
             _profileImageUrl = photoUrl;
-            debugPrint('Profile photo fetched from detailed API: $_profileImageUrl');
+
           });
         }
       }
@@ -388,7 +395,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final title = titles[i].text.trim();
           final value = values[i].text.trim().replaceFirst(':', '').trim();
           
-          debugPrint('Found Field: "$title" = "$value"');
+
           
           final lowerTitle = title.toLowerCase();
           
@@ -415,7 +422,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
              final value = cValues[i].text.trim().replaceFirst(':', '').trim();
              final lowerTitle = title.toLowerCase();
              
-             debugPrint('Found Custom Field: "$title" = "$value"');
+
              
              if (lowerTitle.contains('batch')) {
                fetchedBatch = value;
@@ -481,7 +488,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _details = detailsParts.join('\n');
             }
             
-            debugPrint('Profile details fetched from detailed API: $_name, $_details');
+
           });
         }
       }
@@ -502,10 +509,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           menuItems: _menuItems.map((item) => item.name).toList(),
         ),
       );
-      debugPrint('📦 Profile details cached after detailed API fetch: name=$_name, photo=$_profileImageUrl');
+
 
     } catch (e) {
-      debugPrint('Error fetching profile details: $e');
+
     }
   }
 
@@ -517,7 +524,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       cleanHtml = cleanHtml.substring(1, cleanHtml.length - 1);
     }
     
-    debugPrint('Cleaned HTML: $cleanHtml');
+
     final document = html_parser.parse(cleanHtml);
 
     // --- Extract Profile Header Info ---
@@ -525,14 +532,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     var profileBox = document.querySelector('.grid-profile-box');
     
     if (profileBox != null) {
-      debugPrint('Found .grid-profile-box');
+
       
       // 1. Photo URL
       // Look for the div with background-image
       final iconDiv = profileBox.querySelector('.grid-school-icon');
       if (iconDiv != null) {
         final style = iconDiv.attributes['style'] ?? '';
-        debugPrint('Found icon div style: $style');
+
         
         // Regex to find url(...)
         final urlMatch = RegExp(r'url\((.*?)\)').firstMatch(style);
@@ -543,26 +550,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           
           if (url.isNotEmpty) {
             _profileImageUrl = url;
-            debugPrint('Extracted Photo URL: $_profileImageUrl');
+
           }
         }
       } else {
-        debugPrint('Could not find .grid-school-icon');
+
       }
 
       // 2. Name and Details
       final nameDivs = profileBox.querySelectorAll('.grid-name');
-      debugPrint('Found ${nameDivs.length} .grid-name divs in Profile Box');
-      debugPrint('Profile Box Text: ${profileBox.text}');
+
       
       if (nameDivs.isNotEmpty) {
         _name = nameDivs[0].text.trim();
-        debugPrint('Extracted Name: $_name');
+
         
         if (nameDivs.length > 1) {
           // Format: "Roll. No: 2310990533, 2023-BE-CSE-5 SEM 5 SEM-G7-A"
           String rawDetails = nameDivs[1].text.trim();
-          debugPrint('Raw Details String: $rawDetails');
+
           
           // Split by comma to separate Roll No from the rest
           List<String> parts = rawDetails.split(',');
@@ -580,7 +586,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             String academicPart = '';
             if (parts.length > 1) {
               academicPart = parts.sublist(1).join(',').trim(); // "2023-BE-CSE-5 SEM 5 SEM-G7-A"
-              debugPrint('Academic Part to Parse: $academicPart');
+
               
               // Extract Batch (4 digits at start)
               final batchMatch = RegExp(r'^(\d{4})').firstMatch(academicPart);
@@ -602,7 +608,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _parsedGroup = groupMatch.group(1);
               }
               
-              debugPrint('Parsed from Menu: Roll=$_parsedRollNo, Batch=$_parsedBatch, Sem=$_parsedSemester, Group=$_parsedGroup');
+
             }
             
             // Construct initial details from what we parsed
@@ -634,7 +640,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
     } else {
-      debugPrint('Could not find .grid-profile-box');
+
     }
 
     // --- Extract Menu Items ---
@@ -1185,7 +1191,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 ),
                                 errorWidget: (context, url, error) {
-                                  debugPrint('Error loading profile image: $error');
+
                                   return Icon(Icons.person, size: 50, color: _profileBorderColor);
                                 },
                               ),

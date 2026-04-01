@@ -64,7 +64,7 @@ class ReportCardCacheService {
       final List<dynamic> semestersJson = data['semesters'] ?? [];
       final semesters = semestersJson.map((s) => CachedSemesterResult.fromJson(s)).toList();
       
-      debugPrint('📦 ReportCard Cache: Loaded ${semesters.length} semesters from cache');
+
       
       return ReportCardCacheResult(
         semesters: semesters,
@@ -72,7 +72,7 @@ class ReportCardCacheService {
         isValid: isCacheValid(userId, clientAbbr, sessionId),
       );
     } catch (e) {
-      debugPrint('Error reading report card cache: $e');
+
       return null;
     }
   }
@@ -97,9 +97,9 @@ class ReportCardCacheService {
       await _prefs!.setString(cacheKey, jsonEncode(data));
       await _prefs!.setInt(timestampKey, DateTime.now().millisecondsSinceEpoch);
       
-      debugPrint('💾 ReportCard Cache: Saved ${semesters.length} semesters to cache');
+
     } catch (e) {
-      debugPrint('Error saving report card cache: $e');
+
     }
   }
   
@@ -113,7 +113,7 @@ class ReportCardCacheService {
     await _prefs!.remove(cacheKey);
     await _prefs!.remove(timestampKey);
     
-    debugPrint('🗑️ ReportCard Cache: Cleared cache');
+
   }
   
   /// Get cache age as human-readable string

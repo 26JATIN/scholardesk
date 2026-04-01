@@ -97,7 +97,7 @@ class ApiService {
       if (cookies != null && cookies.isNotEmpty) {
         _headers['Cookie'] = cookies;
         _cookiesLoaded = true;
-        debugPrint('🍪 Web cookies received: $cookies');
+
       }
     }
   }
@@ -164,7 +164,7 @@ class ApiService {
           .map((e) => '${e.key}=${e.value}')
           .join('; ');
       
-      debugPrint('🍪 Saving cookies: $finalCookies');
+
       
       await prefs.setString(_keyCookies, finalCookies);
       _headers['Cookie'] = finalCookies;
@@ -502,11 +502,13 @@ class ApiService {
     );
 
     await _saveCookies(response);
+    _handleProxyResponse(response);
 
     if (response.statusCode == 200) {
-      debugPrint('getProfileMenu Response Body: ${response.body}');
+      if (kIsWeb) {
+        debugPrint('🌐 getProfileMenu web response length: ${response.body.length}');
+      }
       final decoded = json.decode(response.body);
-      debugPrint('getProfileMenu Decoded Type: ${decoded.runtimeType}');
       if (decoded is Map<String, dynamic>) {
         return decoded;
       } else if (decoded is String) {
@@ -724,7 +726,7 @@ class ApiService {
           return response.body;
         } catch (jsonError) {
           // If JSON parsing fails, assume it's plain HTML
-          debugPrint('Response is not JSON, returning as plain HTML');
+
           return response.body;
         }
       } else {
@@ -779,7 +781,7 @@ class ApiService {
           return data['content'] as String? ?? '';
         } catch (e) {
           // If JSON parsing fails, return response as is
-          debugPrint('Response is not JSON, returning as plain text');
+
           return response.body;
         }
       } else {
@@ -824,7 +826,7 @@ class ApiService {
         throw Exception('Failed to load categories: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('Error fetching categories: $e');
+
       throw Exception('Error fetching categories: $e');
     }
   }
@@ -845,8 +847,7 @@ class ApiService {
     
     final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/dutyMedicalLeaveAttachmentUpload');
     
-    debugPrint('🔄 Uploading leave attachment...');
-    debugPrint('📡 Upload URL: $url');
+
     
     // Ensure cookies are loaded
     await ensureCookiesLoaded();
@@ -856,9 +857,7 @@ class ApiService {
       final actualFileName = fileName ?? filePath.split('/').last;
       final extension = actualFileName.split('.').last;
       
-      debugPrint('📎 File path: $filePath');
-      debugPrint('📎 File name: $actualFileName, Extension: $extension');
-      debugPrint('🍪 Cookies loaded: ${_headers.containsKey('Cookie')}');
+
       
       var request = http.MultipartRequest('POST', url);
       
@@ -872,7 +871,7 @@ class ApiService {
       // Add cookies from headers
       if (_headers.containsKey('Cookie')) {
         request.headers['Cookie'] = _headers['Cookie']!;
-        debugPrint('🍪 Cookie header added');
+
       }
       request.headers['X-Requested-With'] = 'codebrigade.chalkpadpro.app';
       
@@ -888,7 +887,7 @@ class ApiService {
         'value3': userId,
       });
       
-      debugPrint('📋 Form fields: value1=$actualFileName, value2=$extension, value3=$userId');
+
       
       // Add file with explicit filename (not content URI)
       var multipartFile = await http.MultipartFile.fromPath(
@@ -898,9 +897,9 @@ class ApiService {
       );
       request.files.add(multipartFile);
       
-      debugPrint('📎 Multipart file added with filename: $actualFileName');
+
       
-      debugPrint('📤 Sending upload request...');
+
       
       // Send request
       var streamedResponse = await _httpClient.send(request);
@@ -908,8 +907,7 @@ class ApiService {
       
       await _saveCookies(response);
 
-      debugPrint('📥 Upload response: ${response.statusCode}');
-      debugPrint('📄 Upload body: ${response.body}');
+
 
       if (response.statusCode == 200) {
         // Server returns plain text in format: "fullname.pdf|randomname.pdf|"
@@ -928,9 +926,7 @@ class ApiService {
         final uploadedFullName = parts.isNotEmpty ? parts[0] : fileName;
         final uploadedShortName = parts.length > 1 ? parts[1] : uploadedFullName;
         
-        debugPrint('✅ File uploaded successfully');
-        debugPrint('   Full name: $uploadedFullName');
-        debugPrint('   Short name (for deletion): $uploadedShortName');
+
         
         return {
           'success': true,
@@ -943,7 +939,7 @@ class ApiService {
         throw Exception('Failed to upload file: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('❌ Error uploading file: $e');
+
       throw Exception('Error uploading file: $e');
     }
   }
@@ -959,8 +955,7 @@ class ApiService {
   }) async {
     final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/dutyMedicalLeaveAttachmentUpload');
     
-    debugPrint('🔄 Uploading leave attachment (bytes)...');
-    debugPrint('📡 Upload URL: $url');
+
     
     // Ensure cookies are loaded
     await ensureCookiesLoaded();
@@ -968,9 +963,7 @@ class ApiService {
     try {
       final extension = fileName.split('.').last;
       
-      debugPrint('📎 File name: $fileName, Extension: $extension');
-      debugPrint('📎 File size: ${fileBytes.length} bytes');
-      debugPrint('🍪 Cookies loaded: ${_headers.containsKey('Cookie')}');
+
       
       var request = http.MultipartRequest('POST', url);
       
@@ -984,7 +977,7 @@ class ApiService {
       // Add cookies from headers
       if (_headers.containsKey('Cookie')) {
         request.headers['Cookie'] = _headers['Cookie']!;
-        debugPrint('🍪 Cookie header added');
+
       }
       request.headers['X-Requested-With'] = 'codebrigade.chalkpadpro.app';
       
@@ -1000,7 +993,7 @@ class ApiService {
         'value3': userId,
       });
       
-      debugPrint('📋 Form fields: value1=$fileName, value2=$extension, value3=$userId');
+
       
       // Add file from bytes
       var multipartFile = http.MultipartFile.fromBytes(
@@ -1010,8 +1003,8 @@ class ApiService {
       );
       request.files.add(multipartFile);
       
-      debugPrint('📎 Multipart file added with filename: $fileName');
-      debugPrint('📤 Sending upload request...');
+
+
       
       // Send request
       var streamedResponse = await _httpClient.send(request);
@@ -1020,8 +1013,7 @@ class ApiService {
       await _saveCookies(response);
       _handleProxyResponse(response);
 
-      debugPrint('📥 Upload response: ${response.statusCode}');
-      debugPrint('📄 Upload body: ${response.body}');
+
 
       if (response.statusCode == 200) {
         // Server returns plain text in format: "fullname.pdf|randomname.pdf|"
@@ -1037,9 +1029,7 @@ class ApiService {
         final uploadedFullName = parts.isNotEmpty ? parts[0] : fileName;
         final uploadedShortName = parts.length > 1 ? parts[1] : uploadedFullName;
         
-        debugPrint('✅ File uploaded successfully');
-        debugPrint('   Full name: $uploadedFullName');
-        debugPrint('   Short name (for deletion): $uploadedShortName');
+
         
         return {
           'success': true,
@@ -1052,7 +1042,7 @@ class ApiService {
         throw Exception('Failed to upload file: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('❌ Error uploading file: $e');
+
       throw Exception('Error uploading file: $e');
     }
   }
@@ -1064,9 +1054,7 @@ class ApiService {
   }) async {
     final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/removeDutyMedicalLeaveAttachment');
     
-    debugPrint('🗑️ Removing leave attachment...');
-    debugPrint('📡 Remove URL: $url');
-    debugPrint('📎 File to remove: $fileName');
+
     
     // Ensure cookies are loaded
     await ensureCookiesLoaded();
@@ -1084,8 +1072,7 @@ class ApiService {
       
       await _saveCookies(response);
 
-      debugPrint('📥 Remove response: ${response.statusCode}');
-      debugPrint('📄 Remove body: ${response.body}');
+
 
       if (response.statusCode == 200) {
         final responseText = response.body.trim();
@@ -1093,9 +1080,9 @@ class ApiService {
         final success = responseText == '1';
         
         if (success) {
-          debugPrint('✅ File removed successfully: $fileName');
+
         } else {
-          debugPrint('⚠️ File removal returned: $responseText');
+
         }
         
         return success;
@@ -1103,7 +1090,7 @@ class ApiService {
         throw Exception('Failed to remove file: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('❌ Error removing file: $e');
+
       throw Exception('Error removing file: $e');
     }
   }
@@ -1116,10 +1103,7 @@ class ApiService {
   }) async {
     final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/cancelDutyMedicalLeave');
     
-    debugPrint('🚫 Cancelling leave...');
-    debugPrint('📡 Cancel URL: $url');
-    debugPrint('🆔 Leave ID: $leaveId');
-    debugPrint('👤 User ID: $userId');
+
     
     // Ensure cookies are loaded
     await ensureCookiesLoaded();
@@ -1138,8 +1122,7 @@ class ApiService {
       
       await _saveCookies(response);
 
-      debugPrint('📥 Cancel response: ${response.statusCode}');
-      debugPrint('📄 Cancel body: ${response.body}');
+
 
       if (response.statusCode == 200) {
         final responseText = response.body.trim();
@@ -1147,9 +1130,9 @@ class ApiService {
         final success = responseText == '1';
         
         if (success) {
-          debugPrint('✅ Leave cancelled successfully: $leaveId');
+
         } else {
-          debugPrint('⚠️ Leave cancellation returned: $responseText');
+
         }
         
         return success;
@@ -1157,7 +1140,7 @@ class ApiService {
         throw Exception('Failed to cancel leave: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('❌ Error cancelling leave: $e');
+
       throw Exception('Error cancelling leave: $e');
     }
   }
@@ -1184,13 +1167,7 @@ class ApiService {
     await ensureCookiesLoaded();
 
     try {
-      debugPrint('📤 Submitting leave application...');
-      debugPrint('📋 Leave details:');
-      debugPrint('  Type: $leaveType, Category: $category');
-      debugPrint('  Event: $eventName');
-      debugPrint('  Dates: $startDate to $endDate');
-      debugPrint('  File: ${fileName ?? "none"}');
-      debugPrint('🍪 Cookies loaded: ${_headers.containsKey('Cookie')}');
+
 
       // Server expects application/x-www-form-urlencoded format (not multipart)
       final headers = _buildHeaders(extra: {
@@ -1212,13 +1189,12 @@ class ApiService {
         'fileName': fileName ?? '',
       };
 
-      debugPrint('� Request body: $body');
+
 
       final response = await _httpClient.post(url, headers: headers, body: body);
       await _saveCookies(response);
 
-      debugPrint('📥 Submit response: ${response.statusCode}');
-      debugPrint('📄 Submit body: ${response.body}');
+
 
       if (response.statusCode == 200) {
         final result = json.decode(response.body) as Map<String, dynamic>;
@@ -1227,7 +1203,7 @@ class ApiService {
         throw Exception('Failed to submit leave: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('❌ Error submitting leave: $e');
+
       throw Exception('Error submitting leave: $e');
     }
   }
@@ -1242,11 +1218,7 @@ class ApiService {
   }) async {
     final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/getReceiptDetails');
     
-    debugPrint('📡 Fetching receipt details...');
-    debugPrint('  URL: $url');
-    debugPrint('  UserID: $userId');
-    debugPrint('  SessionID: $sessionId');
-    debugPrint('  RoleID: $roleId');
+
     
     // Ensure cookies are loaded
     await ensureCookiesLoaded();
@@ -1266,7 +1238,7 @@ class ApiService {
 
       await _saveCookies(response);
 
-      debugPrint('📥 Receipt details response: ${response.statusCode}');
+
 
       if (response.statusCode == 200) {
         // Try to parse as JSON first
@@ -1284,15 +1256,15 @@ class ApiService {
           return response.body;
         } catch (jsonError) {
           // If JSON parsing fails, assume it's plain HTML
-          debugPrint('Response is not JSON, returning as plain HTML');
+
           return response.body;
         }
       } else {
-        debugPrint('❌ Response body on error: ${response.body}');
+
         throw Exception('Failed to load receipt details: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('❌ Error fetching receipt details: $e');
+
       throw Exception('Error fetching receipt details: $e');
     }
   }
@@ -1312,7 +1284,7 @@ class ApiService {
   }) async {
     final url = _buildUrl('https://$clientAbbr.$baseUrl/mobile/showAttendance');
     
-    debugPrint('📡 Calling showAttendance to initialize session...');
+
     
     // Ensure cookies are loaded
     await ensureCookiesLoaded();
@@ -1335,7 +1307,7 @@ class ApiService {
 
       await _saveCookies(response);
 
-      debugPrint('📥 showAttendance response: ${response.statusCode}');
+
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -1344,7 +1316,7 @@ class ApiService {
         throw Exception('Failed to initialize attendance session: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('❌ Error calling showAttendance: $e');
+
       rethrow;
     }
   }
@@ -1359,7 +1331,7 @@ class ApiService {
   }) async {
     final url = _buildUrl('https://$clientAbbr.$baseUrl/chalkpadpro/studentDetails/getAttendanceRegister');
     
-    debugPrint('📡 Fetching attendance register...');
+
     
     // Ensure cookies are loaded
     await ensureCookiesLoaded();
@@ -1378,19 +1350,19 @@ class ApiService {
 
       await _saveCookies(response);
 
-      debugPrint('📥 Attendance register response: ${response.statusCode}');
+
       
       if (response.statusCode == 200) {
         if (response.body.isEmpty || response.body.length < 50) {
           throw Exception('Received empty response. Please try again.');
         }
-        debugPrint('✅ Successfully fetched attendance register');
+
         return response.body;
       } else {
         throw Exception('Failed to load attendance register: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('❌ Error fetching attendance register: $e');
+
       rethrow;
     }
   }

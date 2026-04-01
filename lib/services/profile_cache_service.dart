@@ -159,7 +159,7 @@ class ProfileCacheService {
     await _prefs!.setString(cacheKey, jsonEncode(profile.toJson()));
     await _prefs!.setInt(cacheTimeKey, DateTime.now().millisecondsSinceEpoch);
     
-    debugPrint('📦 Cached basic profile for user $userId');
+
   }
 
   Future<ProfileCacheResult?> getCachedBasicProfile(String userId, String clientAbbr) async {
@@ -188,7 +188,7 @@ class ProfileCacheService {
         isValid: isValid,
       );
     } catch (e) {
-      debugPrint('❌ Error parsing basic profile cache: $e');
+
       return null;
     }
   }
@@ -231,7 +231,7 @@ class ProfileCacheService {
     await _prefs!.setString(cacheKey, jsonEncode(info.toJson()));
     await _prefs!.setInt(cacheTimeKey, DateTime.now().millisecondsSinceEpoch);
     
-    debugPrint('📦 Cached detailed personal info for user $userId (NEVER EXPIRES)');
+
   }
 
   Future<PersonalInfoCacheResult?> getCachedPersonalInfo(String userId, String clientAbbr) async {
@@ -260,7 +260,7 @@ class ProfileCacheService {
         isValid: true, // Always valid - never expires
       );
     } catch (e) {
-      debugPrint('❌ Error parsing personal info cache: $e');
+
       return null;
     }
   }
@@ -288,7 +288,7 @@ class ProfileCacheService {
     await _prefs!.remove(_getProfileCacheKey(userId, clientAbbr));
     await _prefs!.remove(_getProfileCacheTimeKey(userId, clientAbbr));
     
-    debugPrint('🗑️ Cleared basic profile cache for user $userId');
+
   }
 
   Future<void> clearPersonalInfoCache(String userId, String clientAbbr) async {
@@ -297,7 +297,7 @@ class ProfileCacheService {
     await _prefs!.remove(_getPersonalInfoCacheKey(userId, clientAbbr));
     await _prefs!.remove(_getPersonalInfoCacheTimeKey(userId, clientAbbr));
     
-    debugPrint('🗑️ Cleared personal info cache for user $userId');
+
   }
 
   Future<void> clearAllCache(String userId, String clientAbbr) async {

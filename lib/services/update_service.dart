@@ -114,9 +114,9 @@ class UpdateService {
       final packageInfo = await PackageInfo.fromPlatform();
       _cachedVersion = packageInfo.version;
       _cachedBuildNumber = packageInfo.buildNumber;
-      debugPrint('📱 App version: $_cachedVersion+$_cachedBuildNumber');
+
     } catch (e) {
-      debugPrint('⚠️ Could not get package info: $e');
+
       _cachedVersion = _fallbackVersion;
       _cachedBuildNumber = '1';
     }
@@ -124,7 +124,7 @@ class UpdateService {
     try {
       await cleanPendingApk();
     } catch (e) {
-      debugPrint('⚠️ Error while cleaning pending APK: $e');
+
     }
   }
 
@@ -149,24 +149,24 @@ class UpdateService {
         final prefs = await SharedPreferences.getInstance();
         final skippedVersion = prefs.getString(_prefKeySkippedVersion);
         if (!force && skippedVersion == update.version) {
-          debugPrint('📦 Update ${update.version} was previously skipped');
+
           return null;
         }
 
         // Compare versions
         if (_isNewerVersion(update.version, currentVersion)) {
-          debugPrint('🆕 New version available: ${update.version} (current: $currentVersion)');
+
           return update;
         } else {
-          debugPrint('✅ App is up to date (${update.version})');
+
         }
       } else if (response.statusCode == 404) {
-        debugPrint('📦 No releases found for repository');
+
       } else {
-        debugPrint('❌ Failed to check for updates: ${response.statusCode}');
+
       }
     } catch (e) {
-      debugPrint('❌ Error checking for updates: $e');
+
     }
     
     return null;
@@ -192,7 +192,7 @@ class UpdateService {
             .toList();
       }
     } catch (e) {
-      debugPrint('❌ Error fetching releases: $e');
+
     }
     
     return [];
@@ -215,7 +215,7 @@ class UpdateService {
       
       return false; // Versions are equal
     } catch (e) {
-      debugPrint('Error comparing versions: $e');
+
       return false;
     }
   }
@@ -224,7 +224,7 @@ class UpdateService {
   Future<void> skipVersion(String version) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefKeySkippedVersion, version);
-    debugPrint('📦 Version $version marked as skipped');
+
   }
 
   /// Clear skipped version preference
@@ -239,7 +239,7 @@ class UpdateService {
     Function(double progress)? onProgress,
   }) async {
     if (update.downloadUrl.isEmpty) {
-      debugPrint('❌ No download URL available');
+
       return null;
     }
 
@@ -256,7 +256,7 @@ class UpdateService {
         // Get download directory
         final directory = await getExternalStorageDirectory();
         if (directory == null) {
-          debugPrint('❌ Could not get storage directory');
+
           return null;
         }
         
@@ -284,15 +284,15 @@ class UpdateService {
         await sink.close();
         client.close();
         
-        debugPrint('✅ Download complete: $filePath');
+
         return filePath;
       } else {
-        debugPrint('❌ Download failed with status: ${response.statusCode}');
+
       }
       
       client.close();
     } catch (e) {
-      debugPrint('❌ Error downloading update: $e');
+
     }
     
     return null;
@@ -303,28 +303,28 @@ class UpdateService {
     try {
       final file = File(filePath);
       if (!await file.exists()) {
-        debugPrint('❌ APK file not found: $filePath');
+
         return false;
       }
       
-      debugPrint('📦 Opening APK for installation: $filePath');
+
       final result = await OpenFilex.open(
         filePath,
         type: 'application/vnd.android.package-archive',
       );
       
-      debugPrint('📦 Open result: ${result.type} - ${result.message}');
+
       // Mark this APK for deletion after install. Installer runs outside the app
       // so we can't reliably detect completion immediately. We store the pending
       // APK path and associated version and attempt cleanup on next start/resume.
       try {
         await _markPendingApkForDeletion(filePath, currentVersion);
       } catch (e) {
-        debugPrint('⚠️ Could not mark APK for deletion: $e');
+
       }
       return result.type == ResultType.done;
     } catch (e) {
-      debugPrint('❌ Error installing APK: $e');
+
       return false;
     }
   }
@@ -337,9 +337,9 @@ class UpdateService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefPendingApkPath, apkPath);
       await prefs.setString(_prefPendingApkVersion, expectedVersion);
-      debugPrint('📦 Marked pending APK for deletion: $apkPath (expecting v$expectedVersion)');
+
     } catch (e) {
-      debugPrint('⚠️ Failed to persist pending APK info: $e');
+
     }
   }
 
@@ -360,7 +360,7 @@ class UpdateService {
           final packageInfo = await PackageInfo.fromPlatform();
           _cachedVersion = packageInfo.version;
         } catch (e) {
-          debugPrint('⚠️ Could not refresh package info during cleanup: $e');
+
         }
       }
 
@@ -384,9 +384,9 @@ class UpdateService {
         if (await file.exists()) {
           try {
             await file.delete();
-            debugPrint('🗑️ Deleted APK after successful install: $apkPath');
+
           } catch (e) {
-            debugPrint('⚠️ Failed to delete APK file: $e');
+
           }
         }
 
@@ -395,7 +395,7 @@ class UpdateService {
         await prefs.remove(_prefPendingApkVersion);
       }
     } catch (e) {
-      debugPrint('⚠️ Error cleaning pending APK: $e');
+
     }
   }
 

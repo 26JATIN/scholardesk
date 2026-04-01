@@ -104,7 +104,7 @@ class SubjectsCacheService {
     await _prefs!.setString(cacheKey, jsonEncode(cacheData));
     await _prefs!.setInt(cacheTimeKey, DateTime.now().millisecondsSinceEpoch);
     
-    debugPrint('📦 Cached ${subjects.length} subjects for user $userId');
+
   }
 
   /// Get cached subjects

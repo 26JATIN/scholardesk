@@ -118,11 +118,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       final shouldShow = await _whatsNewService.shouldShowWhatsNew();
       
       if (shouldShow && mounted) {
-        debugPrint('📰 Showing What\'s New dialog');
+
         await WhatsNewDialog.show(context);
       }
     } catch (e) {
-      debugPrint('❌ Error checking What\'s New: $e');
+
     }
   }
 
@@ -142,15 +142,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           context,
           update,
           onSkip: () {
-            debugPrint('📦 User skipped update ${update.version}');
+
           },
           onDismiss: () {
-            debugPrint('📦 User dismissed update dialog');
+
           },
         );
       }
     } catch (e) {
-      debugPrint('❌ Error checking for updates: $e');
+
     }
   }
 
@@ -168,7 +168,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     if (!kIsWeb) {
       shouldForceRefresh = await _shorebirdService.hasPatchChanged();
       if (shouldForceRefresh) {
-        debugPrint('🔄 Patch update detected! Invalidating all caches...');
+
         await _invalidateAllCaches();
       }
     }
@@ -202,7 +202,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       _feedCacheService.clearCache(userId, clientAbbr, sessionId),
     ]);
     
-    debugPrint('🗑️ All caches invalidated for user $userId');
+
   }
 
   Future<void> _loadSemesterInfo() async {
@@ -228,7 +228,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         _sessionPeriod = sessionName;
       }
       
-      debugPrint('📅 Session Period: $_sessionPeriod');
+
       
       if (mounted) {
         setState(() {});
@@ -257,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       // Parse group from subjects (semester is now from session period)
       _parseSubjectsForInfo(htmlContent);
     } catch (e) {
-      debugPrint('Error fetching subjects: $e');
+
     }
   }
 
@@ -295,10 +295,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       
       // If cache is valid and not forced, skip API call
       if (!forceRefresh && cached.isValid) {
-        debugPrint('📦 Using valid subjects cache');
+
         return;
       }
-      debugPrint(forceRefresh ? '🔄 Forcing subjects refresh...' : '🔍 Subjects cache is stale, refreshing in background...');
+
     }
     
     // Fetch from API
@@ -346,7 +346,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         });
       }
     } catch (e) {
-      debugPrint('Error fetching subject details: $e');
+
       final isNetworkError = e.toString().toLowerCase().contains('socket') ||
                              e.toString().toLowerCase().contains('connection') ||
                              e.toString().toLowerCase().contains('network');
@@ -456,12 +456,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       if (!forceRefresh) {
         final shouldCheck = await _feedCacheService.shouldCheckForNewItems(userId, clientAbbr, sessionId);
         if (!shouldCheck) {
-          debugPrint('📦 Using valid feed cache (skipping background check)');
+
           return;
         }
-        debugPrint('🔍 Checking for new feed items in background...');
+
       } else {
-        debugPrint('🔄 Forcing feed refresh...');
+
       }
     }
     
@@ -520,7 +520,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         });
       }
     } catch (e) {
-      debugPrint('Error fetching feed: $e');
+
       final isNetworkError = e.toString().toLowerCase().contains('socket') ||
                              e.toString().toLowerCase().contains('connection') ||
                              e.toString().toLowerCase().contains('network');
@@ -563,10 +563,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       
       // If cache is valid and not forced, we can skip API call
       if (!forceRefresh && cached.isValid) {
-        debugPrint('📦 Using valid timetable cache');
+
         return;
       }
-      debugPrint(forceRefresh ? '🔄 Forcing timetable refresh...' : '🔍 Timetable cache is stale, refreshing in background...');
+
     }
     
     // Fetch from API
@@ -602,7 +602,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         });
       }
     } catch (e) {
-      debugPrint('Error fetching timetable: $e');
+
       final isNetworkError = e.toString().toLowerCase().contains('socket') ||
                              e.toString().toLowerCase().contains('connection') ||
                              e.toString().toLowerCase().contains('network');
@@ -717,10 +717,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       
       // If cache is valid and not forced, we can skip API call
       if (!forceRefresh && cached.isValid) {
-        debugPrint('📦 Using valid attendance cache');
+
         return;
       }
-      debugPrint(forceRefresh ? '🔄 Forcing attendance refresh...' : '🔍 Attendance cache is stale, refreshing in background...');
+
     }
     
     // Fetch from API
@@ -770,7 +770,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         });
       }
     } catch (e) {
-      debugPrint('Error fetching attendance: $e');
+
       final isNetworkError = e.toString().toLowerCase().contains('socket') ||
                              e.toString().toLowerCase().contains('connection') ||
                              e.toString().toLowerCase().contains('network');
@@ -821,10 +821,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           timetable: cached.timetable,
           subjectNames: subjectNames,
         );
-        debugPrint('🔄 Updated timetable cache with ${subjectNames.length} subject names from Attendance');
+
       }
     } catch (e) {
-      debugPrint('Error updating timetable subjects: $e');
+
     }
   }
 
@@ -918,52 +918,66 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     }).toList();
   }
 
-  List<Map<String, String>> _getUpcomingClasses() {
+  List<Map<String, String>> _getTodayClasses() {
     final now = DateTime.now();
     if (now.weekday > 6) return []; // Sunday
     
     final currentDay = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.weekday - 1];
     final todayClasses = _timetable[currentDay] ?? [];
     
-    debugPrint('📅 Current day: $currentDay');
-    debugPrint('📚 Today classes: ${todayClasses.length}');
-    
     final currentTime = TimeOfDay.now();
-    debugPrint('⏰ Current time: ${currentTime.hour}:${currentTime.minute}');
     
+    List<Map<String, String>> ongoingClasses = [];
     List<Map<String, String>> upcomingClasses = [];
+    List<Map<String, String>> previousClasses = [];
     
     for (var classData in todayClasses) {
       final timeStr = classData['time'] ?? '';
-      if (timeStr.isEmpty) {
-        debugPrint('⚠️ Empty time string for class');
-        continue;
-      }
+      if (timeStr.isEmpty) continue;
       
-      debugPrint('🔍 Checking class: ${classData['subject']} at $timeStr');
+      final parts = timeStr.split('-');
+      final startTimeStr = parts.first.trim();
+      final endTimeStr = parts.length > 1 ? parts.last.trim() : '';
       
-      final startTimeStr = timeStr.split('-').first.trim();
       try {
         final startTime = _parseTime(startTimeStr);
-        if (startTime != null) {
-          debugPrint('   Parsed start time: ${startTime.hour}:${startTime.minute}');
-          if (_isAfter(startTime, currentTime)) {
-            debugPrint('✅ Found upcoming class: ${classData['subject']}');
-            debugPrint('   Details: $classData');
-            upcomingClasses.add(classData);
-          } else {
-            debugPrint('   ⏭️ Class already passed');
-          }
+        final endTime = endTimeStr.isNotEmpty ? _parseTime(endTimeStr) : null;
+        
+        if (startTime == null) continue;
+        
+        // Determine class status
+        if (endTime != null && !_isAfter(startTime, currentTime) && _isAfter(endTime, currentTime)) {
+          // Current time is between start and end → ongoing
+          final tagged = Map<String, String>.from(classData);
+          tagged['status'] = 'ongoing';
+          ongoingClasses.add(tagged);
+        } else if (_isAfter(startTime, currentTime)) {
+          // Start time is after current time → upcoming
+          final tagged = Map<String, String>.from(classData);
+          tagged['status'] = 'upcoming';
+          upcomingClasses.add(tagged);
         } else {
-          debugPrint('   ❌ Could not parse time: $startTimeStr');
+          // Already finished → previous
+          final tagged = Map<String, String>.from(classData);
+          tagged['status'] = 'previous';
+          previousClasses.add(tagged);
         }
       } catch (e) {
-        debugPrint('   ❌ Error parsing time: $e');
+        // Skip unparseable entries
       }
     }
     
-    debugPrint('📋 Total upcoming classes: ${upcomingClasses.length}');
-    return upcomingClasses;
+    // Order: previous first (left), then ongoing (center), then upcoming (right)
+    return [...previousClasses, ...ongoingClasses, ...upcomingClasses];
+  }
+
+  /// Returns the index of the first ongoing or upcoming class in the list
+  int _getInitialClassIndex(List<Map<String, String>> classes) {
+    for (int i = 0; i < classes.length; i++) {
+      final status = classes[i]['status'];
+      if (status == 'ongoing' || status == 'upcoming') return i;
+    }
+    return 0;
   }
 
   TimeOfDay? _parseTime(String timeStr) {
@@ -989,7 +1003,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       
       return null;
     } catch (e) {
-      debugPrint('❌ Time parsing error: $e');
+
       return null;
     }
   }
@@ -1026,7 +1040,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     }
     
     return PopScope(
-      canPop: currentPage == 0,
+      canPop: !kIsWeb && currentPage == 0,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
         if (!didPop) {
           HapticFeedback.lightImpact();
@@ -1268,15 +1282,15 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final responsive = context.responsive;
     
     return RefreshIndicator(
-      onRefresh: _handleRefresh,
-      color: AppTheme.primaryColor,
-      backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
-          child: CustomScrollView(
-            key: const PageStorageKey('home_scroll'),
-            slivers: [
+        onRefresh: _handleRefresh,
+        color: AppTheme.primaryColor,
+        backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
+            child: CustomScrollView(
+              key: const PageStorageKey('home_scroll'),
+              slivers: [
         SliverAppBar(
           expandedHeight: 120,
           floating: false,
@@ -1377,8 +1391,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           padding: const EdgeInsets.all(16),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              // Upcoming Class Card
-              _buildUpcomingClassCard(),
+              // Today's Classes Card
+              _buildTodayClassesCard(),
               const SizedBox(height: 16),
               
               // Quick Stats Row - wrapped in AnimatedBuilder to update when page changes
@@ -1423,14 +1437,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildUpcomingClassCard() {
+  Widget _buildTodayClassesCard() {
     if (_isLoadingTimetable) {
       return _buildLoadingCard();
     }
     
-    final upcomingClasses = _getUpcomingClasses();
+    final todayClasses = _getTodayClasses();
     
-    if (upcomingClasses.isEmpty) {
+    if (todayClasses.isEmpty) {
       return GestureDetector(
         onTap: () {
           HapticFeedback.lightImpact();
@@ -1500,26 +1514,37 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       );
     }
 
-    // Build swipeable cards for upcoming classes
+    // Jump to first ongoing/upcoming class on initial build
+    final initialIndex = _getInitialClassIndex(todayClasses);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_classPageController.hasClients &&
+          _classPageController.position.hasContentDimensions &&
+          _lastClassPage == 0 &&
+          initialIndex > 0) {
+        _classPageController.jumpToPage(initialIndex);
+      }
+    });
+
+    // Build swipeable cards for today's classes
     return Column(
       children: [
         SizedBox(
           height: 185,
           child: PageView.builder(
-            controller: _classPageController,
-            itemCount: upcomingClasses.length,
-            onPageChanged: (index) {
-              if (index != _lastClassPage) {
-                HapticFeedback.selectionClick();
-                _lastClassPage = index;
-              }
-            },
-            itemBuilder: (context, index) {
-              return _buildClassCard(upcomingClasses[index], index);
-            },
+              controller: _classPageController,
+              itemCount: todayClasses.length,
+              onPageChanged: (index) {
+                if (index != _lastClassPage) {
+                  HapticFeedback.selectionClick();
+                  _lastClassPage = index;
+                }
+              },
+              itemBuilder: (context, index) {
+                return _buildClassCard(todayClasses[index], index);
+              },
+            ),
           ),
-        ),
-        if (upcomingClasses.length > 1) ...[
+        if (todayClasses.length > 1) ...[
           const SizedBox(height: 12),
           AnimatedBuilder(
             animation: _classPageController,
@@ -1530,7 +1555,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               }
               return Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(upcomingClasses.length, (index) {
+                children: List.generate(todayClasses.length, (index) {
                   // Calculate smooth interpolation
                   final distance = (page - index).abs();
                   final scale = (1 - distance.clamp(0.0, 1.0));
@@ -1558,12 +1583,28 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Widget _buildClassCard(Map<String, String> classData, int index) {
     final subjectCode = classData['subject'] ?? 'Class';
     final subjectName = _getSubjectNameByCode(subjectCode);
+    final status = classData['status'] ?? 'upcoming';
     
-    // Solid colors array
-    final colors = [
-      AppTheme.primaryColor,
-    ];
-    final cardColor = colors[index % colors.length];
+    // Status-based card color
+    Color cardColor;
+    String statusLabel;
+    IconData statusIcon;
+    switch (status) {
+      case 'ongoing':
+        cardColor = AppTheme.primaryColor;
+        statusLabel = 'Now';
+        statusIcon = Icons.play_circle_rounded;
+        break;
+      case 'previous':
+        cardColor = AppTheme.primaryColor; // All cards blue
+        statusLabel = 'Ended';
+        statusIcon = Icons.check_circle_rounded;
+        break;
+      default: // upcoming
+        cardColor = AppTheme.primaryColor;
+        statusLabel = index == 0 ? 'Up Next' : 'Coming Up';
+        statusIcon = Icons.schedule_rounded;
+    }
     
     return GestureDetector(
       onTap: () {
@@ -1596,7 +1637,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.schedule_rounded, color: Colors.white, size: 20),
+                  child: Icon(statusIcon, color: Colors.white, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1604,7 +1645,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        index == 0 ? 'Up Next' : 'Coming Up',
+                        statusLabel,
                         style: GoogleFonts.inter(
                           color: Colors.white.withOpacity(0.8),
                           fontSize: 11,
@@ -1698,7 +1739,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
   Widget _buildQuickStats() {
     // Get the currently selected class from the swipe view
-    final upcomingClasses = _getUpcomingClasses();
+    final todayClasses = _getTodayClasses();
     Map<String, String>? selectedClass;
     
     // Get current page from controller
@@ -1707,8 +1748,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       currentPage = _classPageController.page?.round() ?? 0;
     }
     
-    if (upcomingClasses.isNotEmpty && currentPage < upcomingClasses.length) {
-      selectedClass = upcomingClasses[currentPage];
+    if (todayClasses.isNotEmpty && currentPage < todayClasses.length) {
+      selectedClass = todayClasses[currentPage];
     }
     
     double currentClassAttendance = 0.0;

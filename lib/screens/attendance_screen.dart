@@ -1897,60 +1897,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
         
         const SizedBox(height: 20),
         
-        // Classes Needed to Reach 75% Card (only show when below 75%)
-        if (percentage < 75) _buildClassesNeededCard(subject, isDark),
-        
-        if (percentage < 75) const SizedBox(height: 20),
-        
-        // Classes Can Skip Card (only show when at or above 75%)
-        if (percentage >= 75) _buildClassesCanSkipCard(subject, isDark),
-        
-        if (percentage >= 75) const SizedBox(height: 20),
-        
-        // Details Card
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: isDark ? AppTheme.darkCardColor : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: isDark 
-                    ? Colors.black.withOpacity(0.3)
-                    : Colors.black.withOpacity(0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Details',
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (subject.teacher != null && subject.teacher!.isNotEmpty)
-                _buildDetailRow(Icons.person_outline, 'Teacher', subject.teacher, isDark),
-              if (subject.fromDate != null && subject.toDate != null)
-                _buildDurationRow(subject.fromDate!, subject.toDate!, isDark),
-              if (subject.leaves != null)
-                _buildDetailRow(Icons.info_outline, 'Leaves', subject.leaves, isDark),
-              if (subject.totalApprovedDL != null)
-                _buildDetailRow(Icons.verified_outlined, 'Approved DL', subject.totalApprovedDL, isDark),
-              if (subject.totalApprovedML != null)
-                _buildDetailRow(Icons.medical_services_outlined, 'Approved ML', subject.totalApprovedML, isDark),
-            ],
-          ),
-        ).animate().fadeIn(delay: 100.ms).slideX(begin: 0.1, end: 0),
-        
-        const SizedBox(height: 20),
-        
         // View Attendance Register Button
         InkWell(
           onTap: () => _showAttendanceRegisterSheet(subject),
@@ -2017,6 +1963,60 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                 ),
               ],
             ),
+          ),
+        ).animate().fadeIn(delay: 100.ms).slideX(begin: 0.1, end: 0),
+        
+        const SizedBox(height: 20),
+        
+        // Classes Needed to Reach 75% Card (only show when below 75%)
+        if (percentage < 75) _buildClassesNeededCard(subject, isDark),
+        
+        if (percentage < 75) const SizedBox(height: 20),
+        
+        // Classes Can Skip Card (only show when at or above 75%)
+        if (percentage >= 75) _buildClassesCanSkipCard(subject, isDark),
+        
+        if (percentage >= 75) const SizedBox(height: 20),
+        
+        // Details Card
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkCardColor : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: isDark 
+                    ? Colors.black.withOpacity(0.3)
+                    : Colors.black.withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Details',
+                style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (subject.teacher != null && subject.teacher!.isNotEmpty)
+                _buildDetailRow(Icons.person_outline, 'Teacher', subject.teacher, isDark),
+              if (subject.fromDate != null && subject.toDate != null)
+                _buildDurationRow(subject.fromDate!, subject.toDate!, isDark),
+              if (subject.leaves != null)
+                _buildDetailRow(Icons.info_outline, 'Leaves', subject.leaves, isDark),
+              if (subject.totalApprovedDL != null)
+                _buildDetailRow(Icons.verified_outlined, 'Approved DL', subject.totalApprovedDL, isDark),
+              if (subject.totalApprovedML != null)
+                _buildDetailRow(Icons.medical_services_outlined, 'Approved ML', subject.totalApprovedML, isDark),
+            ],
           ),
         ).animate().fadeIn(delay: 150.ms).slideX(begin: 0.1, end: 0),
         

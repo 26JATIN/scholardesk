@@ -31,6 +31,11 @@
       -moz-osx-font-smoothing: grayscale;
       /* Prevent tap highlight on iOS */
       -webkit-tap-highlight-color: transparent;
+      /* Prevent iOS long-press callout popups */
+      -webkit-touch-callout: none;
+      /* Prevent accidental text selection on Flutter canvas */
+      -webkit-user-select: none;
+      user-select: none;
     }
     
     html, body {
@@ -45,7 +50,11 @@
       /* Enable hardware acceleration */
       -webkit-transform: translateZ(0);
       transform: translateZ(0);
-      scroll-behavior: smooth;
+      /* Remove 300ms tap delay on iOS */
+      touch-action: manipulation;
+      /* Prevent browser's own pull-to-refresh from conflicting with Flutter */
+      overscroll-behavior: none;
+      -ms-scroll-chaining: none;
     }
     
     body {

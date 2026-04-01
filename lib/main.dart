@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -8,6 +9,7 @@ import 'services/update_service.dart';
 import 'services/theme_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/web_phone_mockup.dart';
+import 'utils/web_back_handler.dart';
 
 // Conditional import for HTTP overrides (only on native platforms)
 import 'services/http_client_stub.dart'
@@ -39,6 +41,9 @@ void main() {
   
   // Setup HTTP overrides (only does something on native platforms)
   setupHttpOverrides();
+  
+  // Prevent browser back button from leaving the site on web
+  setupWebBackButtonHandler();
   
   runApp(const MyApp());
 }
@@ -110,7 +115,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // Use clamping scroll physics on web (better iOS Safari performance)
       // and bouncing physics on native mobile for natural feel
       scrollBehavior: const MaterialScrollBehavior().copyWith(
-        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        physics: kIsWeb
+            ? const ClampingScrollPhysics()
+            : const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        dragDevices: {
+          PointerDeviceKind.touch,
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.trackpad,
+        },
       ),
       builder: (context, child) {
         // Wrap in phone mockup for web
