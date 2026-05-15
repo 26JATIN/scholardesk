@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -304,8 +305,18 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
   }
 
   void _parseSubjectNames(String htmlContent) {
-    // Clean the HTML
-    String cleanHtml = htmlContent.replaceAll(r'\"', '"').replaceAll(r'\/', '/');
+    String cleanHtml = htmlContent;
+    try {
+      if (htmlContent.trim().startsWith('{')) {
+        final Map<String, dynamic> decoded = json.decode(htmlContent);
+        if (decoded.containsKey('content')) {
+          cleanHtml = decoded['content'];
+        }
+      }
+    } catch (_) {}
+
+    // Fallback cleaning just in case it's a stringified JSON string without being a proper object
+    cleanHtml = cleanHtml.replaceAll(r'\"', '"').replaceAll(r'\/', '/');
     if (cleanHtml.startsWith('"') && cleanHtml.endsWith('"')) {
       cleanHtml = cleanHtml.substring(1, cleanHtml.length - 1);
     }
@@ -339,13 +350,44 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
     debugPrint('Loaded ${_subjectNames.length} subject names');
   }
 
-  void _parseTimetable(String html) {
-    final document = html_parser.parse(html);
-    final mobileContainer = document.querySelector('.timetable-mobile');
-    
-    if (mobileContainer == null) return;
+  int _parseTime(String timeRange) {
+    // Expected format: "04:10 PM - 05:00 PM"
+    try {
+      final start = timeRange.split('-').first.trim(); // "04:10 PM"
+      final parts = start.split(' ');
+      final timeParts = parts[0].split(':');
+      int hours = int.parse(timeParts[0]);
+      int minutes = int.parse(timeParts[1]);
+      if (parts[1].toUpperCase() == 'PM' && hours != 12) hours += 12;
+      if (parts[1].toUpperCase() == 'AM' && hours == 12) hours = 0;
+      return hours * 60 + minutes;
+    } catch (e) {
+      return 0;
+    }
+  }
 
-    final dayCards = mobileContainer.querySelectorAll('.day-card');
+  void _parseTimetable(String html) {
+    String htmlToParse = html;
+    try {
+      if (html.trim().startsWith('{')) {
+        final Map<String, dynamic> decoded = json.decode(html);
+        if (decoded.containsKey('content')) {
+          htmlToParse = decoded['content'];
+        }
+      }
+    } catch (_) {}
+
+    final document = html_parser.parse(htmlToParse);
+    final mobileContainers = document.querySelectorAll('.timetable-mobile');
+    
+    if (mobileContainers.isEmpty) return;
+
+    _timetable.clear();
+
+    // Use only the second table as requested, or fallback to the first if it's the only one.
+    final targetContainer = mobileContainers.length > 1 ? mobileContainers[1] : mobileContainers[0];
+
+    final dayCards = targetContainer.querySelectorAll('.day-card');
     
     for (var dayCard in dayCards) {
       final dayHeader = dayCard.querySelector('.day-header .fw-bold')?.text.trim() ?? '';
@@ -353,7 +395,7 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
       String dayName = dayHeader.split(' ').first;
       if (!_days.contains(dayName)) continue;
 
-      final periods = <Map<String, String>>[];
+      final periods = _timetable[dayName] ?? <Map<String, String>>[];
       final periodCards = dayCard.querySelectorAll('.period-card');
 
       for (var periodCard in periodCards) {
@@ -365,7 +407,7 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
         if (detailsDiv != null) {
            // Check for "No Lecture"
            if (detailsDiv.text.contains('-- No Lecture --')) {
-             continue; // Skip empty slots or handle them if you want to show free periods
+             continue; // Skip empty slots
            }
 
            final subjectDiv = detailsDiv.children.firstWhere((e) => e.text.contains('Subject:'), orElse: () => dom.Element.tag('div'));
@@ -379,18 +421,28 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
            final group = groupDiv.text.replaceAll('Group:', '').trim();
 
            if (subject.isNotEmpty) {
-             periods.add({
-               'time': timeRange,
-               'subject': subject,
-               'location': location,
-               'teacher': teacher,
-               'group': group,
-             });
+             bool isDuplicate = periods.any((p) => p['time'] == timeRange && p['subject'] == subject);
+             if (!isDuplicate) {
+               periods.add({
+                 'time': timeRange,
+                 'subject': subject,
+                 'location': location,
+                 'teacher': teacher,
+                 'group': group,
+               });
+             }
            }
         }
       }
       _timetable[dayName] = periods;
     }
+
+    // Sort periods chronologically
+    _timetable.forEach((day, periods) {
+      periods.sort((a, b) {
+        return _parseTime(a['time']!).compareTo(_parseTime(b['time']!));
+      });
+    });
   }
 
   @override
