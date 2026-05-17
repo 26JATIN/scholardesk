@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'shared_prefs_service.dart';
 
 /// Cached basic profile data (from menu)
 class CachedProfileBasic {
@@ -133,7 +134,7 @@ class ProfileCacheService {
   SharedPreferences? _prefs;
 
   Future<void> init() async {
-    _prefs ??= await SharedPreferences.getInstance();
+    _prefs ??= await SharedPrefsService.instance;
   }
 
   // === Basic Profile Cache ===

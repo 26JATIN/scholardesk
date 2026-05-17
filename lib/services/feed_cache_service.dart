@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'shared_prefs_service.dart';
 
 class CachedFeed {
   final List<Map<String, dynamic>> items;
@@ -77,7 +79,7 @@ class FeedCacheService {
   Future<CachedFeed?> getCachedFeed(
       String userId, String clientAbbr, String sessionId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPrefsService.instance;
       final cacheKey = _getCacheKey(userId, clientAbbr, sessionId);
       final cached = prefs.getString(cacheKey);
 
@@ -102,7 +104,7 @@ class FeedCacheService {
     bool hasMore = true,
   }) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPrefsService.instance;
       final cacheKey = _getCacheKey(userId, clientAbbr, sessionId);
 
       // Convert List<dynamic> to List<Map<String, dynamic>>
@@ -117,10 +119,18 @@ class FeedCacheService {
         hasMore: hasMore,
       );
 
-      await prefs.setString(cacheKey, jsonEncode(cachedFeed.toJson()));
+      final jsonStr = jsonEncode(cachedFeed.toJson());
+
+      // Check size limit for web before caching
+      if (!SharedPrefsService.shouldCacheData(jsonStr)) {
+        debugPrint('FeedCacheService: Skipping cache due to size limit');
+        return;
+      }
+
+      await prefs.setString(cacheKey, jsonStr);
       await _updateTimestampBounds(userId, clientAbbr, sessionId, typedItems);
     } catch (e) {
-      print('FeedCacheService: Error caching feed: $e');
+      debugPrint('FeedCacheService: Error caching feed: $e');
     }
   }
 
@@ -291,7 +301,7 @@ class FeedCacheService {
     if (items.isEmpty) return;
 
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPrefsService.instance;
       final timestampKey = _getTimestampKey(userId, clientAbbr, sessionId);
 
       final existingJson = prefs.getString(timestampKey);
@@ -318,7 +328,7 @@ class FeedCacheService {
   Future<bool> shouldCheckForNewItems(
       String userId, String clientAbbr, String sessionId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPrefsService.instance;
       final lastCheckKey = _getLastCheckKey(userId, clientAbbr, sessionId);
       final lastCheckStr = prefs.getString(lastCheckKey);
 
@@ -357,7 +367,7 @@ class FeedCacheService {
   Future<void> clearCache(
       String userId, String clientAbbr, String sessionId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPrefsService.instance;
       await prefs.remove(_getCacheKey(userId, clientAbbr, sessionId));
       await prefs.remove(_getTimestampKey(userId, clientAbbr, sessionId));
       await prefs.remove(_getLastCheckKey(userId, clientAbbr, sessionId));

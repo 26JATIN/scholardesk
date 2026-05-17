@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
+import 'shared_prefs_service.dart';
 
 /// Service to handle Shorebird code push updates
 class ShorebirdService {
@@ -39,7 +40,7 @@ class ShorebirdService {
   /// Updates the stored patch number after checking.
   Future<bool> hasPatchChanged() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPrefsService.instance;
       final lastKnownPatch = prefs.getInt(_keyLastKnownPatch);
       
       int currentPatch;

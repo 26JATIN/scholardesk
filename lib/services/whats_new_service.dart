@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
+import 'shared_prefs_service.dart';
 
 /// Service to track and show "What's New" dialogs after Shorebird patch updates
 /// Also works on web using a version-based approach
@@ -60,7 +61,7 @@ class WhatsNewService {
     try {
       final currentPatchId = await getCurrentPatchId();
       
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPrefsService.instance;
       final lastSeenPatch = prefs.getString(_keyLastSeenPatch);
       
       debugPrint('📰 What\'s New: Current=$currentPatchId, LastSeen=$lastSeenPatch');
@@ -81,7 +82,7 @@ class WhatsNewService {
   Future<void> markAsSeen() async {
     try {
       final currentPatchId = await getCurrentPatchId();
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPrefsService.instance;
       await prefs.setString(_keyLastSeenPatch, currentPatchId);
       debugPrint('📰 What\'s New: Marked $currentPatchId as seen');
     } catch (e) {
@@ -91,7 +92,7 @@ class WhatsNewService {
 
   /// Reset seen status (for testing)
   Future<void> resetSeenStatus() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPrefsService.instance;
     await prefs.remove(_keyLastSeenPatch);
     debugPrint('📰 What\'s New: Reset seen status');
   }

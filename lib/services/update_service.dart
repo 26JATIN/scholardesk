@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:open_filex/open_filex.dart';
+import 'shared_prefs_service.dart';
 
 /// Model class for GitHub Release information
 class AppUpdate {
@@ -146,7 +147,7 @@ class UpdateService {
         final update = AppUpdate.fromJson(json);
 
         // Check if this version was skipped
-        final prefs = await SharedPreferences.getInstance();
+        final prefs = await SharedPrefsService.instance;
         final skippedVersion = prefs.getString(_prefKeySkippedVersion);
         if (!force && skippedVersion == update.version) {
 
@@ -222,14 +223,14 @@ class UpdateService {
 
   /// Mark a version as skipped (user chose to skip this update)
   Future<void> skipVersion(String version) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPrefsService.instance;
     await prefs.setString(_prefKeySkippedVersion, version);
 
   }
 
   /// Clear skipped version preference
   Future<void> clearSkippedVersion() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPrefsService.instance;
     await prefs.remove(_prefKeySkippedVersion);
   }
 
@@ -334,7 +335,7 @@ class UpdateService {
   /// [cleanPendingApk].
   Future<void> _markPendingApkForDeletion(String apkPath, String expectedVersion) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPrefsService.instance;
       await prefs.setString(_prefPendingApkPath, apkPath);
       await prefs.setString(_prefPendingApkVersion, expectedVersion);
 
@@ -348,7 +349,7 @@ class UpdateService {
   /// APK file and clear the pending entries.
   Future<void> cleanPendingApk() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPrefsService.instance;
       final apkPath = prefs.getString(_prefPendingApkPath);
       final expectedVersion = prefs.getString(_prefPendingApkVersion);
 

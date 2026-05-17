@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'shared_prefs_service.dart';
 
 class TimetableCacheResult {
   final Map<String, List<Map<String, String>>> timetable;
@@ -25,7 +26,7 @@ class TimetableCacheService {
   SharedPreferences? _prefs;
 
   Future<void> init() async {
-    _prefs ??= await SharedPreferences.getInstance();
+    _prefs ??= await SharedPrefsService.instance;
   }
 
   String _getTimetableCacheKey(String userId, String clientAbbr, String sessionId) {

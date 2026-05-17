@@ -37,7 +37,7 @@ class _FeedScreenState extends State<FeedScreen> {
   String _searchQuery = '';
   dynamic _nextPageStart;
   bool _hasMoreData = true;
-  final Set<String> _loadedItemIds = {}; // Track loaded items to prevent duplicates
+  Set<String> _loadedItemIds = {}; // Track loaded items to prevent duplicates
   bool _isOffline = false;
   String _cacheAge = '';
   int _newItemsCount = 0; // Track new items fetched during refresh
@@ -644,16 +644,19 @@ class _FeedScreenState extends State<FeedScreen> {
       
       // If we have cache, show it first
       if (cached != null && cached.items.isNotEmpty) {
+        final items = List.from(cached.items);
+        final itemIds = <String>{};
+        for (var item in items) {
+          final itemId = item['itemId']?['N']?.toString() ?? '';
+          final timestamp = item['timeStamp']?['N']?.toString() ?? '';
+          itemIds.add('$itemId-$timestamp');
+        }
         setState(() {
-          _feedItems = List.from(cached.items);
-          for (var item in _feedItems) {
-            final itemId = item['itemId']?['N']?.toString() ?? '';
-            final timestamp = item['timeStamp']?['N']?.toString() ?? '';
-            _loadedItemIds.add('$itemId-$timestamp');
-          }
-          _applySearchFilter();
+          _feedItems = items;
+          _loadedItemIds = itemIds;
           _cacheAge = cached.getCacheAgeString();
         });
+        _applySearchFilter();
       }
     } else if (start == 0) {
       setState(() {

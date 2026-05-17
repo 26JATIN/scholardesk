@@ -18,7 +18,14 @@
   
   <title>ScholarDesk</title>
   <link rel="manifest" href="manifest.json">
-  
+
+  <!-- Preconnect to Google Fonts for faster font loading -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Preload critical font styles -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap">
+
   <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
   
   <style>
@@ -414,8 +421,10 @@
   </script>
   
   <script>
-    // Force CanvasKit renderer for better performance (high refresh rate)
-    window.flutterWebRenderer = "canvaskit";
+    // Force WASM renderer for best performance
+    window.flutterWebRenderer = "wasm";
+    // Enable experimental WASM support
+    window.useWasm = true;
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>

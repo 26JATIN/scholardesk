@@ -802,7 +802,7 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
               ],
             ),
           ),
-        ).animate().fadeIn(delay: (50 * index).ms).scale(delay: (50 * index).ms);
+        ).animate().fadeIn(delay: 100.ms).scale(delay: 100.ms, duration: 300.ms);
       },
       ),
     );

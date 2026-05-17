@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_config.dart';
+import 'shared_prefs_service.dart';
 
 // Conditional imports for platform-specific HTTP client
 import 'http_client_stub.dart'
@@ -118,7 +119,7 @@ class ApiService {
   Future<void> _saveCookies(http.Response response) async {
     String? rawCookie = response.headers['set-cookie'];
     if (rawCookie != null) {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPrefsService.instance;
       
       // Get existing cookies
       String existingCookies = prefs.getString(_keyCookies) ?? '';
@@ -173,7 +174,7 @@ class ApiService {
   }
 
   Future<void> _loadCookies() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPrefsService.instance;
     final cookie = prefs.getString(_keyCookies);
     if (cookie != null) {
       _headers['Cookie'] = cookie;
@@ -182,13 +183,13 @@ class ApiService {
   }
 
   Future<void> saveSession(Map<String, dynamic> clientDetails, Map<String, dynamic> userData) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPrefsService.instance;
     await prefs.setString(_keyClientDetails, json.encode(clientDetails));
     await prefs.setString(_keyUserData, json.encode(userData));
   }
 
   Future<Map<String, dynamic>?> getSession() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPrefsService.instance;
     final clientDetailsStr = prefs.getString(_keyClientDetails);
     final userDataStr = prefs.getString(_keyUserData);
     
@@ -203,7 +204,7 @@ class ApiService {
   }
 
   Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPrefsService.instance;
     await prefs.clear();
     _headers.remove('Cookie');
     _cookiesLoaded = false;
@@ -215,14 +216,14 @@ class ApiService {
     String? batch,
     String? group,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPrefsService.instance;
     if (semester != null) await prefs.setString(_keySemester, semester);
     if (batch != null) await prefs.setString(_keyBatch, batch);
     if (group != null) await prefs.setString(_keyGroup, group);
   }
 
   Future<Map<String, String?>> getSemesterInfo() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPrefsService.instance;
     return {
       'semester': prefs.getString(_keySemester),
       'batch': prefs.getString(_keyBatch),

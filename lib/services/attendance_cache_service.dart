@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'shared_prefs_service.dart';
 
 /// Cache service for attendance data
 /// Attendance data changes frequently, so cache has shorter validity
@@ -15,7 +16,7 @@ class AttendanceCacheService {
   
   /// Initialize shared preferences
   Future<void> init() async {
-    _prefs ??= await SharedPreferences.getInstance();
+    _prefs ??= await SharedPrefsService.instance;
   }
   
   /// Get cache key based on user and session

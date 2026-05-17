@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -61,6 +62,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Map<String, List<Map<String, String>>> _timetable = {};
   List<AttendanceSubject> _subjects = [];
   List<Subject> _subjectDetails = []; // Subject details from subjects screen
+
+  // Cached lookup maps for O(1) subject lookups
+  Map<String, AttendanceSubject> _subjectCodeLookup = {};
+  Map<String, AttendanceSubject> _subjectNameLookup = {};
   
   // Loading states
   bool _isLoadingFeed = true;
@@ -626,14 +631,27 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   void _parseTimetable(String html) {
-    final document = html_parser.parse(html);
-    final mobileContainer = document.querySelector('.timetable-mobile');
-    
-    if (mobileContainer == null) return;
+    String htmlToParse = html;
+    try {
+      if (html.trim().startsWith('{')) {
+        final Map<String, dynamic> decoded = json.decode(html);
+        if (decoded.containsKey('content')) {
+          htmlToParse = decoded['content'];
+        }
+      }
+    } catch (_) {}
 
-    final dayCards = mobileContainer.querySelectorAll('.day-card');
+    final document = html_parser.parse(htmlToParse);
+    final mobileContainers = document.querySelectorAll('.timetable-mobile');
+
+    if (mobileContainers.isEmpty) return;
+
+    // Use the second container if available (matches timetable screen)
+    final targetContainer = mobileContainers.length > 1 ? mobileContainers[1] : mobileContainers[0];
+
+    final dayCards = targetContainer.querySelectorAll('.day-card');
     final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    
+
     for (var dayCard in dayCards) {
       final dayHeader = dayCard.querySelector('.day-header .fw-bold')?.text.trim() ?? '';
       String dayName = dayHeader.split(' ').first;
@@ -645,7 +663,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       for (var periodCard in periodCards) {
         final timeText = periodCard.querySelector('.small.text-muted')?.text.trim() ?? '';
         final timeRange = timeText.split('|').first.trim();
-        
+
         final detailsDiv = periodCard.querySelector('.period-details');
         if (detailsDiv != null) {
            if (detailsDiv.text.contains('-- No Lecture --')) {
@@ -655,6 +673,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
            String subject = '';
            String location = '';
            String teacher = '';
+           String group = '';
 
            for (var div in detailsDiv.children) {
              final text = div.text;
@@ -664,6 +683,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                location = text.replaceAll('Location:', '').trim();
              } else if (text.contains('Teacher:')) {
                teacher = text.replaceAll('Teacher:', '').trim();
+             } else if (text.contains('Group:')) {
+               group = text.replaceAll('Group:', '').trim();
              }
            }
 
@@ -673,6 +694,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                'subject': subject,
                'location': location,
                'teacher': teacher,
+               'group': group,
              });
            }
         }
@@ -916,6 +938,18 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       }
       return subject;
     }).toList();
+
+    // Build O(1) lookup maps
+    _subjectCodeLookup = {};
+    _subjectNameLookup = {};
+    for (var s in _subjects) {
+      if (s.code != null && s.code!.isNotEmpty) {
+        _subjectCodeLookup[s.code!.toLowerCase()] = s;
+      }
+      if (s.name != null && s.name!.isNotEmpty) {
+        _subjectNameLookup[s.name!.toLowerCase()] = s;
+      }
+    }
   }
 
   List<Map<String, String>> _getTodayClasses() {
@@ -1606,7 +1640,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         statusIcon = Icons.schedule_rounded;
     }
     
-    return GestureDetector(
+    return RepaintBoundary(
+      child: GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
         Navigator.push(
@@ -1706,6 +1741,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -1759,31 +1795,29 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     if (selectedClass != null) {
       final subjectCode = selectedClass['subject'] ?? '';
       subjectCodeForNav = subjectCode;
-      
-      // Try matching by subject code first (most reliable)
-      var matchingSubject = _subjects.firstWhere(
-        (s) => s.code?.toLowerCase() == subjectCode.toLowerCase(),
-        orElse: () => AttendanceSubject(),
-      );
-      
+
+      // O(1) lookup using pre-built maps
+      var matchingSubject = _subjectCodeLookup[subjectCode.toLowerCase()];
+
       // If no code match, try by name
-      if (matchingSubject.name == null) {
-        matchingSubject = _subjects.firstWhere(
-          (s) => s.name?.toLowerCase() == subjectCode.toLowerCase(),
-          orElse: () => AttendanceSubject(),
-        );
+      if (matchingSubject == null) {
+        matchingSubject = _subjectNameLookup[subjectCode.toLowerCase()];
+      }
+
+      // If still no match, try partial matches (only for name lookup)
+      if (matchingSubject == null) {
+        for (var s in _subjects) {
+          final nameLower = s.name?.toLowerCase() ?? '';
+          final codeLower = s.code?.toLowerCase() ?? '';
+          final searchLower = subjectCode.toLowerCase();
+          if (nameLower.contains(searchLower) || codeLower.contains(searchLower)) {
+            matchingSubject = s;
+            break;
+          }
+        }
       }
       
-      // If still no match, try contains
-      if (matchingSubject.name == null) {
-        matchingSubject = _subjects.firstWhere(
-          (s) => (s.name?.toLowerCase().contains(subjectCode.toLowerCase()) ?? false) ||
-                 (s.code?.toLowerCase().contains(subjectCode.toLowerCase()) ?? false),
-          orElse: () => AttendanceSubject(),
-        );
-      }
-      
-      if (matchingSubject.name != null) {
+      if (matchingSubject != null) {
         currentClassAttendance = double.tryParse(matchingSubject.percentage ?? '0') ?? 0.0;
         currentClassName = matchingSubject.name ?? _getSubjectNameByCode(subjectCode);
       } else {
