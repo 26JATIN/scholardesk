@@ -21,7 +21,7 @@ final themeService = ThemeService();
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Set system UI overlay style for Material 3
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -31,20 +31,20 @@ void main() {
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
-  
+
   // Enable edge-to-edge immersive sticky mode - hides status bar & nav pill
   // They reappear on swipe and auto-hide again
   SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.immersiveSticky,
     overlays: [], // Hide both status bar and navigation bar
   );
-  
+
   // Setup HTTP overrides (only does something on native platforms)
   setupHttpOverrides();
-  
+
   // Prevent browser back button from leaving the site on web
   setupWebBackButtonHandler();
-  
+
   runApp(const MyApp());
 }
 
@@ -112,6 +112,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeService.themeMode,
+      navigatorKey: navigatorKey,
       // Use clamping scroll physics on web (better iOS Safari performance)
       // and bouncing physics on native mobile for natural feel
       scrollBehavior: const MaterialScrollBehavior().copyWith(

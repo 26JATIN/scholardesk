@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 class ApiConfig {
   /// The CORS proxy URL to use for web requests
   /// Production proxy server on Vercel
-  static const String corsProxyUrl = 'https://scholardesk-proxy.vercel.app/proxy';
+  static const String corsProxyUrl = 'https://scholardesk-cors-proxy.26jatingupta.workers.dev/proxy';
   
   /// Whether to use the CORS proxy (only on web in debug mode)
   static bool get useCorsProxy => kIsWeb;

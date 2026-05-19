@@ -1,0 +1,16 @@
+{
+  "name": "cors-proxy-cloudflare",
+  "version": "1.0.0",
+  "description": "Migrated from Vercel to Cloudflare Workers for better scalability.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260519.1"
+  }
+}

@@ -1066,17 +1066,20 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   Widget build(BuildContext context) {
     super.build(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Get current page for PopScope - use rounded value
+
+    // Get current page for back button handling
     int currentPage = 0;
     if (_pageController.hasClients && _pageController.position.hasContentDimensions) {
       currentPage = _pageController.page?.round() ?? 0;
     }
-    
+
     return PopScope(
-      canPop: !kIsWeb && currentPage == 0,
+      // On web: always allow pop (our handler manages overlay dismissal first)
+      // On native: prevent pop if on page > 0 (navigate to home first)
+      canPop: !kIsWeb ? currentPage == 0 : true,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
-        if (!didPop) {
+        if (!didPop && !kIsWeb) {
+          // Native: animate to home page instead of exiting
           HapticFeedback.lightImpact();
           _pageController.animateToPage(
             0,
@@ -1084,6 +1087,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             curve: Curves.easeOutCubic,
           );
         }
+        // On web: our web_back_handler.dart manages everything
       },
       child: Scaffold(
         extendBody: true,
