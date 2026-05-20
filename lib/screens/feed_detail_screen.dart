@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -119,7 +118,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
               ),
               title: Text(
                 'Circular',
-                style: GoogleFonts.outfit(
+                style: TextStyle(fontFamily: 'Outfit',
                   fontWeight: FontWeight.bold,
                   fontSize: 20,
                   color: isDark ? Colors.white : Colors.black87,
@@ -161,7 +160,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                       Text(
                         _errorMessage!,
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
+                        style: TextStyle(fontFamily: 'Inter',
                           color: isDark ? Colors.grey.shade400 : Colors.black54,
                           fontSize: 15,
                         ),
@@ -185,7 +184,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                     const SizedBox(height: 16),
                     Text(
                       'No details found',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(fontFamily: 'Inter',
                         color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
                         fontSize: 15,
                       ),
@@ -232,7 +231,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                           Expanded(
                             child: Text(
                               widget.title.decodeHtml,
-                              style: GoogleFonts.outfit(
+                              style: TextStyle(fontFamily: 'Outfit',
                                 fontSize: 19,
                                 fontWeight: FontWeight.bold,
                                 color: isDark ? Colors.white : Colors.black87,
@@ -302,7 +301,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                 const SizedBox(width: 12),
                 Text(
                   'Details',
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : Colors.black87,
@@ -328,7 +327,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
               padding: const EdgeInsets.all(24),
               child: HtmlWidget(
                 htmlContent,
-                textStyle: GoogleFonts.inter(
+                textStyle: TextStyle(fontFamily: 'Inter',
                   color: isDark ? Colors.grey.shade300 : Colors.black87,
                   fontSize: 15,
                   height: 1.6,
@@ -364,7 +363,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
               const SizedBox(width: 16),
               Text(
                 'Preparing download...',
-                style: GoogleFonts.inter(color: Colors.white),
+                style: TextStyle(fontFamily: 'Inter',color: Colors.white),
               ),
             ],
           ),
@@ -405,7 +404,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                     Expanded(
                       child: Text(
                         'Opening file...',
-                        style: GoogleFonts.inter(color: Colors.white),
+                        style: TextStyle(fontFamily: 'Inter',color: Colors.white),
                       ),
                     ),
                   ],
@@ -431,7 +430,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                       Expanded(
                         child: Text(
                           'Could not open file',
-                          style: GoogleFonts.inter(color: Colors.white),
+                          style: TextStyle(fontFamily: 'Inter',color: Colors.white),
                         ),
                       ),
                     ],
@@ -453,7 +452,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                   Expanded(
                     child: Text(
                       'Download URL not available',
-                      style: GoogleFonts.inter(color: Colors.white),
+                      style: TextStyle(fontFamily: 'Inter',color: Colors.white),
                     ),
                   ),
                 ],
@@ -474,7 +473,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                 Expanded(
                   child: Text(
                     'Error: ${e.toString().replaceAll('Exception: ', '')}',
-                    style: GoogleFonts.inter(color: Colors.white),
+                    style: TextStyle(fontFamily: 'Inter',color: Colors.white),
                   ),
                 ),
               ],
@@ -520,7 +519,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                 const SizedBox(width: 12),
                 Text(
                   'Attachments',
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : Colors.black87,
@@ -535,7 +534,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                   ),
                   child: Text(
                     '${attachments.length}',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
@@ -623,7 +622,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                               children: [
                                 Text(
                                   fileName,
-                                  style: GoogleFonts.inter(
+                                  style: TextStyle(fontFamily: 'Inter',
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
                                     color: isDark ? Colors.white : Colors.black87,
@@ -634,7 +633,7 @@ class _FeedDetailScreenState extends State<FeedDetailScreen> {
                                 const SizedBox(height: 4),
                                 Text(
                                   'Tap to download',
-                                  style: GoogleFonts.inter(
+                                  style: TextStyle(fontFamily: 'Inter',
                                     fontSize: 12,
                                     color: isDark ? Colors.grey.shade600 : Colors.grey.shade500,
                                   ),

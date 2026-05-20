@@ -2,6 +2,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+
+// Conditional import for HTTP overrides (only on native platforms)
+import 'services/http_client_stub.dart'
+    if (dart.library.io) 'services/http_client_native.dart'
+    if (dart.library.html) 'services/http_client_web.dart';
+
 import 'screens/school_code_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/api_service.dart';
@@ -11,10 +17,8 @@ import 'theme/app_theme.dart';
 import 'widgets/web_phone_mockup.dart';
 import 'utils/web_back_handler.dart';
 
-// Conditional import for HTTP overrides (only on native platforms)
-import 'services/http_client_stub.dart'
-    if (dart.library.io) 'services/http_client_native.dart'
-    if (dart.library.html) 'services/http_client_web.dart';
+// Theme instance for app
+final appTheme = AppTheme();
 
 // Global theme service instance
 final themeService = ThemeService();
@@ -109,8 +113,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: 'ScholarDesk',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: appTheme.lightTheme,
+      darkTheme: appTheme.darkTheme,
       themeMode: themeService.themeMode,
       navigatorKey: navigatorKey,
       // Use clamping scroll physics on web (better iOS Safari performance)

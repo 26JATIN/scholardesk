@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -102,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(
             'Forgot Password',
-            style: GoogleFonts.outfit(
+            style: TextStyle(fontFamily: 'Outfit',
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : Colors.black87,
             ),
@@ -112,7 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               Text(
                 'Enter your username to receive a temporary password via email.',
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 14,
                   color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                 ),
@@ -122,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: usernameController,
                 decoration: InputDecoration(
                   hintText: 'Username',
-                  hintStyle: GoogleFonts.inter(
+                  hintStyle: TextStyle(fontFamily: 'Inter',
                     color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                   ),
                   filled: true,
@@ -142,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'Cancel',
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                 ),
               ),
@@ -167,7 +166,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             SnackBar(
                               content: Text(
                                 'Temporary password sent to your registered email',
-                                style: GoogleFonts.inter(),
+                                style: TextStyle(fontFamily: 'Inter',),
                               ),
                               backgroundColor: AppTheme.successColor,
                               behavior: SnackBarBehavior.floating,
@@ -182,7 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             SnackBar(
                               content: Text(
                                 'Failed to send reset email. Please try again.',
-                                style: GoogleFonts.inter(),
+                                style: TextStyle(fontFamily: 'Inter',),
                               ),
                               backgroundColor: AppTheme.errorColor,
                               behavior: SnackBarBehavior.floating,
@@ -203,7 +202,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : Text('Send', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white)),
+                  : Text('Send', style: TextStyle(fontFamily: 'Inter',fontWeight: FontWeight.w600, color: Colors.white)),
             ),
           ],
         ),
@@ -245,7 +244,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text(
                   clientName ?? 'Welcome',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : Colors.black87,
@@ -296,7 +295,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         Expanded(
                           child: Text(
                             _errorMessage!,
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               color: isDark ? Colors.red.shade300 : Colors.red.shade700,
                               fontWeight: FontWeight.w500,
                               fontSize: 14,
@@ -346,7 +345,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           )
                         : Text(
                             'Sign In',
-                            style: GoogleFonts.outfit(
+                            style: TextStyle(fontFamily: 'Outfit',
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.5,
@@ -362,7 +361,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: _showForgotPasswordDialog,
                   child: Text(
                     'Forgot Password?',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
@@ -403,7 +402,7 @@ class _LoginScreenState extends State<LoginScreen> {
         obscureText: isPassword && _obscurePassword,
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: GoogleFonts.inter(
+          hintStyle: TextStyle(fontFamily: 'Inter',
             color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
             fontSize: 16,
           ),
@@ -441,7 +440,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 )
               : null,
         ),
-        style: GoogleFonts.inter(
+        style: TextStyle(fontFamily: 'Inter',
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: isDark ? Colors.white : Colors.black87,

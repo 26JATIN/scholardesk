@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'dart:ui';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, compute;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:html/parser.dart' as html_parser;
 import '../services/api_service.dart';
@@ -14,9 +13,11 @@ import '../services/subjects_cache_service.dart';
 import '../services/update_service.dart';
 import '../services/shorebird_service.dart';
 import '../services/whats_new_service.dart';
+import '../service_locator.dart';
 import '../theme/app_theme.dart';
 import '../utils/string_extensions.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/html_parser_isolates.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/whats_new_dialog.dart';
 import '../main.dart' show themeService;
@@ -45,14 +46,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
-  final ApiService _apiService = ApiService();
-  final FeedCacheService _feedCacheService = FeedCacheService();
-  final TimetableCacheService _timetableCacheService = TimetableCacheService();
-  final AttendanceCacheService _attendanceCacheService = AttendanceCacheService();
-  final SubjectsCacheService _subjectsCacheService = SubjectsCacheService();
-  final UpdateService _updateService = UpdateService();
-  final ShorebirdService _shorebirdService = ShorebirdService();
-  final WhatsNewService _whatsNewService = WhatsNewService();
+  ApiService get _apiService => services.apiService;
+  FeedCacheService get _feedCacheService => services.feedCacheService;
+  TimetableCacheService get _timetableCacheService => services.timetableCacheService;
+  AttendanceCacheService get _attendanceCacheService => services.attendanceCacheService;
+  SubjectsCacheService get _subjectsCacheService => services.subjectsCacheService;
+  UpdateService get _updateService => services.updateService;
+  ShorebirdService get _shorebirdService => services.shorebirdService;
+  WhatsNewService get _whatsNewService => services.whatsNewService;
   late PageController _pageController;
   late PageController _classPageController;
   int _lastClassPage = 0; // Track for haptic feedback
@@ -590,8 +591,18 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         commonPageId: '85',
       );
 
-      _parseTimetable(htmlContent);
-      
+      // Parse HTML in isolate for better performance
+      final result = await compute(parseTimetableHtmlIsolate, htmlContent);
+
+      if (result['error'] == null && mounted) {
+        _timetable = Map<String, List<Map<String, String>>>.from(
+          result['timetable'] as Map,
+        );
+      } else if (result['error'] != null) {
+        // Fallback to main thread parsing
+        _parseTimetable(htmlContent);
+      }
+
       // Cache the timetable
       await _timetableCacheService.cacheTimetable(
         userId: userId,
@@ -611,12 +622,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       final isNetworkError = e.toString().toLowerCase().contains('socket') ||
                              e.toString().toLowerCase().contains('connection') ||
                              e.toString().toLowerCase().contains('network');
-                             
+
       if (mounted) {
         setState(() {
           _isLoadingTimetable = false;
         });
-        
+
         // Only show error if we have NO data
         if (_timetable.isEmpty && isNetworkError) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1280,7 +1291,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               // Label with fade animation
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 200),
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 11,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                   color: labelColor,
@@ -1383,7 +1394,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   },
                   child: Text(
                     'Hello, ${_userName?.split(' ').first ?? 'Student'}! 👋',
-                    style: GoogleFonts.outfit(
+                    style: TextStyle(fontFamily: 'Outfit',
                       fontWeight: FontWeight.bold,
                       fontSize: 22,
                       color: textColor,
@@ -1413,7 +1424,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       ),
                       child: Text(
                         _sessionPeriod!,
-                        style: GoogleFonts.inter(
+                        style: TextStyle(fontFamily: 'Inter',
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
@@ -1522,7 +1533,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       children: [
                         Text(
                           'No More Classes!',
-                          style: GoogleFonts.outfit(
+                          style: TextStyle(fontFamily: 'Outfit',
                             color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -1531,7 +1542,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         const SizedBox(height: 4),
                         Text(
                           'Enjoy your free time 🎉',
-                          style: GoogleFonts.inter(
+                          style: TextStyle(fontFamily: 'Inter',
                             color: Colors.white.withOpacity(0.9),
                             fontSize: 14,
                           ),
@@ -1685,7 +1696,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     children: [
                       Text(
                         statusLabel,
-                        style: GoogleFonts.inter(
+                        style: TextStyle(fontFamily: 'Inter',
                           color: Colors.white.withOpacity(0.8),
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
@@ -1693,7 +1704,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       ),
                       Text(
                         subjectName,
-                        style: GoogleFonts.outfit(
+                        style: TextStyle(fontFamily: 'Outfit',
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -1729,7 +1740,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   Expanded(
                     child: Text(
                       classData['teacher'] ?? '',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(fontFamily: 'Inter',
                         color: Colors.white.withOpacity(0.9),
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -1764,7 +1775,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           Flexible(
             child: Text(
               label,
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 color: Colors.white,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -1932,7 +1943,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               const SizedBox(height: 16),
               Text(
                 value,
-                style: GoogleFonts.outfit(
+                style: TextStyle(fontFamily: 'Outfit',
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : Colors.black87,
@@ -1944,7 +1955,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   Expanded(
                     child: Text(
                       title,
-                      style: GoogleFonts.inter(
+                      style: TextStyle(fontFamily: 'Inter',
                         fontSize: 13,
                         color: isDark ? Colors.grey.shade400 : Colors.black54,
                         fontWeight: FontWeight.w500,
@@ -1953,7 +1964,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   ),
                   Text(
                     'View',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 11,
                       color: color.withOpacity(0.8),
                       fontWeight: FontWeight.w600,
@@ -1977,7 +1988,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         Expanded(
           child: Text(
             title,
-            style: GoogleFonts.outfit(
+            style: TextStyle(fontFamily: 'Outfit',
               fontSize: 20,
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : Colors.black87,
@@ -1993,7 +2004,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             icon: const Icon(Icons.arrow_forward_rounded, size: 18),
             label: Text(
               'View All',
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -2071,7 +2082,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     children: [
                       Text(
                         title,
-                        style: GoogleFonts.outfit(
+                        style: TextStyle(fontFamily: 'Outfit',
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                           color: isDark ? Colors.white : Colors.black87,
@@ -2083,7 +2094,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         const SizedBox(height: 6),
                         Text(
                           desc,
-                          style: GoogleFonts.inter(
+                          style: TextStyle(fontFamily: 'Inter',
                             fontSize: 13,
                             color: isDark ? Colors.grey.shade400 : Colors.black54,
                             height: 1.4,
@@ -2107,7 +2118,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                               const SizedBox(width: 6),
                               Text(
                                 time.isNotEmpty ? '$date • $time' : date,
-                                style: GoogleFonts.inter(
+                                style: TextStyle(fontFamily: 'Inter',
                                   fontSize: 11,
                                   color: accentColor,
                                   fontWeight: FontWeight.w600,
@@ -2161,7 +2172,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           const SizedBox(height: 16),
           Text(
             message,
-            style: GoogleFonts.inter(
+            style: TextStyle(fontFamily: 'Inter',
               color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
               fontSize: 14,
             ),

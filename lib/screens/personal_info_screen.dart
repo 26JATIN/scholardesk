@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/api_service.dart';
@@ -432,7 +431,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
                           flexibleSpace: FlexibleSpaceBar(
                             title: Text(
                               'Personal Info',
-                              style: GoogleFonts.outfit(
+                              style: TextStyle(fontFamily: 'Outfit',
                                 fontWeight: FontWeight.bold,
                                 color: isDark ? Colors.white : Colors.black87,
                               ),
@@ -472,7 +471,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
                                     const SizedBox(width: 4),
                                     Text(
                                       'Cached',
-                                      style: GoogleFonts.inter(
+                                      style: TextStyle(fontFamily: 'Inter',
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
                                         color: Colors.orange.shade700,
@@ -500,7 +499,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
                                     const SizedBox(width: 4),
                                     Text(
                                       _cacheAge,
-                                      style: GoogleFonts.inter(
+                                      style: TextStyle(fontFamily: 'Inter',
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
                                         color: isDark ? Colors.green.shade300 : Colors.green.shade700,
@@ -520,11 +519,11 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
                               unselectedLabelColor: isDark ? Colors.grey.shade500 : Colors.grey,
                               indicatorColor: AppTheme.primaryColor,
                               indicatorWeight: 3,
-                              labelStyle: GoogleFonts.inter(
+                              labelStyle: TextStyle(fontFamily: 'Inter',
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                               ),
-                              unselectedLabelStyle: GoogleFonts.inter(
+                              unselectedLabelStyle: TextStyle(fontFamily: 'Inter',
                                 fontWeight: FontWeight.w500,
                                 fontSize: 14,
                               ),
@@ -652,7 +651,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
                 const SizedBox(width: 12),
                 Text(
                   "Student's Details",
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -713,7 +712,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
                 const SizedBox(width: 12),
                 Text(
                   "Additional Information",
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -744,7 +743,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
           const SizedBox(height: 16),
           Text(
             'No address information found',
-            style: GoogleFonts.inter(color: isDark ? Colors.grey.shade500 : Colors.grey.shade400),
+            style: TextStyle(fontFamily: 'Inter',color: isDark ? Colors.grey.shade500 : Colors.grey.shade400),
           ),
         ],
       ),
@@ -786,7 +785,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
                 const SizedBox(width: 12),
                 Text(
                   "Permanent Address",
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -819,7 +818,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
               const SizedBox(height: 16),
               Text(
                 'No parent information found',
-                style: GoogleFonts.inter(color: isDark ? Colors.grey.shade500 : Colors.grey.shade400),
+                style: TextStyle(fontFamily: 'Inter',color: isDark ? Colors.grey.shade500 : Colors.grey.shade400),
               ),
             ],
           ),
@@ -868,7 +867,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
                 const SizedBox(width: 12),
                 Text(
                   "$parentType's Details",
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -938,7 +937,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
             width: 90,
             child: Text(
               label,
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 fontSize: 13,
                 color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                 fontWeight: FontWeight.w600,
@@ -949,7 +948,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> with TickerProv
           Expanded(
             child: Text(
               value,
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 fontSize: 13,
                 color: isDark ? Colors.white : Colors.black87,
                 fontWeight: FontWeight.w600,

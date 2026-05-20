@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../services/feed_cache_service.dart';
+import '../service_locator.dart';
 import '../theme/app_theme.dart';
 import 'feed_detail_screen.dart';
 import '../utils/string_extensions.dart';
@@ -24,8 +24,8 @@ class FeedScreen extends StatefulWidget {
 }
 
 class _FeedScreenState extends State<FeedScreen> {
-  final ApiService _apiService = ApiService();
-  final FeedCacheService _cacheService = FeedCacheService();
+  ApiService get _apiService => services.apiService;
+  FeedCacheService get _cacheService => services.feedCacheService;
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = true;
@@ -42,7 +42,10 @@ class _FeedScreenState extends State<FeedScreen> {
   String _cacheAge = '';
   int _newItemsCount = 0; // Track new items fetched during refresh
   bool _isLoadingForSearch = false; // Track if we're loading all items for search
-  
+
+  // Cached grouped list for performance (avoids rebuilding on every item)
+  List<dynamic>? _cachedGroupedList;
+
   // Filter state
   String _selectedFilter = 'All'; // 'All', 'Timetable', 'CHO', 'Seating Plan'
   
@@ -210,25 +213,32 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
-  // Build list of items with date headers
+  // Build list of items with date headers (cached for performance)
   List<dynamic> _buildGroupedFeedList() {
+    if (_cachedGroupedList != null) return _cachedGroupedList!;
+
+    _cachedGroupedList = _buildGroupedFeedListInternal();
+    return _cachedGroupedList!;
+  }
+
+  List<dynamic> _buildGroupedFeedListInternal() {
     if (_filteredFeedItems.isEmpty) return [];
-    
+
     final List<dynamic> groupedList = [];
     String? currentDate;
-    
+
     for (var item in _filteredFeedItems) {
       final itemDate = item['creDate']?['S'] ?? '';
-      
+
       if (itemDate != currentDate && itemDate.isNotEmpty) {
         // Add date header
         groupedList.add({'_isDateHeader': true, '_date': itemDate});
         currentDate = itemDate;
       }
-      
+
       groupedList.add(item);
     }
-    
+
     return groupedList;
   }
 
@@ -367,7 +377,10 @@ class _FeedScreenState extends State<FeedScreen> {
   // Apply search filter to feed items
   void _applySearchFilter() {
     List<dynamic> filtered = List.from(_feedItems);
-    
+
+    // Invalidate grouped list cache when filter changes
+    _cachedGroupedList = null;
+
     // Apply category filter first
     if (_selectedFilter != 'All') {
       filtered = filtered.where((item) {
@@ -1078,7 +1091,7 @@ class _FeedScreenState extends State<FeedScreen> {
                   children: [
                     Text(
                       'Circulars',
-                      style: GoogleFonts.outfit(
+                      style: TextStyle(fontFamily: 'Outfit',
                         fontWeight: FontWeight.bold,
                         fontSize: 20,
                         color: isDark ? Colors.white : Colors.black87,
@@ -1110,7 +1123,7 @@ class _FeedScreenState extends State<FeedScreen> {
                     ),
                     child: Text(
                       '+$_newItemsCount',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(fontFamily: 'Inter',
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
@@ -1143,7 +1156,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         ],
                         Text(
                           _cacheAge,
-                          style: GoogleFonts.inter(
+                          style: TextStyle(fontFamily: 'Inter',
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                             color: _isOffline 
@@ -1192,7 +1205,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         controller: _searchController,
                         decoration: InputDecoration(
                           hintText: 'Search circulars...',
-                          hintStyle: GoogleFonts.inter(
+                          hintStyle: TextStyle(fontFamily: 'Inter',
                             color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                           ),
                           prefixIcon: Icon(
@@ -1214,7 +1227,7 @@ class _FeedScreenState extends State<FeedScreen> {
                             vertical: 16,
                           ),
                         ),
-                        style: GoogleFonts.inter(
+                        style: TextStyle(fontFamily: 'Inter',
                           fontSize: 15,
                           color: isDark ? Colors.white : Colors.black87,
                         ),
@@ -1261,7 +1274,7 @@ class _FeedScreenState extends State<FeedScreen> {
                                   Text(
                                     _errorMessage!,
                                     textAlign: TextAlign.center,
-                                    style: GoogleFonts.inter(
+                                    style: TextStyle(fontFamily: 'Inter',
                                       color: isDark ? Colors.grey.shade400 : Colors.black54,
                                     ),
                                   ),
@@ -1301,7 +1314,7 @@ class _FeedScreenState extends State<FeedScreen> {
                                       _searchQuery.isEmpty
                                           ? 'No circulars yet'
                                           : 'No results found for "$_searchQuery"',
-                                      style: GoogleFonts.inter(
+                                      style: TextStyle(fontFamily: 'Inter',
                                         color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
                                         fontSize: 15,
                                       ),
@@ -1313,7 +1326,7 @@ class _FeedScreenState extends State<FeedScreen> {
                                       const SizedBox(height: 12),
                                       Text(
                                         'Searching all circulars...',
-                                        style: GoogleFonts.inter(
+                                        style: TextStyle(fontFamily: 'Inter',
                                           color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
                                           fontSize: 13,
                                         ),
@@ -1322,7 +1335,7 @@ class _FeedScreenState extends State<FeedScreen> {
                                       const SizedBox(height: 12),
                                       Text(
                                         'Searched all ${_feedItems.length} circulars',
-                                        style: GoogleFonts.inter(
+                                        style: TextStyle(fontFamily: 'Inter',
                                           color: isDark ? Colors.grey.shade600 : Colors.grey.shade500,
                                           fontSize: 13,
                                         ),
@@ -1341,18 +1354,21 @@ class _FeedScreenState extends State<FeedScreen> {
                               (context, index) {
                                 final groupedList = _buildGroupedFeedList();
                                 final item = groupedList[index];
-                                
+
                                 // Check if this is a date header
                                 if (item['_isDateHeader'] == true) {
                                   return _buildDateHeader(item['_date']);
                                 }
-                                
+
+                                // Use item ID as key for better list performance
+                                final itemId = item['itemId']?['N']?.toString() ?? index.toString();
                                 return RepaintBoundary(
+                                  key: ValueKey('feed_item_$itemId'),
                                   child: _buildFeedCard(item),
                                 );
                               },
                               childCount: _buildGroupedFeedList().length,
-                              addRepaintBoundaries: false, // We add our own
+                              addRepaintBoundaries: false,
                               addAutomaticKeepAlives: false,
                             ),
                           ),
@@ -1375,7 +1391,7 @@ class _FeedScreenState extends State<FeedScreen> {
                             _selectedFilter != 'All'
                                 ? 'Loading more ${_selectedFilter == 'CHO' ? 'CHO' : _selectedFilter.toLowerCase()}...'
                                 : 'Loading more...',
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -1402,7 +1418,7 @@ class _FeedScreenState extends State<FeedScreen> {
                           const SizedBox(height: 12),
                           Text(
                             'Searching older circulars...',
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -1411,7 +1427,7 @@ class _FeedScreenState extends State<FeedScreen> {
                           const SizedBox(height: 4),
                           Text(
                             'Found ${_filteredFeedItems.length} matches so far',
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               color: AppTheme.successColor,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -1445,7 +1461,7 @@ class _FeedScreenState extends State<FeedScreen> {
                           const SizedBox(height: 8),
                           Text(
                             'All ${_feedItems.length} circulars loaded',
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                               fontSize: 13,
                             ),
@@ -1491,7 +1507,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 const SizedBox(width: 8),
                 Text(
                   label,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: isDark ? Colors.white : Colors.black87,
@@ -1581,7 +1597,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         Expanded(
                           child: Text(
                             'You\'re offline. Some details may not load.',
-                            style: GoogleFonts.inter(fontSize: 14),
+                            style: TextStyle(fontFamily: 'Inter',fontSize: 14),
                           ),
                         ),
                       ],
@@ -1650,7 +1666,7 @@ class _FeedScreenState extends State<FeedScreen> {
                               _buildHighlightedText(
                                 title,
                                 _searchQuery,
-                                GoogleFonts.outfit(
+                                TextStyle(fontFamily: 'Outfit',
                                   fontSize: 17,
                                   fontWeight: FontWeight.bold,
                                   color: isDark ? Colors.white : Colors.black87,
@@ -1680,7 +1696,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         child: _buildHighlightedText(
                           desc,
                           _searchQuery,
-                          GoogleFonts.inter(
+                          TextStyle(fontFamily: 'Inter',
                             fontSize: 14,
                             color: isDark ? Colors.grey.shade300 : Colors.black87,
                             height: 1.5,
@@ -1703,7 +1719,7 @@ class _FeedScreenState extends State<FeedScreen> {
                           const SizedBox(width: 4),
                           Text(
                             time,
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               fontSize: 12,
                               color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                               fontWeight: FontWeight.w500,
@@ -1849,7 +1865,7 @@ class _FilterTabDelegate extends SliverPersistentHeaderDelegate {
             const SizedBox(width: 6),
             Text(
               label,
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                 color: isSelected 

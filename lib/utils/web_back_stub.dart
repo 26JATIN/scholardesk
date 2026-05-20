@@ -7,3 +7,8 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void setupWebBackButton() {
   // No-op on native platforms
 }
+
+/// Stub for screens to call in initState to sync navigation
+void onScreenReady() {
+  // No-op on native platforms
+}

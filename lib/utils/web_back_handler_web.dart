@@ -6,53 +6,84 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 /// Global navigator key for accessing the navigator from anywhere
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-/// Web-specific back button handling.
-/// Uses the browser's History API and PopStateEvent to intercept back button presses.
-/// Properly closes overlays/dialogs one at a time before navigating back.
 void setupWebBackButton() {
-  // Push an initial dummy state so there's always something to "go back" to
-  html.window.history.pushState(null, '', html.window.location.href);
-  debugPrint('WebBackHandler: Initial history state pushed');
-
-  // Listen for popstate (browser back/forward)
-  html.window.onPopState.listen((event) {
-    // Re-push the state so that the next back press is also caught
-    // This prevents the browser from actually navigating away
-    html.window.history.pushState(null, '', html.window.location.href);
-
-    // Now try to close overlays/dialogs in Flutter
-    _handleWebBack();
-  });
-}
-
-/// Handles the web back button by closing overlays one at a time
-void _handleWebBack() {
   if (!kIsWeb) return;
 
-  // Schedule the pop to run after the current frame
-  // This ensures we don't conflict with Flutter's navigation
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    _doBackNavigation();
+  // Disable swipe-back gestures on iOS Safari
+  _disableSwipeGestures();
+
+  // Handle browser back/forward
+  html.window.onPopState.listen(_onBrowserBack);
+
+  debugPrint('WebBackHandler: Initialized');
+}
+
+/// Disable iOS Safari swipe-to-go-back gesture
+void _disableSwipeGestures() {
+  // Inject CSS
+  final style = html.StyleElement()
+    ..id = 'disable-swipe-css'
+    ..text = '''
+    html, body, * {
+      overscroll-behavior: none !important;
+      -webkit-overflow-scrolling: auto !important;
+    }
+    body {
+      touch-action: pan-y !important;
+      -webkit-user-select: none !important;
+      user-select: none !important;
+    }
+  ''';
+  html.document.head?.append(style);
+
+  // Inline styles as backup
+  html.document.body?.style.setProperty('overscroll-behavior', 'none');
+}
+
+/// Handle browser back/forward button
+void _onBrowserBack(html.PopStateEvent event) {
+  // Prevent default (stops browser from actually navigating away)
+  event.preventDefault();
+
+  // Run after current frame to avoid conflicts
+  Future.microtask(() {
+    _processBackPress();
   });
 }
 
-/// Performs the actual back navigation
-Future<void> _doBackNavigation() async {
-  final navigator = navigatorKey.currentState;
-  if (navigator == null) {
-    debugPrint('WebBackHandler: Navigator not found');
+/// Process back press - pop all routes or push state at root
+void _processBackPress() async {
+  final nav = navigatorKey.currentState;
+  if (nav == null) {
+    _syncHistory();
     return;
   }
 
-  // First check if we can pop using maybePop (respects PopScope)
-  final didPop = await navigator.maybePop();
-
-  if (didPop) {
-    debugPrint('WebBackHandler: maybePop succeeded');
-  } else {
-    // maybePop failed - try direct pop as fallback for web
-    // This handles the case where PopScope.canPop was false but we still want to pop
-    debugPrint('WebBackHandler: maybePop failed, trying direct pop');
-    navigator.pop();
+  // Pop ALL available routes in sequence
+  // This ensures we match the expected behavior
+  while (nav.canPop()) {
+    nav.pop();
+    // Small delay to allow animation/completion
+    await Future.delayed(const Duration(milliseconds: 80));
   }
+
+  // At root - push state so back button is ready for next press
+  _syncHistory();
+}
+
+/// Sync browser history with current app state
+void _syncHistory() {
+  html.window.history.pushState(null, '', html.window.location.href);
+}
+
+/// Call from screen initState to register new screen
+void onScreenReady() {
+  if (kIsWeb) {
+    _syncHistory();
+  }
+}
+
+/// Trigger back from custom button
+Future<void> triggerWebBack() async {
+  _processBackPress();
 }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../services/session_cache_service.dart';
@@ -246,7 +245,7 @@ class _SessionScreenState extends State<SessionScreen> {
               flexibleSpace: FlexibleSpaceBar(
                 title: Text(
                   'Select Session',
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontWeight: FontWeight.bold,
                     fontSize: 24,
                     color: isDark ? Colors.white : Colors.black87,
@@ -287,7 +286,7 @@ class _SessionScreenState extends State<SessionScreen> {
                       const SizedBox(width: 4),
                       Text(
                         'Cached',
-                        style: GoogleFonts.inter(
+                        style: TextStyle(fontFamily: 'Inter',
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: Colors.orange.shade700,
@@ -315,7 +314,7 @@ class _SessionScreenState extends State<SessionScreen> {
                       const SizedBox(width: 4),
                       Text(
                         _cacheAge,
-                        style: GoogleFonts.inter(
+                        style: TextStyle(fontFamily: 'Inter',
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: isDark ? Colors.green.shade300 : Colors.green.shade700,
@@ -342,7 +341,7 @@ class _SessionScreenState extends State<SessionScreen> {
                             const SizedBox(height: 16),
                             Text(
                               'Error: $_errorMessage',
-                              style: GoogleFonts.inter(color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                              style: TextStyle(fontFamily: 'Inter',color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -423,7 +422,7 @@ class _SessionScreenState extends State<SessionScreen> {
                                             children: [
                                               Text(
                                                 session['sessionName'] ?? 'Unknown Session',
-                                                style: GoogleFonts.outfit(
+                                                style: TextStyle(fontFamily: 'Outfit',
                                                   fontSize: 16,
                                                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                                                   color: isSelected 
@@ -445,7 +444,7 @@ class _SessionScreenState extends State<SessionScreen> {
                                                   Flexible(
                                                     child: Text(
                                                       '${session['startDate']} - ${session['endDate']}',
-                                                      style: GoogleFonts.inter(
+                                                      style: TextStyle(fontFamily: 'Inter',
                                                         fontSize: 13,
                                                         color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                                                         fontWeight: FontWeight.w500,

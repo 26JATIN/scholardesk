@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as dom;
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../services/report_card_cache_service.dart';
@@ -460,7 +459,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
                 children: [
                   Text(
                     'Report Card',
-                    style: GoogleFonts.outfit(
+                    style: TextStyle(fontFamily: 'Outfit',
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : Colors.black87,
                     ),
@@ -506,7 +505,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
                         ],
                         Text(
                           _cacheAge,
-                          style: GoogleFonts.inter(
+                          style: TextStyle(fontFamily: 'Inter',
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                             color: _isOffline 
@@ -530,11 +529,11 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
                 unselectedLabelColor: isDark ? Colors.grey.shade500 : Colors.grey,
                 indicatorColor: AppTheme.primaryColor,
                 indicatorWeight: 3,
-                labelStyle: GoogleFonts.inter(
+                labelStyle: TextStyle(fontFamily: 'Inter',
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
-                unselectedLabelStyle: GoogleFonts.inter(
+                unselectedLabelStyle: TextStyle(fontFamily: 'Inter',
                   fontWeight: FontWeight.w500,
                   fontSize: 14,
                 ),
@@ -590,7 +589,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
             Text(
               _errorMessage!,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 color: isDark ? Colors.grey.shade400 : Colors.black54,
               ),
             ),
@@ -634,7 +633,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
                 'Report Card',
-                style: GoogleFonts.outfit(
+                style: TextStyle(fontFamily: 'Outfit',
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : Colors.black87,
                 ),
@@ -655,7 +654,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
                   const SizedBox(height: 16),
                   Text(
                     'No report card data found',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
                       fontSize: 15,
                     ),
@@ -663,7 +662,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
                   const SizedBox(height: 8),
                   Text(
                     'Pull down to refresh',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       color: isDark ? Colors.grey.shade600 : Colors.grey.shade500,
                       fontSize: 13,
                     ),
@@ -712,7 +711,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
         
         Text(
           'Subjects',
-          style: GoogleFonts.outfit(
+          style: TextStyle(fontFamily: 'Outfit',
             fontSize: 18,
             fontWeight: FontWeight.bold,
             color: isDark ? Colors.white : Colors.black87,
@@ -743,7 +742,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 14,
             color: Colors.white.withOpacity(0.8),
             fontWeight: FontWeight.w500,
@@ -752,7 +751,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
         const SizedBox(height: 4),
         Text(
           value,
-          style: GoogleFonts.outfit(
+          style: TextStyle(fontFamily: 'Outfit',
             fontSize: 24,
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -788,7 +787,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
               children: [
                 Text(
                   subject.name,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: isDark ? Colors.white : Colors.black87,
@@ -808,7 +807,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
                       ),
                       child: Text(
                         subject.code,
-                        style: GoogleFonts.sourceCodePro(
+                        style: TextStyle(fontFamily: 'Source Code Pro',
                           fontSize: 12,
                           color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
                           fontWeight: FontWeight.w500,
@@ -818,7 +817,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
                     const SizedBox(width: 12),
                     Text(
                       'Credits: ${subject.credits}',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(fontFamily: 'Inter',
                         fontSize: 13,
                         color: isDark ? Colors.grey.shade400 : Colors.grey.shade500,
                       ),
@@ -840,7 +839,7 @@ class _ReportCardScreenState extends State<ReportCardScreen> with TickerProvider
             ),
             child: Text(
               subject.grade,
-              style: GoogleFonts.outfit(
+              style: TextStyle(fontFamily: 'Outfit',
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: gradeColor,

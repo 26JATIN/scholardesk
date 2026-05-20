@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:html/parser.dart' as html_parser;
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -291,7 +290,7 @@ class _AttendanceRegisterScreenState extends State<AttendanceRegisterScreen> {
         ),
         title: Text(
           'Attendance Register',
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontWeight: FontWeight.w600,
             fontSize: 20,
           ),
@@ -338,7 +337,7 @@ class _AttendanceRegisterScreenState extends State<AttendanceRegisterScreen> {
               const SizedBox(height: 16),
               Text(
                 'Error Loading Register',
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                 ),
@@ -346,7 +345,7 @@ class _AttendanceRegisterScreenState extends State<AttendanceRegisterScreen> {
               const SizedBox(height: 8),
               Text(
                 _error!,
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 14,
                   color: Colors.grey[600],
                 ),
@@ -377,7 +376,7 @@ class _AttendanceRegisterScreenState extends State<AttendanceRegisterScreen> {
             const SizedBox(height: 16),
             Text(
               'No Attendance Register Found',
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -424,7 +423,7 @@ class _AttendanceRegisterScreenState extends State<AttendanceRegisterScreen> {
             children: [
               Text(
                 subject.name,
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -433,7 +432,7 @@ class _AttendanceRegisterScreenState extends State<AttendanceRegisterScreen> {
                 const SizedBox(height: 4),
                 Text(
                   subject.code,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 13,
                     color: Colors.grey[600],
                   ),
@@ -453,7 +452,7 @@ class _AttendanceRegisterScreenState extends State<AttendanceRegisterScreen> {
                   ),
                   child: Text(
                     subject.percentage,
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: statusColor,
@@ -463,7 +462,7 @@ class _AttendanceRegisterScreenState extends State<AttendanceRegisterScreen> {
                 const SizedBox(width: 12),
                 Text(
                   subject.total,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 14,
                     color: Colors.grey[600],
                   ),
@@ -528,7 +527,7 @@ class _AttendanceRegisterScreenState extends State<AttendanceRegisterScreen> {
           child: Center(
             child: Text(
               code,
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 color: color,
@@ -539,7 +538,7 @@ class _AttendanceRegisterScreenState extends State<AttendanceRegisterScreen> {
         const SizedBox(width: 6),
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 12,
             color: Colors.grey[600],
           ),
@@ -640,7 +639,7 @@ class _AttendanceRegisterScreenState extends State<AttendanceRegisterScreen> {
           // Date
           Text(
             lecture.date,
-            style: GoogleFonts.inter(
+            style: TextStyle(fontFamily: 'Inter',
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: isDark ? Colors.white : Colors.black87,
@@ -651,7 +650,7 @@ class _AttendanceRegisterScreenState extends State<AttendanceRegisterScreen> {
           // Period
           Text(
             'P${lecture.period}',
-            style: GoogleFonts.inter(
+            style: TextStyle(fontFamily: 'Inter',
               fontSize: 9,
               color: Colors.grey[500],
             ),
@@ -681,7 +680,7 @@ class _AttendanceRegisterScreenState extends State<AttendanceRegisterScreen> {
                 const SizedBox(width: 3),
                 Text(
                   statusDisplay,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: statusColor,

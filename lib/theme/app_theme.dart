@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Professional Blue Color Palette
@@ -22,7 +21,7 @@ class AppTheme {
   static const Duration fastAnimation = Duration(milliseconds: 100);
   static const Duration normalAnimation = Duration(milliseconds: 150);
   static const Duration slowAnimation = Duration(milliseconds: 200);
-  
+
   // Smooth curves
   static const Curve smoothCurve = Curves.easeOutCubic;
   static const Curve bouncyCurve = Curves.easeOutBack;
@@ -52,7 +51,52 @@ class AppTheme {
     colors: [Color(0xFF059669), Color(0xFF0284C7)],
   );
 
-  static ThemeData get lightTheme {
+  // Pre-built TextStyles for button theming (light)
+  static const TextStyle lightButtonText = TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+  );
+
+  // Pre-built TextStyles for button theming (dark)
+  static const TextStyle darkButtonText = TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+  );
+
+  // Pre-built AppBar title styles
+  static const TextStyle lightAppBarTitle = TextStyle(
+    fontFamily: 'Outfit',
+    fontSize: 24,
+    fontWeight: FontWeight.bold,
+    color: Colors.black87,
+  );
+
+  static const TextStyle darkAppBarTitle = TextStyle(
+    fontFamily: 'Outfit',
+    fontSize: 24,
+    fontWeight: FontWeight.bold,
+    color: Colors.white,
+  );
+
+  // Navigation label styles
+  static const TextStyle navLabelSelected = TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+  );
+
+  static const TextStyle navLabelUnselectedLight = TextStyle(
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+  );
+
+  ThemeData get lightTheme => _buildLightTheme();
+  ThemeData get darkTheme => _buildDarkTheme();
+
+  static ThemeData _buildLightTheme() {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
@@ -80,10 +124,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: lightButtonText,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -94,24 +135,17 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: lightButtonText,
         ),
       ),
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         centerTitle: false,
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: surfaceColor,
         surfaceTintColor: Colors.transparent,
         foregroundColor: Colors.black87,
-        titleTextStyle: GoogleFonts.outfit(
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-          color: Colors.black87,
-        ),
+        titleTextStyle: lightAppBarTitle,
       ),
       navigationBarTheme: NavigationBarThemeData(
         elevation: 0,
@@ -128,17 +162,9 @@ class AppTheme {
         }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: primaryColor,
-            );
+            return navLabelSelected.copyWith(color: primaryColor);
           }
-          return GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey.shade500,
-          );
+          return navLabelUnselectedLight.copyWith(color: Colors.grey.shade500);
         }),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
@@ -153,7 +179,7 @@ class AppTheme {
     );
   }
 
-  static ThemeData get darkTheme {
+  static ThemeData _buildDarkTheme() {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
@@ -182,10 +208,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: darkButtonText,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -196,24 +219,17 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: darkButtonText,
         ),
       ),
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         centerTitle: false,
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: darkSurfaceColor,
         surfaceTintColor: Colors.transparent,
         foregroundColor: Colors.white,
-        titleTextStyle: GoogleFonts.outfit(
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
+        titleTextStyle: darkAppBarTitle,
       ),
       navigationBarTheme: NavigationBarThemeData(
         elevation: 0,
@@ -230,17 +246,9 @@ class AppTheme {
         }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: primaryColor,
-            );
+            return navLabelSelected.copyWith(color: primaryColor);
           }
-          return GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey.shade600,
-          );
+          return navLabelUnselectedLight.copyWith(color: Colors.grey.shade600);
         }),
       ),
       dividerTheme: DividerThemeData(
@@ -259,77 +267,77 @@ class AppTheme {
   }
 
   static TextTheme _buildTextTheme(Brightness brightness) {
-    final Color textColor = brightness == Brightness.light 
-        ? Colors.black87 
+    final Color textColor = brightness == Brightness.light
+        ? Colors.black87
         : Colors.white;
-    
+
     return TextTheme(
-      displayLarge: GoogleFonts.outfit(
+      displayLarge: const TextStyle(
+        fontFamily: 'Outfit',
         fontSize: 57,
         fontWeight: FontWeight.bold,
         letterSpacing: -0.25,
-        color: textColor,
-      ),
-      displayMedium: GoogleFonts.outfit(
+      ).copyWith(color: textColor),
+      displayMedium: const TextStyle(
+        fontFamily: 'Outfit',
         fontSize: 45,
         fontWeight: FontWeight.bold,
-        color: textColor,
-      ),
-      displaySmall: GoogleFonts.outfit(
+      ).copyWith(color: textColor),
+      displaySmall: const TextStyle(
+        fontFamily: 'Outfit',
         fontSize: 36,
         fontWeight: FontWeight.bold,
-        color: textColor,
-      ),
-      headlineLarge: GoogleFonts.outfit(
+      ).copyWith(color: textColor),
+      headlineLarge: const TextStyle(
+        fontFamily: 'Outfit',
         fontSize: 32,
         fontWeight: FontWeight.bold,
-        color: textColor,
-      ),
-      headlineMedium: GoogleFonts.outfit(
+      ).copyWith(color: textColor),
+      headlineMedium: const TextStyle(
+        fontFamily: 'Outfit',
         fontSize: 28,
         fontWeight: FontWeight.w600,
-        color: textColor,
-      ),
-      headlineSmall: GoogleFonts.outfit(
+      ).copyWith(color: textColor),
+      headlineSmall: const TextStyle(
+        fontFamily: 'Outfit',
         fontSize: 24,
         fontWeight: FontWeight.w600,
-        color: textColor,
-      ),
-      titleLarge: GoogleFonts.inter(
+      ).copyWith(color: textColor),
+      titleLarge: const TextStyle(
+        fontFamily: 'Inter',
         fontSize: 22,
         fontWeight: FontWeight.w600,
-        color: textColor,
-      ),
-      titleMedium: GoogleFonts.inter(
+      ).copyWith(color: textColor),
+      titleMedium: const TextStyle(
+        fontFamily: 'Inter',
         fontSize: 16,
         fontWeight: FontWeight.w600,
-        color: textColor,
-      ),
-      titleSmall: GoogleFonts.inter(
+      ).copyWith(color: textColor),
+      titleSmall: const TextStyle(
+        fontFamily: 'Inter',
         fontSize: 14,
         fontWeight: FontWeight.w600,
-        color: textColor,
-      ),
-      bodyLarge: GoogleFonts.inter(
+      ).copyWith(color: textColor),
+      bodyLarge: const TextStyle(
+        fontFamily: 'Inter',
         fontSize: 16,
         fontWeight: FontWeight.normal,
-        color: textColor,
-      ),
-      bodyMedium: GoogleFonts.inter(
+      ).copyWith(color: textColor),
+      bodyMedium: const TextStyle(
+        fontFamily: 'Inter',
         fontSize: 14,
         fontWeight: FontWeight.normal,
-        color: textColor,
-      ),
-      bodySmall: GoogleFonts.inter(
+      ).copyWith(color: textColor),
+      bodySmall: const TextStyle(
+        fontFamily: 'Inter',
         fontSize: 12,
         fontWeight: FontWeight.normal,
-        color: textColor,
-      ),
-      labelLarge: GoogleFonts.inter(
+      ).copyWith(color: textColor),
+      labelLarge: const TextStyle(
+        fontFamily: 'Inter',
         fontSize: 14,
         fontWeight: FontWeight.w500,
-        color: textColor,
-      ),
+      ).copyWith(color: textColor),
     );
   }
 }

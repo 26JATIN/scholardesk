@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -159,7 +158,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 Text(
                   'Verification',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontSize: 34,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : Colors.black87,
@@ -171,7 +170,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 Text(
                   widget.mobileString ?? 'Enter the OTP sent to your mobile/email',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 15,
                     color: isDark ? Colors.grey.shade400 : Colors.black54,
                     height: 1.5,
@@ -199,7 +198,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     decoration: InputDecoration(
                       hintText: 'Enter 4-digit OTP',
                       counterText: '',
-                      hintStyle: GoogleFonts.inter(
+                      hintStyle: TextStyle(fontFamily: 'Inter',
                         color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                         fontSize: 16,
                       ),
@@ -222,7 +221,7 @@ class _OtpScreenState extends State<OtpScreen> {
                         ),
                       ),
                     ),
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : Colors.black87,
@@ -252,7 +251,7 @@ class _OtpScreenState extends State<OtpScreen> {
                         Expanded(
                           child: Text(
                             _errorMessage!,
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               color: isDark ? Colors.red.shade300 : Colors.red.shade700,
                               fontWeight: FontWeight.w500,
                               fontSize: 14,
@@ -305,7 +304,7 @@ class _OtpScreenState extends State<OtpScreen> {
                               children: [
                                 Text(
                                   'Verify OTP',
-                                  style: GoogleFonts.outfit(
+                                  style: TextStyle(fontFamily: 'Outfit',
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 0.5,

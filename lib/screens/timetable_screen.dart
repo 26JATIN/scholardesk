@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as dom;
@@ -520,7 +519,7 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
               flexibleSpace: FlexibleSpaceBar(
                 title: Text(
                   'Timetable',
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : Colors.black87,
                   ),
@@ -541,11 +540,11 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
                     unselectedLabelColor: isDark ? Colors.grey.shade600 : Colors.grey,
                     indicatorColor: isDark ? AppTheme.accentColor : AppTheme.primaryColor,
                     indicatorWeight: 3,
-                    labelStyle: GoogleFonts.inter(
+                    labelStyle: TextStyle(fontFamily: 'Inter',
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
-                    unselectedLabelStyle: GoogleFonts.inter(
+                    unselectedLabelStyle: TextStyle(fontFamily: 'Inter',
                       fontWeight: FontWeight.w500,
                       fontSize: 14,
                     ),
@@ -582,7 +581,7 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
                         const SizedBox(height: 16),
                         Text(
                           'Error: $_errorMessage',
-                          style: GoogleFonts.inter(color: isDark ? Colors.grey.shade400 : Colors.black54),
+                          style: TextStyle(fontFamily: 'Inter',color: isDark ? Colors.grey.shade400 : Colors.black54),
                         ),
                       ],
                     ),
@@ -618,7 +617,7 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
                   const SizedBox(height: 16),
                   Text(
                     'No classes scheduled',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 16,
                       color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
                       fontWeight: FontWeight.w500,
@@ -695,7 +694,7 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
                                 ? Text(
                                     subjectName,
                                     key: ValueKey('name_$subjectCode'),
-                                    style: GoogleFonts.outfit(
+                                    style: TextStyle(fontFamily: 'Outfit',
                                       fontSize: 17,
                                       fontWeight: FontWeight.bold,
                                       color: isDark ? Colors.white : Colors.black87,
@@ -718,7 +717,7 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
                                           const SizedBox(width: 8),
                                           Text(
                                             'Loading...',
-                                            style: GoogleFonts.outfit(
+                                            style: TextStyle(fontFamily: 'Outfit',
                                               fontSize: 14,
                                               fontWeight: FontWeight.w500,
                                               color: Colors.grey.shade400,
@@ -729,7 +728,7 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
                                     : Text(
                                         subjectCode,
                                         key: ValueKey('code_only_$subjectCode'),
-                                        style: GoogleFonts.outfit(
+                                        style: TextStyle(fontFamily: 'Outfit',
                                           fontSize: 17,
                                           fontWeight: FontWeight.bold,
                                           color: isDark ? Colors.white : Colors.black87,
@@ -746,7 +745,7 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
                             ),
                             child: Text(
                               subjectCode,
-                              style: GoogleFonts.jetBrainsMono(
+                              style: TextStyle(fontFamily: 'JetBrains Mono',
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: isDark ? AppTheme.primaryColor : AppTheme.primaryColor,
@@ -756,7 +755,7 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
                           const SizedBox(height: 4),
                           Text(
                             period['time'] ?? '',
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               fontWeight: FontWeight.w600,
                               color: AppTheme.accentColor,
                               fontSize: 13,
@@ -788,7 +787,7 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
                       Expanded(
                         child: Text(
                           period['teacher']!,
-                          style: GoogleFonts.inter(
+                          style: TextStyle(fontFamily: 'Inter',
                             fontSize: 14,
                             color: isDark ? Colors.white70 : Colors.black87,
                             fontWeight: FontWeight.w500,
@@ -822,7 +821,7 @@ class _TimetableScreenState extends State<TimetableScreen> with TickerProviderSt
           const SizedBox(width: 6),
           Text(
             label,
-            style: GoogleFonts.inter(
+            style: TextStyle(fontFamily: 'Inter',
               fontSize: 12,
               color: isDark ? Colors.white70 : Colors.black87,
               fontWeight: FontWeight.w600,

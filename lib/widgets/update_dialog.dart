@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/update_service.dart';
 import '../theme/app_theme.dart';
@@ -200,7 +199,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
                         children: [
                           Text(
                             'Update Available',
-                            style: GoogleFonts.outfit(
+                            style: TextStyle(fontFamily: 'Outfit',
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
                               color: isDark ? Colors.white : Colors.black87,
@@ -209,7 +208,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
                           const SizedBox(height: 2),
                           Text(
                             'v${UpdateService.currentVersion} → v${widget.update.version}',
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               fontSize: 13,
                               color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
                             ),
@@ -268,7 +267,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
       children: [
         Text(
           "What's New",
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
@@ -316,7 +315,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
                 Expanded(
                   child: Text(
                     content,
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 13,
                       height: 1.4,
                       color: isDark ? Colors.grey.shade300 : Colors.black87,
@@ -335,7 +334,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
             padding: const EdgeInsets.only(bottom: 6, top: 4),
             child: Text(
               headerContent,
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: isDark ? Colors.white : Colors.black87,
@@ -349,7 +348,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
           padding: const EdgeInsets.only(bottom: 6),
           child: Text(
             trimmedLine,
-            style: GoogleFonts.inter(
+            style: TextStyle(fontFamily: 'Inter',
               fontSize: 13,
               height: 1.4,
               color: isDark ? Colors.grey.shade300 : Colors.black87,
@@ -378,7 +377,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
           Expanded(
             child: Text(
               _downloadError!,
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 fontSize: 12,
                 color: AppTheme.errorColor,
               ),
@@ -402,7 +401,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
             children: [
               Text(
                 isComplete ? 'Installing...' : 'Downloading...',
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
@@ -410,7 +409,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
               ),
               Text(
                 isComplete ? '✓' : '$percentage%',
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: isComplete ? AppTheme.successColor : AppTheme.primaryColor,
@@ -457,7 +456,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
               ),
               child: Text(
                 'Update Now',
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -473,7 +472,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
                 onPressed: _skipUpdate,
                 child: Text(
                   'Skip',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
@@ -490,7 +489,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
                 onPressed: _dismiss,
                 child: Text(
                   'Later',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,

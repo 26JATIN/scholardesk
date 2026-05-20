@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../services/whats_new_service.dart';
 import '../theme/app_theme.dart';
 
@@ -123,7 +122,7 @@ class _WhatsNewDialogState extends State<WhatsNewDialog> {
                     
                     Text(
                       WhatsNewContent.updateTitle,
-                      style: GoogleFonts.outfit(
+                      style: TextStyle(fontFamily: 'Outfit',
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -140,7 +139,7 @@ class _WhatsNewDialogState extends State<WhatsNewDialog> {
                       ),
                       child: Text(
                         _whatsNewService.getPatchSubtitle(),
-                        style: GoogleFonts.inter(
+                        style: TextStyle(fontFamily: 'Inter',
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.white.withOpacity(0.9),
@@ -181,7 +180,7 @@ class _WhatsNewDialogState extends State<WhatsNewDialog> {
                     ),
                     child: Text(
                       'Got it!',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(fontFamily: 'Inter',
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
@@ -232,7 +231,7 @@ class _WhatsNewDialogState extends State<WhatsNewDialog> {
               children: [
                 Text(
                   feature.title,
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: isDark ? Colors.white : Colors.black87,
@@ -241,7 +240,7 @@ class _WhatsNewDialogState extends State<WhatsNewDialog> {
                 const SizedBox(height: 4),
                 Text(
                   feature.description,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 13,
                     height: 1.4,
                     color: isDark ? Colors.grey[400] : Colors.grey[600],

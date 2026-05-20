@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -93,17 +92,17 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           children: [
             const Icon(Icons.check_circle_outline, color: AppTheme.successColor, size: 28),
             const SizedBox(width: 10),
-            Text('Success', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+            Text('Success', style: TextStyle(fontFamily: 'Outfit',fontWeight: FontWeight.bold)),
           ],
         ),
-        content: Text(message, style: GoogleFonts.inter()),
+        content: Text(message, style: TextStyle(fontFamily: 'Inter',)),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(context); // Close dialog
               Navigator.pop(context); // Go back to profile
             },
-            child: Text('OK', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+            child: Text('OK', style: TextStyle(fontFamily: 'Inter',fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -113,7 +112,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: GoogleFonts.inter(color: Colors.white)),
+        content: Text(message, style: TextStyle(fontFamily: 'Inter',color: Colors.white)),
         backgroundColor: AppTheme.errorColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -130,7 +129,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       appBar: AppBar(
         title: Text(
           'Change Password',
-          style: GoogleFonts.outfit(
+          style: TextStyle(fontFamily: 'Outfit',
             fontWeight: FontWeight.bold,
             color: isDark ? Colors.white : Colors.black87,
           ),
@@ -155,7 +154,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             children: [
               Text(
                 'Create a new password',
-                style: GoogleFonts.outfit(
+                style: TextStyle(fontFamily: 'Outfit',
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : Colors.black87,
@@ -164,7 +163,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               const SizedBox(height: 8),
               Text(
                 'Your new password must be different from previous used passwords.',
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 14,
                   color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                 ),
@@ -252,7 +251,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         )
                       : Text(
                           'Reset Password',
-                          style: GoogleFonts.outfit(
+                          style: TextStyle(fontFamily: 'Outfit',
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -280,7 +279,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: isDark ? Colors.white : Colors.black87,
@@ -291,13 +290,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           controller: controller,
           obscureText: obscureText,
           validator: validator,
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 16,
             color: isDark ? Colors.white : Colors.black87,
           ),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: GoogleFonts.inter(
+            hintStyle: TextStyle(fontFamily: 'Inter',
               color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
             ),
             filled: true,

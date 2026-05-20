@@ -42,9 +42,9 @@ android {
     signingConfigs {
         create("release") {
             if (keystorePropertiesFile.exists()) {
-                keyAlias = keystoreProperties["keyAlias"] as String? ?: ""
+                keyAlias = keystoreProperties["keyAlias"] as String? ?: "scholardesk"
                 keyPassword = keystoreProperties["keyPassword"] as String? ?: ""
-                storeFile = file(keystoreProperties["storeFile"] as String? ?: "")
+                storeFile = file(keystoreProperties["storeFile"] as String? ?: "scholardesk_release.jks")
                 storePassword = keystoreProperties["storePassword"] as String? ?: ""
             }
         }

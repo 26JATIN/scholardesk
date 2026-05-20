@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
@@ -869,7 +868,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 16),
               Text(
                 'ScholarDesk',
-                style: GoogleFonts.outfit(
+                style: TextStyle(fontFamily: 'Outfit',
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : Colors.black87,
@@ -878,7 +877,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 6),
               Text(
                 'v${UpdateService.currentVersion}',
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 13,
                   color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
                 ),
@@ -891,7 +890,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   Text(
                     'Made with ',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 14,
                       color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                     ),
@@ -903,7 +902,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   Text(
                     ' by Jatin',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: isDark ? Colors.white : Colors.black87,
@@ -914,7 +913,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 6),
               Text(
                 'Full Stack Developer',
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 12,
                   color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
                 ),
@@ -941,7 +940,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Expanded(
                       child: Text(
                         'No data is collected. All data is sent/received to official Chitkara servers only.',
-                        style: GoogleFonts.inter(
+                        style: TextStyle(fontFamily: 'Inter',
                           fontSize: 11,
                           color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                           height: 1.4,
@@ -976,7 +975,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(width: 6),
                       Text(
                         'jatingupta.me',
-                        style: GoogleFonts.inter(
+                        style: TextStyle(fontFamily: 'Inter',
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: AppTheme.primaryColor,
@@ -1002,7 +1001,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   child: Text(
                     'Close',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1108,7 +1107,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       flexibleSpace: FlexibleSpaceBar(
                         title: Text(
                           'Profile',
-                          style: GoogleFonts.outfit(
+                          style: TextStyle(fontFamily: 'Outfit',
                             fontWeight: FontWeight.bold,
                             color: isDark ? Colors.white : Colors.black87,
                           ),
@@ -1230,7 +1229,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 18),
             Text(
               _name ?? 'User',
-              style: GoogleFonts.outfit(
+              style: TextStyle(fontFamily: 'Outfit',
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: isDark ? Colors.white : Colors.black87,
@@ -1242,7 +1241,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 10),
               Text(
                 _details!,
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 14,
                   color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                   height: 1.5,
@@ -1349,7 +1348,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Flexible(
                   child: Text(
                     item.name,
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: isDark ? Colors.white : Colors.black87,

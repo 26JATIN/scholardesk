@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'apply_leave_screen.dart';
@@ -310,7 +309,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
           ),
           label: Text(
             _selectedTabIndex == 0 ? 'Apply Medical Leave' : 'Apply Duty Leave',
-            style: GoogleFonts.inter(
+            style: TextStyle(fontFamily: 'Inter',
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: Colors.white,
@@ -352,7 +351,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
               titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
               title: Text(
                 'Leave History',
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : Colors.black87,
@@ -369,11 +368,11 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
                   unselectedLabelColor: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                   indicatorColor: AppTheme.primaryColor,
                   indicatorWeight: 3,
-                  labelStyle: GoogleFonts.inter(
+                  labelStyle: TextStyle(fontFamily: 'Inter',
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
-                  unselectedLabelStyle: GoogleFonts.inter(
+                  unselectedLabelStyle: TextStyle(fontFamily: 'Inter',
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -448,7 +447,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
           const SizedBox(height: 16),
           Text(
             'Error Loading Leave History',
-            style: GoogleFonts.inter(
+            style: TextStyle(fontFamily: 'Inter',
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
@@ -457,7 +456,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
           const SizedBox(height: 8),
           Text(
             _errorMessage ?? 'An error occurred',
-            style: GoogleFonts.inter(
+            style: TextStyle(fontFamily: 'Inter',
               fontSize: 13,
               color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
             ),
@@ -510,7 +509,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
           const SizedBox(height: 16),
           Text(
             isMedialTab ? 'No Medical Leave History' : 'No Duty Leave History',
-            style: GoogleFonts.inter(
+            style: TextStyle(fontFamily: 'Inter',
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
@@ -521,7 +520,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
             isMedialTab 
               ? 'You haven\'t applied for any medical leaves yet' 
               : 'You haven\'t applied for any duty leaves yet',
-            style: GoogleFonts.inter(
+            style: TextStyle(fontFamily: 'Inter',
               fontSize: 14,
               color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
             ),
@@ -581,7 +580,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
                 const SizedBox(width: 8),
                 Text(
                   month,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: isDark ? Colors.white : Colors.black87,
@@ -663,7 +662,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
                     children: [
                       Text(
                         leave['type'] ?? 'Leave',
-                        style: GoogleFonts.inter(
+                        style: TextStyle(fontFamily: 'Inter',
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: isDark ? Colors.white : Colors.black87,
@@ -681,7 +680,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
                           Expanded(
                             child: Text(
                               leave['dateRange'] ?? '',
-                              style: GoogleFonts.inter(
+                              style: TextStyle(fontFamily: 'Inter',
                                 fontSize: 12,
                                 color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                               ),
@@ -706,7 +705,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
                   ),
                   child: Text(
                     leave['status'] ?? '',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: statusColor,
@@ -753,7 +752,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
               const SizedBox(height: 16),
               Text(
                 'Loading details...',
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
@@ -954,7 +953,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
                     // Title
                     Text(
                       'Leave Details',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(fontFamily: 'Inter',
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : Colors.black87,
@@ -991,7 +990,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
                           icon: const Icon(Icons.cancel_outlined),
                           label: Text(
                             'Cancel Request',
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                             ),
@@ -1010,7 +1009,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
                         ),
                         child: Text(
                           'Close',
-                          style: GoogleFonts.inter(
+                          style: TextStyle(fontFamily: 'Inter',
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1035,21 +1034,21 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
       builder: (context) => AlertDialog(
         title: Text(
           'Cancel Leave Request?',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          style: TextStyle(fontFamily: 'Inter',fontWeight: FontWeight.w600),
         ),
         content: Text(
           'Are you sure you want to cancel this leave request? This action cannot be undone.',
-          style: GoogleFonts.inter(),
+          style: TextStyle(fontFamily: 'Inter',),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('No', style: GoogleFonts.inter()),
+            child: Text('No', style: TextStyle(fontFamily: 'Inter',)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
-            child: Text('Yes, Cancel', style: GoogleFonts.inter()),
+            child: Text('Yes, Cancel', style: TextStyle(fontFamily: 'Inter',)),
           ),
         ],
       ),
@@ -1091,7 +1090,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
                   Expanded(
                     child: Text(
                       'Leave request cancelled successfully',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(fontFamily: 'Inter',
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         color: Colors.white,
@@ -1135,7 +1134,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
             Expanded(
               child: Text(
                 message,
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: Colors.white,
@@ -1192,7 +1191,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
             children: [
               Text(
                 label,
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 12,
                   color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
                 ),
@@ -1200,7 +1199,7 @@ class _MedicalLeaveScreenState extends State<MedicalLeaveScreen> with SingleTick
               const SizedBox(height: 2),
               Text(
                 value,
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: isDark ? Colors.white : Colors.black87,

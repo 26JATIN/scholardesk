@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -111,7 +110,7 @@ class _SchoolCodeScreenState extends State<SchoolCodeScreen> {
                 Text(
                   'Welcome! 👋',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontSize: 36,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : Colors.black87,
@@ -123,7 +122,7 @@ class _SchoolCodeScreenState extends State<SchoolCodeScreen> {
                 Text(
                   'Enter your school code to continue',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 16,
                     color: isDark ? Colors.grey.shade400 : Colors.black54,
                     height: 1.5,
@@ -149,7 +148,7 @@ class _SchoolCodeScreenState extends State<SchoolCodeScreen> {
                     controller: _codeController,
                     decoration: InputDecoration(
                       hintText: 'School Code (e.g., 1234)',
-                      hintStyle: GoogleFonts.inter(
+                      hintStyle: TextStyle(fontFamily: 'Inter',
                         color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                         fontSize: 16,
                       ),
@@ -172,7 +171,7 @@ class _SchoolCodeScreenState extends State<SchoolCodeScreen> {
                         ),
                       ),
                     ),
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                       color: isDark ? Colors.white : Colors.black87,
@@ -203,7 +202,7 @@ class _SchoolCodeScreenState extends State<SchoolCodeScreen> {
                         Expanded(
                           child: Text(
                             _errorMessage!,
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               color: isDark ? Colors.red.shade300 : Colors.red.shade700,
                               fontWeight: FontWeight.w500,
                               fontSize: 14,
@@ -253,7 +252,7 @@ class _SchoolCodeScreenState extends State<SchoolCodeScreen> {
                           )
                         : Text(
                             'Continue',
-                            style: GoogleFonts.outfit(
+                            style: TextStyle(fontFamily: 'Outfit',
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.5,
@@ -268,7 +267,7 @@ class _SchoolCodeScreenState extends State<SchoolCodeScreen> {
                 Text(
                   'Contact your institution if you need help',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 13,
                     color: isDark ? Colors.grey.shade600 : Colors.grey.shade500,
                   ),

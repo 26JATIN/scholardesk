@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
@@ -459,7 +458,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
                 titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
                 title: Text(
                   'Fee Receipts',
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: textColor,
@@ -490,7 +489,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
                           if (_isOffline) const SizedBox(width: 4),
                           Text(
                             _cacheAge,
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               fontSize: 11,
                               color: _isOffline 
                                   ? AppTheme.warningColor
@@ -537,7 +536,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
                       const SizedBox(height: 16),
                       Text(
                         _errorMessage!,
-                        style: GoogleFonts.inter(
+                        style: TextStyle(fontFamily: 'Inter',
                           color: subtextColor,
                           fontSize: 16,
                         ),
@@ -567,7 +566,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
                       const SizedBox(height: 16),
                       Text(
                         'No fee receipts found',
-                        style: GoogleFonts.inter(
+                        style: TextStyle(fontFamily: 'Inter',
                           color: subtextColor,
                           fontSize: 16,
                         ),
@@ -662,7 +661,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
                   children: [
                     Text(
                       'Total Fee Paid',
-                      style: GoogleFonts.inter(
+                      style: TextStyle(fontFamily: 'Inter',
                         fontSize: 14,
                         color: Colors.white70,
                         fontWeight: FontWeight.w500,
@@ -671,7 +670,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
                     const SizedBox(height: 4),
                     Text(
                       formatter.format(_totalPaid),
-                      style: GoogleFonts.outfit(
+                      style: TextStyle(fontFamily: 'Outfit',
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -700,7 +699,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
                 const SizedBox(width: 8),
                 Text(
                   '${_receipts.length} Payment${_receipts.length != 1 ? 's' : ''}',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 13,
                     color: Colors.white,
                     fontWeight: FontWeight.w500,
@@ -785,7 +784,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
                         children: [
                           Text(
                             receipt.receiptNo,
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: textColor,
@@ -804,7 +803,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
                               const SizedBox(width: 4),
                               Text(
                                 receipt.formattedDate,
-                                style: GoogleFonts.inter(
+                                style: TextStyle(fontFamily: 'Inter',
                                   fontSize: 12,
                                   color: subtextColor,
                                 ),
@@ -820,7 +819,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
                       children: [
                         Text(
                           receipt.formattedAmount,
-                          style: GoogleFonts.outfit(
+                          style: TextStyle(fontFamily: 'Outfit',
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: amountColor,
@@ -836,7 +835,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
                             ),
                             child: Text(
                               'Sem ${receipt.extractedSemester}',
-                              style: GoogleFonts.inter(
+                              style: TextStyle(fontFamily: 'Inter',
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
                                 color: amountColor,
@@ -870,7 +869,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
                       Expanded(
                         child: Text(
                           receipt.cycle,
-                          style: GoogleFonts.inter(
+                          style: TextStyle(fontFamily: 'Inter',
                             fontSize: 12,
                             color: subtextColor,
                             fontWeight: FontWeight.w500,
@@ -931,7 +930,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
             // Title
             Text(
               'Receipt Details',
-              style: GoogleFonts.outfit(
+              style: TextStyle(fontFamily: 'Outfit',
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: textColor,
@@ -1008,7 +1007,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
             width: 100,
             child: Text(
               label,
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 fontSize: 14,
                 color: subtextColor,
               ),
@@ -1017,7 +1016,7 @@ class _FeeReceiptsScreenState extends State<FeeReceiptsScreen> {
           Expanded(
             child: Text(
               value,
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: textColor,

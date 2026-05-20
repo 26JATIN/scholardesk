@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/api_service.dart';
@@ -223,7 +222,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
             Expanded(
               child: Text(
                 message,
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: Colors.white,
@@ -253,7 +252,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
             Expanded(
               child: Text(
                 message,
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: Colors.white,
@@ -306,7 +305,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
         ),
         title: Text(
           'Apply Leave',
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: isDark ? Colors.white : Colors.black87,
@@ -360,7 +359,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
       children: [
         Text(
           'Leave Type *',
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: isDark ? Colors.white : Colors.black87,
@@ -413,7 +412,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
             const SizedBox(height: 4),
             Text(
               label,
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 color: isSelected ? AppTheme.primaryColor : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
@@ -437,7 +436,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
       children: [
         Text(
           'Category *',
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: isDark ? Colors.white : Colors.black87,
@@ -462,7 +461,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                 Expanded(
                   child: Text(
                     selectedCategoryName,
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 14,
                       color: _selectedCategory != null
                           ? (isDark ? Colors.white : Colors.black87)
@@ -545,7 +544,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                             Expanded(
                               child: Text(
                                 'Select Category',
-                                style: GoogleFonts.inter(
+                                style: TextStyle(fontFamily: 'Inter',
                                   fontSize: 20,
                                   fontWeight: FontWeight.w600,
                                   color: isDark ? Colors.white : Colors.black87,
@@ -568,13 +567,13 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                           controller: searchController,
                           autofocus: false,
                           onChanged: filterCategories,
-                          style: GoogleFonts.inter(
+                          style: TextStyle(fontFamily: 'Inter',
                             fontSize: 14,
                             color: isDark ? Colors.white : Colors.black87,
                           ),
                           decoration: InputDecoration(
                             hintText: 'Search categories...',
-                            hintStyle: GoogleFonts.inter(
+                            hintStyle: TextStyle(fontFamily: 'Inter',
                               fontSize: 14,
                               color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                             ),
@@ -621,7 +620,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                                 const SizedBox(height: 16),
                                 Text(
                                   'No categories found',
-                                  style: GoogleFonts.inter(
+                                  style: TextStyle(fontFamily: 'Inter',
                                     fontSize: 16,
                                     color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
                                   ),
@@ -655,7 +654,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                                       Expanded(
                                         child: Text(
                                           categoryName,
-                                          style: GoogleFonts.inter(
+                                          style: TextStyle(fontFamily: 'Inter',
                                             fontSize: 15,
                                             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                                             color: isSelected
@@ -692,7 +691,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
       children: [
         Text(
           'Event Name *',
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: isDark ? Colors.white : Colors.black87,
@@ -701,13 +700,13 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _eventNameController,
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 14,
             color: isDark ? Colors.white : Colors.black87,
           ),
           decoration: InputDecoration(
             hintText: 'Enter event name',
-            hintStyle: GoogleFonts.inter(
+            hintStyle: TextStyle(fontFamily: 'Inter',
               fontSize: 14,
               color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
             ),
@@ -770,7 +769,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: isDark ? Colors.white : Colors.black87,
@@ -802,7 +801,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                 Expanded(
                   child: Text(
                     value != null ? DateFormat('dd MMM yyyy').format(value) : 'Select date',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 14,
                       color: value != null
                           ? (isDark ? Colors.white : Colors.black87)
@@ -830,7 +829,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
       children: [
         Text(
           'Time Slot *',
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: isDark ? Colors.white : Colors.black87,
@@ -856,7 +855,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
               ),
             ),
           ),
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 14,
             color: isDark ? Colors.white : Colors.black87,
           ),
@@ -881,7 +880,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
           children: [
             Text(
               'Upload Attachment',
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: isDark ? Colors.white : Colors.black87,
@@ -890,7 +889,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
             if (_attachedFiles.isNotEmpty)
               Text(
                 '${_attachedFiles.length} file(s) uploaded',
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 11,
                   color: Colors.green,
                   fontWeight: FontWeight.w500,
@@ -936,7 +935,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                       Expanded(
                         child: Text(
                           'Uploading file...',
-                          style: GoogleFonts.inter(
+                          style: TextStyle(fontFamily: 'Inter',
                             fontSize: 14,
                             color: Colors.orange,
                             fontWeight: FontWeight.w500,
@@ -963,7 +962,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                       Expanded(
                         child: Text(
                           _attachedFiles.isEmpty ? 'Choose file to upload' : 'Add another file',
-                          style: GoogleFonts.inter(
+                          style: TextStyle(fontFamily: 'Inter',
                             fontSize: 14,
                             color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                           ),
@@ -1016,7 +1015,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                         children: [
                           Text(
                             fileData['localName'],
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                               color: isDark ? Colors.white : Colors.black87,
@@ -1027,7 +1026,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
                           const SizedBox(height: 2),
                           Text(
                             '${(fileData['size'] / 1024).toStringAsFixed(1)} KB • Uploaded',
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               fontSize: 11,
                               color: Colors.green,
                             ),
@@ -1054,7 +1053,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
         const SizedBox(height: 8),
         Text(
           'Supported formats: PDF, JPG, PNG (Max 5MB per file)',
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 11,
             color: isDark ? Colors.grey.shade600 : Colors.grey.shade500,
           ),
@@ -1091,7 +1090,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
               SnackBar(
                 content: Text(
                   'File size exceeds 5MB limit',
-                  style: GoogleFonts.inter(),
+                  style: TextStyle(fontFamily: 'Inter',),
                 ),
                 backgroundColor: Colors.red,
               ),
@@ -1118,7 +1117,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
           SnackBar(
             content: Text(
               'Error picking file: $e',
-              style: GoogleFonts.inter(),
+              style: TextStyle(fontFamily: 'Inter',),
             ),
             backgroundColor: Colors.red,
           ),
@@ -1171,7 +1170,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
           SnackBar(
             content: Text(
               '✅ File uploaded successfully',
-              style: GoogleFonts.inter(),
+              style: TextStyle(fontFamily: 'Inter',),
             ),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 2),
@@ -1189,7 +1188,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
           SnackBar(
             content: Text(
               'Failed to upload file: $e',
-              style: GoogleFonts.inter(),
+              style: TextStyle(fontFamily: 'Inter',),
             ),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
@@ -1233,7 +1232,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
             SnackBar(
               content: Text(
                 '✅ File removed successfully',
-                style: GoogleFonts.inter(),
+                style: TextStyle(fontFamily: 'Inter',),
               ),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 2),
@@ -1244,7 +1243,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
             SnackBar(
               content: Text(
                 'Failed to remove file from server',
-                style: GoogleFonts.inter(),
+                style: TextStyle(fontFamily: 'Inter',),
               ),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 2),
@@ -1261,7 +1260,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
           SnackBar(
             content: Text(
               'Error removing file: $e',
-              style: GoogleFonts.inter(),
+              style: TextStyle(fontFamily: 'Inter',),
             ),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
@@ -1294,7 +1293,7 @@ class _ApplyLeaveScreenState extends State<ApplyLeaveScreen> {
               )
             : Text(
                 'Apply Leave',
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),

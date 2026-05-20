@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:html/parser.dart' as html_parser;
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../services/attendance_cache_service.dart';
+import '../service_locator.dart';
 import '../theme/app_theme.dart';
+import '../utils/html_parser_isolates.dart';
 import '../main.dart' show themeService;
 
 // Data models for Attendance Register
@@ -71,8 +73,8 @@ class AttendanceScreen extends StatefulWidget {
 }
 
 class _AttendanceScreenState extends State<AttendanceScreen> with TickerProviderStateMixin {
-  final ApiService _apiService = ApiService();
-  final AttendanceCacheService _cacheService = AttendanceCacheService();
+  ApiService get _apiService => services.apiService;
+  AttendanceCacheService get _cacheService => services.attendanceCacheService;
   bool _isLoading = true;
   bool _isRefreshing = false;
   String? _errorMessage;
@@ -223,8 +225,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
         appKey: appKey,
       );
 
-      _parseHtml(htmlContent);
-      
+      // Parse HTML in isolate for better performance
+      final result = await compute(parseAttendanceHtmlIsolate, htmlContent);
+
+      if (result['error'] == null) {
+        _parseAttendanceFromResult(result['subjects'] as List);
+      } else {
+        // Fallback to main thread parsing
+        _parseHtml(htmlContent);
+      }
+
       // Cache the results
       if (_subjects.isNotEmpty) {
         await _cacheService.cacheAttendance(
@@ -456,6 +466,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
           subject.totalApprovedML = match?.group(1)?.trim() ?? text.replaceAll(RegExp(r'Total\s*Approved\s*ML\s*:?\s*', caseSensitive: false), '').trim();
         }
       }
+      return subject;
+    }).toList();
+  }
+
+  /// Parse attendance from isolate result
+  void _parseAttendanceFromResult(List<dynamic> subjectsData) {
+    _subjects = subjectsData.map((data) {
+      final subject = AttendanceSubject();
+      subject.name = data['name']?.toString() ?? '';
+      subject.code = data['code']?.toString() ?? '';
+      subject.teacher = data['teacher']?.toString() ?? '';
+      subject.fromDate = data['fromDate']?.toString() ?? '';
+      subject.toDate = data['toDate']?.toString() ?? '';
+      subject.duration = data['duration']?.toString() ?? '';
+      subject.delivered = data['delivered']?.toString() ?? '';
+      subject.attended = data['attended']?.toString() ?? '';
+      subject.absent = data['absent']?.toString() ?? '';
+      subject.percentage = data['percentage']?.toString() ?? '';
       return subject;
     }).toList();
   }
@@ -719,7 +747,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                   const SizedBox(height: 20),
                   Text(
                     'Loading Register',
-                    style: GoogleFonts.outfit(
+                    style: TextStyle(fontFamily: 'Outfit',
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: isDark ? Colors.white : Colors.black87,
@@ -729,7 +757,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                   const SizedBox(height: 4),
                   Text(
                     'Please wait...',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 12,
                       color: isDark ? Colors.grey[400] : Colors.grey[600],
                     ),
@@ -808,7 +836,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                             children: [
                               Text(
                                 'Attendance Register',
-                                style: GoogleFonts.outfit(
+                                style: TextStyle(fontFamily: 'Outfit',
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color: isDark ? Colors.white : Colors.black87,
@@ -816,7 +844,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                               ),
                               Text(
                                 subject.name ?? 'Subject',
-                                style: GoogleFonts.inter(
+                                style: TextStyle(fontFamily: 'Inter',
                                   fontSize: 13,
                                   color: Colors.grey[600],
                                 ),
@@ -873,7 +901,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                                 const SizedBox(height: 12),
                                 Text(
                                   'No register data found',
-                                  style: GoogleFonts.inter(color: Colors.grey[500]),
+                                  style: TextStyle(fontFamily: 'Inter',color: Colors.grey[500]),
                                 ),
                               ],
                             ),
@@ -908,7 +936,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
             child: Center(
               child: Text(
                 code,
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
@@ -919,7 +947,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
           const SizedBox(width: 6),
           Text(
             label,
-            style: GoogleFonts.inter(
+            style: TextStyle(fontFamily: 'Inter',
               fontSize: 11,
               color: isDark ? Colors.grey[300] : Colors.grey[700],
               fontWeight: FontWeight.w500,
@@ -953,7 +981,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
           const SizedBox(height: 20),
           Text(
             'Loading attendance register...',
-            style: GoogleFonts.inter(
+            style: TextStyle(fontFamily: 'Inter',
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -962,7 +990,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
           const SizedBox(height: 8),
           Text(
             'Please wait',
-            style: GoogleFonts.inter(
+            style: TextStyle(fontFamily: 'Inter',
               fontSize: 12,
               color: isDark ? Colors.grey[600] : Colors.grey[400],
             ),
@@ -1167,7 +1195,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
               const SizedBox(width: 12),
               Text(
                 monthName,
-                style: GoogleFonts.outfit(
+                style: TextStyle(fontFamily: 'Outfit',
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                   color: isDark ? Colors.white : Colors.black87,
@@ -1182,7 +1210,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                 ),
                 child: Text(
                   '${daysData.length} days',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: AppTheme.primaryColor,
@@ -1203,7 +1231,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                 child: Center(
                   child: Text(
                     day,
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: isDark ? Colors.grey[500] : Colors.grey[600],
@@ -1317,7 +1345,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
         child: Center(
           child: Text(
             '$day',
-            style: GoogleFonts.inter(
+            style: TextStyle(fontFamily: 'Inter',
               fontSize: 13,
               fontWeight: hasLectures ? FontWeight.w700 : FontWeight.w500,
               color: textColor ?? (isDark ? Colors.grey[600] : Colors.grey[400]),
@@ -1390,7 +1418,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                     child: Center(
                       child: Text(
                         '$day',
-                        style: GoogleFonts.outfit(
+                        style: TextStyle(fontFamily: 'Outfit',
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -1407,7 +1435,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                           lectures.first.date.isNotEmpty 
                               ? _formatDateForDisplay(lectures.first.date)
                               : 'Day $day',
-                          style: GoogleFonts.outfit(
+                          style: TextStyle(fontFamily: 'Outfit',
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: isDark ? Colors.white : Colors.black87,
@@ -1415,7 +1443,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                         ),
                         Text(
                           '${lectures.length} lecture${lectures.length > 1 ? 's' : ''}',
-                          style: GoogleFonts.inter(
+                          style: TextStyle(fontFamily: 'Inter',
                             fontSize: 13,
                             color: Colors.grey[500],
                           ),
@@ -1536,7 +1564,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
               children: [
                 Text(
                   'Lecture ${lecture.lectureNumber}',
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: isDark ? Colors.white : Colors.black87,
@@ -1551,7 +1579,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                       const SizedBox(width: 4),
                       Text(
                         'Period ${lecture.period}',
-                        style: GoogleFonts.inter(
+                        style: TextStyle(fontFamily: 'Inter',
                           fontSize: 12,
                           color: Colors.grey[500],
                         ),
@@ -1570,7 +1598,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
             ),
             child: Text(
               statusLabel,
-              style: GoogleFonts.inter(
+              style: TextStyle(fontFamily: 'Inter',
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
@@ -1589,7 +1617,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
         const SizedBox(height: 4),
         Text(
           value,
-          style: GoogleFonts.outfit(
+          style: TextStyle(fontFamily: 'Outfit',
             fontSize: 18,
             fontWeight: FontWeight.bold,
             color: isDark ? Colors.white : Colors.black87,
@@ -1597,7 +1625,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
         ),
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 10,
             color: Colors.grey[500],
           ),
@@ -1631,7 +1659,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                         Text(
                           'Error: $_errorMessage',
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.inter(color: isDark ? Colors.grey.shade400 : Colors.black54),
+                          style: TextStyle(fontFamily: 'Inter',color: isDark ? Colors.grey.shade400 : Colors.black54),
                         ),
                       ],
                     ),
@@ -1645,7 +1673,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                             const SizedBox(height: 16),
                             Text(
                               'No attendance records found',
-                              style: GoogleFonts.inter(color: isDark ? Colors.grey.shade500 : Colors.grey.shade400),
+                              style: TextStyle(fontFamily: 'Inter',color: isDark ? Colors.grey.shade500 : Colors.grey.shade400),
                             ),
                           ],
                         ),
@@ -1680,7 +1708,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                                   children: [
                                     Text(
                                       'Attendance',
-                                      style: GoogleFonts.outfit(
+                                      style: TextStyle(fontFamily: 'Outfit',
                                         fontWeight: FontWeight.bold,
                                         color: isDark ? Colors.white : Colors.black87,
                                       ),
@@ -1707,7 +1735,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                                         ),
                                         child: Text(
                                           _isOffline ? 'Offline' : _cacheAge,
-                                          style: GoogleFonts.inter(
+                                          style: TextStyle(fontFamily: 'Inter',
                                             fontSize: 10,
                                             fontWeight: FontWeight.w500,
                                             color: _isOffline ? AppTheme.warningColor : AppTheme.successColor,
@@ -1730,11 +1758,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                                   unselectedLabelColor: isDark ? Colors.grey.shade500 : Colors.grey,
                                   indicatorColor: AppTheme.primaryColor,
                                   indicatorWeight: 3,
-                                  labelStyle: GoogleFonts.inter(
+                                  labelStyle: TextStyle(fontFamily: 'Inter',
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
                                   ),
-                                  unselectedLabelStyle: GoogleFonts.inter(
+                                  unselectedLabelStyle: TextStyle(fontFamily: 'Inter',
                                     fontWeight: FontWeight.w500,
                                     fontSize: 14,
                                   ),
@@ -1802,7 +1830,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
               Text(
                 subject.name ?? 'Unknown Subject',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
+                style: TextStyle(fontFamily: 'Outfit',
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : Colors.black87,
@@ -1818,7 +1846,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                   ),
                   child: Text(
                     subject.code!,
-                    style: GoogleFonts.sourceCodePro(
+                    style: TextStyle(fontFamily: 'Source Code Pro',
                       fontSize: 13,
                       color: progressColor,
                       fontWeight: FontWeight.w600,
@@ -1857,7 +1885,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                         children: [
                           Text(
                             '${percentage.toStringAsFixed(1)}%',
-                            style: GoogleFonts.outfit(
+                            style: TextStyle(fontFamily: 'Outfit',
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
                               color: progressColor,
@@ -1865,7 +1893,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                           ),
                           Text(
                             percentage >= 75 ? 'Safe' : 'Low',
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               fontSize: 12,
                               color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                               fontWeight: FontWeight.w500,
@@ -1939,7 +1967,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                     children: [
                       Text(
                         'View Attendance Register',
-                        style: GoogleFonts.outfit(
+                        style: TextStyle(fontFamily: 'Outfit',
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: isDark ? Colors.white : Colors.black87,
@@ -1948,7 +1976,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                       const SizedBox(height: 2),
                       Text(
                         'See class-wise attendance details',
-                        style: GoogleFonts.inter(
+                        style: TextStyle(fontFamily: 'Inter',
                           fontSize: 12,
                           color: isDark ? Colors.grey[400] : Colors.grey[600],
                         ),
@@ -1999,7 +2027,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
             children: [
               Text(
                 'Details',
-                style: GoogleFonts.outfit(
+                style: TextStyle(fontFamily: 'Outfit',
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : Colors.black87,
@@ -2036,7 +2064,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
       children: [
         Text(
           value,
-          style: GoogleFonts.outfit(
+          style: TextStyle(fontFamily: 'Outfit',
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: color,
@@ -2044,7 +2072,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
         ),
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 12,
             color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
           ),
@@ -2106,7 +2134,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
               children: [
                 Text(
                   '$displayClasses',
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -2115,7 +2143,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                 ),
                 Text(
                   displayClasses == 1 ? 'class' : 'classes',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 9,
                     color: Colors.white.withOpacity(0.9),
                     fontWeight: FontWeight.w500,
@@ -2132,7 +2160,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
               children: [
                 Text(
                   'Attend $displayClasses more to reach 75%',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: isDark ? Colors.white : Colors.black87,
@@ -2141,7 +2169,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                 const SizedBox(height: 3),
                 Text(
                   'You\'ll be at ${resultingPercentage.toStringAsFixed(1)}%${classesNeeded > 10 ? ' • Stay consistent!' : ''}',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 11,
                     color: isDark ? Colors.grey[400] : Colors.grey[600],
                   ),
@@ -2230,7 +2258,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                 children: [
                   Text(
                     'At the edge of 75%',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: isDark ? Colors.white : Colors.black87,
@@ -2239,7 +2267,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                   const SizedBox(height: 3),
                   Text(
                     'Don\'t miss any more classes!',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(fontFamily: 'Inter',
                       fontSize: 11,
                       color: isDark ? Colors.grey[400] : Colors.grey[600],
                     ),
@@ -2295,7 +2323,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
               children: [
                 Text(
                   '$displayClasses',
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(fontFamily: 'Outfit',
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -2304,7 +2332,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                 ),
                 Text(
                   displayClasses == 1 ? 'class' : 'classes',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 9,
                     color: Colors.white.withOpacity(0.9),
                     fontWeight: FontWeight.w500,
@@ -2321,7 +2349,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
               children: [
                 Text(
                   'You can skip $displayClasses ${displayClasses == 1 ? 'class' : 'classes'}',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: isDark ? Colors.white : Colors.black87,
@@ -2330,7 +2358,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                 const SizedBox(height: 3),
                 Text(
                   'You\'ll still be at ${resultingPercentage.toStringAsFixed(1)}%${mlNeeded > 0 ? ' (uses $mlNeeded ML)' : ''}',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 11,
                     color: isDark ? Colors.grey[400] : Colors.grey[600],
                   ),
@@ -2372,7 +2400,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
               children: [
                 Text(
                   label,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 12,
                     color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
                     fontWeight: FontWeight.w500,
@@ -2380,7 +2408,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                 ),
                 Text(
                   value,
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 14,
                     color: isDark ? Colors.white : Colors.black87,
                     fontWeight: FontWeight.w600,
@@ -2415,7 +2443,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
               children: [
                 Text(
                   'Duration',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(fontFamily: 'Inter',
                     fontSize: 12,
                     color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
                     fontWeight: FontWeight.w500,
@@ -2440,7 +2468,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                           const SizedBox(width: 4),
                           Text(
                             fromDate,
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               fontSize: 11,
                               color: AppTheme.successColor,
                               fontWeight: FontWeight.w600,
@@ -2463,7 +2491,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                           const SizedBox(width: 4),
                           Text(
                             toDate,
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               fontSize: 11,
                               color: AppTheme.errorColor,
                               fontWeight: FontWeight.w600,
@@ -2575,7 +2603,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                   Expanded(
                     child: Text(
                       'Attendance Predictor',
-                      style: GoogleFonts.outfit(
+                      style: TextStyle(fontFamily: 'Outfit',
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : Colors.black87,
@@ -2590,7 +2618,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                     ),
                     child: Text(
                       status,
-                      style: GoogleFonts.inter(
+                      style: TextStyle(fontFamily: 'Inter',
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -2616,7 +2644,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
               const SizedBox(height: 16),
               Text(
                 'Classes to miss:',
-                style: GoogleFonts.inter(
+                style: TextStyle(fontFamily: 'Inter',
                   fontSize: 13,
                   color: isDark ? Colors.white : Colors.black87,
                   fontWeight: FontWeight.w600,
@@ -2648,7 +2676,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                       ),
                       child: Text(
                         '$classesToMiss',
-                        style: GoogleFonts.outfit(
+                        style: TextStyle(fontFamily: 'Outfit',
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: statusColor,
@@ -2689,7 +2717,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                         Flexible(
                           child: Text(
                             'Predicted:',
-                            style: GoogleFonts.inter(
+                            style: TextStyle(fontFamily: 'Inter',
                               fontSize: 14,
                               color: isDark ? Colors.white : Colors.black87,
                               fontWeight: FontWeight.bold,
@@ -2699,7 +2727,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                         const SizedBox(width: 8),
                         Text(
                           '${predictedAttendance.toStringAsFixed(2)}%',
-                          style: GoogleFonts.outfit(
+                          style: TextStyle(fontFamily: 'Outfit',
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: predictedAttendance >= 75 ? AppTheme.successColor : 
@@ -2724,7 +2752,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                               Expanded(
                                 child: Text(
                                   '$approvedMLUsed approved ML counted',
-                                  style: GoogleFonts.inter(
+                                  style: TextStyle(fontFamily: 'Inter',
                                     fontSize: 11,
                                     color: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
                                     fontWeight: FontWeight.w500,
@@ -2746,7 +2774,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
                   Expanded(
                     child: Text(
                       message,
-                      style: GoogleFonts.inter(
+                      style: TextStyle(fontFamily: 'Inter',
                         fontSize: 12,
                         color: isDark ? Colors.grey.shade400 : Colors.black54,
                       ),
@@ -2765,7 +2793,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: TextStyle(fontFamily: 'Inter',
             fontSize: 13,
             color: isDark ? Colors.white : Colors.black87,
             fontWeight: FontWeight.w500,
@@ -2773,7 +2801,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with TickerProvider
         ),
         Text(
           '${percentage.toStringAsFixed(2)}%',
-          style: GoogleFonts.outfit(
+          style: TextStyle(fontFamily: 'Outfit',
             fontSize: 16,
             fontWeight: FontWeight.bold,
             color: color,
